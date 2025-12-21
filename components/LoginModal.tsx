@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";

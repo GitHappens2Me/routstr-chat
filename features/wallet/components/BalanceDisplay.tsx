@@ -25,7 +25,6 @@ import {
 import { useInvoiceSync } from "@/hooks/useInvoiceSync";
 import { useChat } from "@/context/ChatProvider";
 import { useAuth } from "@/context/AuthProvider";
-import { useNostr } from "@/context/NostrContext";
 import { formatPublicKey } from "@/lib/nostr";
 import {
   Popover,
@@ -59,6 +58,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 /**
  * User balance and authentication status component with comprehensive wallet popover
@@ -94,7 +94,6 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     setTransactionHistory,
     setBalance,
   } = useChat();
-  const { publicKey } = useNostr();
   const { addInvoice, updateInvoice } = useInvoiceSync();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -165,6 +164,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     error: nip60Error,
   } = useCashuToken();
   const cashuStore = useCashuStore();
+  const user = useCurrentUser();
   const usingNip60 = cashuStore.getUsingNip60();
   const transactionHistoryStore = useTransactionHistoryStore();
   const { spendCashu } = useCashuWithXYZ();
@@ -191,7 +191,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   };
 
   // Get formatted npub
-  const npub = publicKey ? formatPublicKey(publicKey) : "";
+  const npub = user.user?.pubkey ? formatPublicKey(user.user?.pubkey) : "";
   const truncatedNpub = npub ? truncateNpub(npub) : "";
 
   // Use shared mint helpers

@@ -71,9 +71,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const [nwcCustomAmount, setNwcCustomAmount] = useState("");
   const [isPayingWithNWC, setIsPayingWithNWC] = useState(false);
 
-  const { logins } = useNostrLogin();
   const loginActions = useLoginActions();
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     let unsubConnect: undefined | (() => void);
@@ -220,7 +218,6 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const createNsecForLogin = () => {
     const sk = generateSecretKey();
     const nsec = nip19.nsecEncode(sk);
-    console.log("RTRUE nsse", nsec);
     loginActions.nsec(nsec);
     markEphemeralNsecCreated();
   };

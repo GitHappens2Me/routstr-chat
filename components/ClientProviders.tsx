@@ -70,25 +70,6 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     relayUrls: relayUrls,
   };
 
-  function AutoLogin() {
-    const { logins } = useNostrLogin();
-    const loginActions = useLoginActions();
-
-    useReactEffect(() => {
-      if (logins.length === 0) {
-        try {
-          // const sk = generateSecretKey();
-          // const nsec = nip19.nsecEncode(sk);
-          // console.log("RTRUE nsse", nsec)
-          // loginActions.nsec(nsec);
-        } catch (err) {
-          // no-op
-        }
-      }
-    }, [logins.length]);
-
-    return null;
-  }
   // Run storage migration on app startup
   useEffect(() => {
     migrateStorageItems();
@@ -122,7 +103,6 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       >
         <DynamicNostrLoginProvider storageKey="nostr:login">
           <NostrProvider>
-            <AutoLogin />
             <QueryClientProvider client={queryClient}>
               <InvoiceRecoveryProvider>{children}</InvoiceRecoveryProvider>
             </QueryClientProvider>
