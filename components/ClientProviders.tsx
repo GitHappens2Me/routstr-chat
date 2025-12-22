@@ -9,6 +9,7 @@ import { InvoiceRecoveryProvider } from "@/components/InvoiceRecoveryProvider";
 import { AccountManager } from "applesauce-accounts";
 import { registerCommonAccountTypes } from "applesauce-accounts/accounts";
 import { merge, Subject } from "rxjs";
+import { relayPool } from "@/lib/applesauce-core";
 
 const DynamicNostrLoginProvider = dynamic(
   () => import("@nostrify/react/login").then((mod) => mod.NostrLoginProvider),
