@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
-import { NostrEvent } from "nostr-tools";
 import { useState, useEffect, useCallback } from "react";
 
 /**

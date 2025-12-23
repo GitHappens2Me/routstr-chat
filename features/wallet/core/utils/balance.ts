@@ -14,7 +14,7 @@ export function calculateProofsBalance(proofs: Proof[]): number {
  */
 export function calculateBalanceByMint(
   proofs: Proof[],
-  mints: Array<{ url: string; keysets?: Keyset[] }>
+  mints: Array<{ url: string; keysets?: Keyset[] }>,
 ): { balances: Record<string, number>; units: Record<string, string> } {
   const balances: Record<string, number> = {};
   const units: Record<string, string> = {};
@@ -34,7 +34,7 @@ export function calculateBalanceByMint(
       if (proofsForKeyset.length) {
         balances[mint.url] += proofsForKeyset.reduce(
           (acc, proof) => acc + proof.amount,
-          0
+          0,
         );
         units[mint.url] = keyset.unit;
       }
@@ -43,14 +43,14 @@ export function calculateBalanceByMint(
   // Check if sum of all balances is 0
   const totalBalance = Object.values(balances).reduce(
     (sum, balance) => sum + balance,
-    0
+    0,
   );
   if (totalBalance === 0) {
     console.log("[Balance Check] Total balance is 0. Debug info:");
     mints.forEach((mint, index) => {
       console.log(
         `[Balance Check] Mint ${index + 1} (${mint.url}) keysets:`,
-        mint.keysets
+        mint.keysets,
       );
     });
     console.log("[Balance Check] Proofs:", proofs);
@@ -64,7 +64,7 @@ export function calculateBalanceByMint(
  */
 export function computeTotalBalanceSats(
   mintBalances: Record<string, number>,
-  mintUnits: Record<string, string>
+  mintUnits: Record<string, string>,
 ): number {
   let total = 0;
 
@@ -82,7 +82,7 @@ export function computeTotalBalanceSats(
  */
 export function getMintBalance(
   mintUrl: string,
-  mintBalances: Record<string, number>
+  mintBalances: Record<string, number>,
 ): number {
   return mintBalances[mintUrl] || 0;
 }

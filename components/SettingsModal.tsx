@@ -11,7 +11,6 @@ import HistoryTab from "./settings/HistoryTab";
 import ApiKeysTab from "./settings/ApiKeysTab";
 import UnifiedWallet from "@/features/wallet/components/UnifiedWallet";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useNostrLogin } from "@nostrify/react/login";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Drawer } from "vaul";
 import { DEFAULT_MINT_URL } from "@/lib/utils";

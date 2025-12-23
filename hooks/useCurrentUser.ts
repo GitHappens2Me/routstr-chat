@@ -3,7 +3,6 @@ import { useNostr } from "@nostrify/react";
 import { useCallback, useMemo } from "react";
 import type { NostrEvent } from "@nostrify/nostrify";
 
-import { useAuthor } from "./useAuthor";
 import { useLoggedInAccounts } from "./useLoggedInAccounts";
 
 export function useCurrentUser() {
@@ -75,11 +74,9 @@ export function useCurrentUser() {
   }, [user, loggedInAccount]);
 
   const finalUser = user || fallbackUser;
-  const author = useAuthor(finalUser?.pubkey);
 
   return {
     user: finalUser,
     users: finalUser ? [finalUser] : [],
-    ...author.data,
   };
 }

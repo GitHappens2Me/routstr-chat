@@ -20,7 +20,8 @@ export const relayPool = new RelayPool();
 
 // Setup nostr connect signer
 if (typeof window !== "undefined") {
-  NostrConnectSigner.subscriptionMethod = relayPool.subscription.bind(relayPool);
+  NostrConnectSigner.subscriptionMethod =
+    relayPool.subscription.bind(relayPool);
   NostrConnectSigner.publishMethod = relayPool.publish.bind(relayPool);
 }
 

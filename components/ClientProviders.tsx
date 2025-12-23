@@ -1,6 +1,12 @@
 "use client";
 
-import { ReactNode, useEffect, useState, createContext, useContext } from "react";
+import {
+  ReactNode,
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+} from "react";
 import NostrProvider from "@/components/NostrProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import dynamic from "next/dynamic";
@@ -13,7 +19,7 @@ import { relayPool } from "@/lib/applesauce-core";
 
 const DynamicNostrLoginProvider = dynamic(
   () => import("@nostrify/react/login").then((mod) => mod.NostrLoginProvider),
-  { ssr: false }
+  { ssr: false },
 );
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -35,7 +41,10 @@ interface AccountContextType {
   manualSave: Subject<void>;
 }
 
-const AccountContext = createContext<AccountContextType>({ manager, manualSave });
+const AccountContext = createContext<AccountContextType>({
+  manager,
+  manualSave,
+});
 
 export const useAccountManager = () => useContext(AccountContext);
 
@@ -60,7 +69,7 @@ const queryClient = new QueryClient({
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   const [relayUrls, setRelayUrls] = useState<string[]>(
-    presetRelays.slice(0, 3).map((relay) => relay.url)
+    presetRelays.slice(0, 3).map((relay) => relay.url),
   );
 
   // Fetch relay URLs from URL parameters

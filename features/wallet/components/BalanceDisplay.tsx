@@ -67,7 +67,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 interface BalanceDisplayProps {
   setIsSettingsOpen: (isOpen: boolean) => void;
   setInitialSettingsTab: (
-    tab: "settings" | "wallet" | "history" | "api-keys"
+    tab: "settings" | "wallet" | "history" | "api-keys",
   ) => void;
   onShowQRCode: (data: {
     invoice: string;
@@ -111,13 +111,13 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   const [lightningInvoice, setLightningInvoice] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState<number | null>(null);
   const [invoiceFeeReserve, setInvoiceFeeReserve] = useState<number | null>(
-    null
+    null,
   );
   const [isPayingInvoice, setIsPayingInvoice] = useState(false);
 
   // Receive state
   const [receiveTab, setReceiveTab] = useState<"lightning" | "token">(
-    "lightning"
+    "lightning",
   );
   const [mintAmount, setMintAmount] = useState("");
   const [mintInvoice, setMintInvoice] = useState("");
@@ -298,7 +298,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
               cashuStore.activeMintUrl,
               nip60QuoteId,
               amt,
-              crypto.randomUUID()
+              crypto.randomUUID(),
             );
           } catch {}
         }
@@ -328,7 +328,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
   const { availableMints, mintBalances, mintUnits } = React.useMemo(
     () => getWalletMintData(wallet, cashuStore, calculateBalanceByMint),
-    [wallet, cashuStore.proofs, cashuStore.mints]
+    [wallet, cashuStore.proofs, cashuStore.mints],
   );
 
   // Check if user has any mints available
@@ -337,7 +337,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   // Check if current mint is valid
   const isCurrentMintValid = isMintValid(
     cashuStore.activeMintUrl,
-    availableMints
+    availableMints,
   );
 
   // Stop auto-checking
@@ -355,7 +355,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
   // Page transition function
   const navigateToTab = (
-    tab: "overview" | "send" | "receive" | "activity" | "invoice"
+    tab: "overview" | "send" | "receive" | "activity" | "invoice",
   ) => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -501,7 +501,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
           () => {}, // setMintQuote
           setMintInvoice,
           countdown,
-          setCountdown
+          setCountdown,
         );
       } catch (error) {
         console.error("Auto-check error:", error);
@@ -520,7 +520,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     async (amount: number) => {
       if (!cashuStore.activeMintUrl) {
         setError(
-          "No active mint selected. Please select a mint in your wallet settings."
+          "No active mint selected. Please select a mint in your wallet settings.",
         );
         return;
       }
@@ -531,7 +531,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
         const invoiceData = await createLightningInvoice(
           cashuStore.activeMintUrl,
-          amount
+          amount,
         );
         setNip60Invoice(invoiceData.paymentRequest);
         setNip60QuoteId(invoiceData.quoteId);
@@ -568,19 +568,19 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
           cashuStore.activeMintUrl,
           invoiceData.quoteId,
           amount,
-          pendingTxId
+          pendingTxId,
         );
       } catch (error) {
         console.error("Error creating NIP-60 invoice:", error);
         setError(
           "Failed to create Lightning invoice: " +
-            (error instanceof Error ? error.message : String(error))
+            (error instanceof Error ? error.message : String(error)),
         );
       } finally {
         setIsNip60Processing(false);
       }
     },
-    [cashuStore.activeMintUrl, transactionHistoryStore]
+    [cashuStore.activeMintUrl, transactionHistoryStore],
   );
 
   // Check NIP-60 payment status
@@ -589,13 +589,13 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       mintUrl: string,
       quoteId: string,
       amount: number,
-      pendingTxId: string
+      pendingTxId: string,
     ) => {
       try {
         const proofs = await mintTokensFromPaidInvoice(
           mintUrl,
           quoteId,
-          amount
+          amount,
         );
 
         if (proofs.length > 0) {
@@ -608,7 +608,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
           transactionHistoryStore.removePendingTransaction(pendingTxId);
           setNip60PendingTxId(null);
           setSuccessMessage(
-            `Received ${formatBalance(amount, currentMintUnit)}s!`
+            `Received ${formatBalance(amount, currentMintUnit)}s!`,
           );
           setNip60Invoice("");
           setNip60QuoteId("");
@@ -630,7 +630,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
           console.error("Error checking NIP-60 payment status:", error);
           setError(
             "Failed to check payment status: " +
-              (error instanceof Error ? error.message : String(error))
+              (error instanceof Error ? error.message : String(error)),
           );
         } else {
           setTimeout(() => {
@@ -641,7 +641,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         }
       }
     },
-    [updateProofs, transactionHistoryStore, nip60QuoteId, navigateToTab]
+    [updateProofs, transactionHistoryStore, nip60QuoteId, navigateToTab],
   );
 
   // NIP-60 Lightning invoice input handler
@@ -649,7 +649,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     async (value: string) => {
       if (!cashuStore.activeMintUrl) {
         setError(
-          "No active mint selected. Please select a mint in your wallet settings."
+          "No active mint selected. Please select a mint in your wallet settings.",
         );
         return;
       }
@@ -687,7 +687,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         console.error("Error creating NIP-60 melt quote:", error);
         setError(
           "Failed to create melt quote: " +
-            (error instanceof Error ? error.message : String(error))
+            (error instanceof Error ? error.message : String(error)),
         );
         setNip60MeltQuoteId(""); // Reset quote ID on error
         // Clear states on error
@@ -699,7 +699,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         nip60ProcessingInvoiceRef.current = null;
       }
     },
-    [cashuStore.activeMintUrl, nip60MeltQuoteId]
+    [cashuStore.activeMintUrl, nip60MeltQuoteId],
   );
 
   // NIP-60 Lightning payment
@@ -715,7 +715,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
     if (!cashuStore.activeMintUrl) {
       setError(
-        "No active mint selected. Please select a mint in your wallet settings."
+        "No active mint selected. Please select a mint in your wallet settings.",
       );
       return;
     }
@@ -736,18 +736,18 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       const selectedProofs = await cashuStore.getMintProofs(mintUrl);
       const totalProofsAmount = selectedProofs.reduce(
         (sum, p) => sum + p.amount,
-        0
+        0,
       );
 
       if (totalProofsAmount < invoiceAmount + (invoiceFeeReserve || 0)) {
         setError(
           `Insufficient balance: have ${formatBalance(
             totalProofsAmount,
-            currentMintUnit
+            currentMintUnit,
           )}s, need ${formatBalance(
             invoiceAmount + (invoiceFeeReserve || 0),
-            currentMintUnit
-          )}s`
+            currentMintUnit,
+          )}s`,
         );
         setIsNip60Processing(false);
         return;
@@ -758,7 +758,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         mintUrl,
         nip60MeltQuoteId,
         selectedProofs,
-        cleanSpentProofs
+        cleanSpentProofs,
       );
 
       if (result.success) {
@@ -770,7 +770,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         });
 
         setSuccessMessage(
-          `Paid ${formatBalance(invoiceAmount, currentMintUnit)}s!`
+          `Paid ${formatBalance(invoiceAmount, currentMintUnit)}s!`,
         );
         // Update invoice status to paid
         await updateInvoice(nip60MeltQuoteId, {
@@ -779,7 +779,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         });
 
         setSuccessMessage(
-          `Paid ${formatBalance(invoiceAmount, currentMintUnit)}s!`
+          `Paid ${formatBalance(invoiceAmount, currentMintUnit)}s!`,
         );
         handleNip60PaymentCancel();
         setTimeout(() => setSuccessMessage(""), 5000);
@@ -788,7 +788,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       console.error("Error paying NIP-60 invoice:", error);
       setError(
         "Failed to pay Lightning invoice: " +
-          (error instanceof Error ? error.message : String(error))
+          (error instanceof Error ? error.message : String(error)),
       );
       setNip60MeltQuoteId(""); // Reset quote ID on error
     } finally {
@@ -838,7 +838,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       if (result.status === "success" && result.token) {
         setGeneratedToken(result.token);
         setSuccessMessage(
-          `Token generated for ${formatBalance(amountValue, currentMintUnit)}`
+          `Token generated for ${formatBalance(amountValue, currentMintUnit)}`,
         );
       } else {
         setError(result.error || "Failed to generate token");
@@ -876,7 +876,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         () => {}, // setShowInvoiceModal
         mintAmount,
         () => {}, // setMintQuote
-        setMintInvoice
+        setMintInvoice,
       );
 
       // Navigate to invoice page after creation
@@ -909,7 +909,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       () => {}, // setMintQuote
       setMintInvoice,
       countdown,
-      setCountdown
+      setCountdown,
     );
   }, [checkMintQuote, isAutoChecking, mintAmount, countdown]);
 
@@ -932,8 +932,8 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
         setSuccessMessage(
           `Received ${formatBalance(
             totalAmount,
-            unit ? `${unit}s` : "sats"
-          )} successfully!`
+            unit ? `${unit}s` : "sats",
+          )} successfully!`,
         );
         setTokenToImport("");
       } catch (error) {
@@ -949,7 +949,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
       setError,
       setSuccessMessage,
       tokenToImport,
-      setTokenToImport
+      setTokenToImport,
     );
   }, [hookImportToken, tokenToImport, usingNip60, receiveToken]);
 
@@ -1026,7 +1026,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
   const handleAmountChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: "send" | "receive"
+    type: "send" | "receive",
   ) => {
     const value = e.target.value;
     if (value === "" || /^\d+$/.test(value)) {
@@ -1043,7 +1043,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   const handleClearHistory = () => {
     if (
       window.confirm(
-        "Are you sure you want to clear all transaction history? This cannot be undone."
+        "Are you sure you want to clear all transaction history? This cannot be undone.",
       )
     ) {
       setTransactionHistory([]);
@@ -1195,7 +1195,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                                 <div className="text-xs text-muted-foreground">
                                   {formatBalance(
                                     mintBalances[mintUrl] || 0,
-                                    mintUnits[mintUrl] || "sat"
+                                    mintUnits[mintUrl] || "sat",
                                   )}
                                   s
                                 </div>
@@ -1294,7 +1294,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                               <div className="text-xs text-muted-foreground">
                                 {formatBalance(
                                   mintBalances[mintUrl] || 0,
-                                  mintUnits[mintUrl] || "sat"
+                                  mintUnits[mintUrl] || "sat",
                                 )}
                                 s
                               </div>
@@ -1452,11 +1452,11 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                           {currentMintUnit === "msat"
                             ? utilGetCurrentMintBalance(
                                 cashuStore.activeMintUrl,
-                                mintBalances
+                                mintBalances,
                               )
                             : utilGetCurrentMintBalance(
                                 cashuStore.activeMintUrl,
-                                mintBalances
+                                mintBalances,
                               )}{" "}
                           {currentMintUnit === "msat" ? "msats" : "sats"}
                         </>
@@ -1478,7 +1478,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                       isCurrentMintValid &&
                       utilGetCurrentMintBalance(
                         cashuStore.activeMintUrl,
-                        mintBalances
+                        mintBalances,
                       ) === 0 && (
                         <div className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
                           No balance available in selected mint
@@ -1509,7 +1509,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                         (usingNip60
                           ? utilGetCurrentMintBalance(
                               cashuStore.activeMintUrl,
-                              mintBalances
+                              mintBalances,
                             )
                           : currentMintUnit === "msat"
                             ? balance * 1000
@@ -1530,7 +1530,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                           (usingNip60
                             ? utilGetCurrentMintBalance(
                                 cashuStore.activeMintUrl,
-                                mintBalances
+                                mintBalances,
                               )
                             : currentMintUnit === "msat"
                               ? balance * 1000
@@ -1547,19 +1547,19 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                           (usingNip60
                             ? utilGetCurrentMintBalance(
                                 cashuStore.activeMintUrl,
-                                mintBalances
+                                mintBalances,
                               )
                             : currentMintUnit === "msat"
                               ? balance * 1000
                               : balance
-                          ).toString()
+                          ).toString(),
                         )
                       }
                       disabled={
                         usingNip60
                           ? utilGetCurrentMintBalance(
                               cashuStore.activeMintUrl,
-                              mintBalances
+                              mintBalances,
                             ) === 0
                           : balance === 0
                       }
@@ -2098,7 +2098,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                       {(usingNip60 ? nip60Invoice : mintInvoice).length > 80
                         ? `${(usingNip60 ? nip60Invoice : mintInvoice).slice(
                             0,
-                            40
+                            40,
                           )}...${(usingNip60
                             ? nip60Invoice
                             : mintInvoice
@@ -2111,7 +2111,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                       onClick={() =>
                         copyToClipboard(
                           usingNip60 ? nip60Invoice : mintInvoice,
-                          "Invoice"
+                          "Invoice",
                         )
                       }
                       className="w-full bg-muted hover:bg-muted/80 border border-border text-foreground py-1.5 px-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"

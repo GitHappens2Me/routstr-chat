@@ -10,6 +10,8 @@ import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { useNostrLogin } from "@nostrify/react/login";
 import { useChatSync } from "@/hooks/useChatSync";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import {
   loadAutoDeleteConversations,
   saveAutoDeleteConversations,
@@ -44,6 +46,9 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
     useLoggedInAccounts();
   const { logins } = useNostrLogin();
   const loginActions = useLoginActions();
+  const { manager } = useAccountManager();
+  const applesauceAccounts = useObservableState(manager.accounts$) || [];
+  const activeApplesauceAccount = useObservableState(manager.active$);
   const { chatSyncEnabled, setChatSyncEnabled } = useChatSync();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
 
@@ -161,10 +166,17 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
             Current Account
           </div>
           <div className="font-mono text-xs text-foreground/70 break-all">
-            {currentUser?.pubkey || publicKey || "Not available"}
+            {currentUser?.pubkey ||
+              activeApplesauceAccount?.pubkey ||
+              publicKey ||
+              "Not available"}
+            {activeApplesauceAccount && !currentUser && " (Applesauce)"}
           </div>
         </div>
-        {otherUsers && otherUsers.length > 0 && (
+        {(otherUsers.length > 0 ||
+          applesauceAccounts.some(
+            (acct) => acct.id !== activeApplesauceAccount?.id,
+          )) && (
           <div className="mb-3 bg-muted/50 border border-border rounded-md p-3">
             <div className="text-xs text-muted-foreground mb-2">
               Switch Account
@@ -191,6 +203,29 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                   </button>
                 </div>
               ))}
+              {applesauceAccounts
+                .filter((acct) => acct.id !== activeApplesauceAccount?.id)
+                .map((acct) => (
+                  <div key={acct.id} className="flex items-center gap-2">
+                    <div className="flex-1 font-mono text-xs text-muted-foreground break-all">
+                      {acct.pubkey} (Applesauce)
+                    </div>
+                    <button
+                      className="px-2 py-1 rounded-md bg-muted hover:bg-muted/80 border border-border text-foreground text-xs transition-colors cursor-pointer"
+                      onClick={() => manager.setActive(acct)}
+                      type="button"
+                    >
+                      Use
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs transition-colors cursor-pointer"
+                      onClick={() => manager.removeAccount(acct.id)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
         )}

@@ -24,7 +24,7 @@ interface SidebarProps {
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   setIsSettingsOpen: (isOpen: boolean) => void;
   setInitialSettingsTab: (
-    tab: "settings" | "wallet" | "history" | "api-keys"
+    tab: "settings" | "wallet" | "history" | "api-keys",
   ) => void;
   balance: number;
   syncWithNostr: () => Promise<void>;

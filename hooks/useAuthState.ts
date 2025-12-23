@@ -39,7 +39,7 @@ export const useAuthState = (): UseAuthStateReturn => {
     }
     // Optionally remove all accounts if that's what logout should do
     // For now, just clearing active account and storage seems consistent with existing logic
-    
+
     clearAllStorage();
   }, [logins, removeLogin, manager]);
 
