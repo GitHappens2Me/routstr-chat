@@ -269,7 +269,7 @@ export default function AppleSauceLogin({
 }) {
   const accounts = useObservableState(manager.accounts$);
   const [loginMethod, setLoginMethod] = useState<"none" | "bunker" | "qr">(
-    "none"
+    "none",
   );
 
   const handleSignerCreated = useCallback(
@@ -280,7 +280,7 @@ export default function AppleSauceLogin({
       manager.addAccount(account);
       setLoginMethod("none");
     },
-    [accounts.length, manager]
+    [accounts.length, manager],
   );
 
   const createNewAccount = useCallback(() => {
