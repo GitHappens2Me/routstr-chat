@@ -19,7 +19,7 @@ import { relayPool } from "@/lib/applesauce-core";
 
 const DynamicNostrLoginProvider = dynamic(
   () => import("@nostrify/react/login").then((mod) => mod.NostrLoginProvider),
-  { ssr: false }
+  { ssr: false },
 );
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -69,7 +69,7 @@ const queryClient = new QueryClient({
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   const [relayUrls, setRelayUrls] = useState<string[]>(
-    presetRelays.slice(0, 3).map((relay) => relay.url)
+    presetRelays.slice(0, 3).map((relay) => relay.url),
   );
 
   // Fetch relay URLs from URL parameters
