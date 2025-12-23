@@ -179,7 +179,7 @@ export function useCashuToken() {
       let proofsToKeep: Proof[], proofsToSend: Proof[];
 
       try {
-        const result = await wallet.send(amount, proofs);
+        const result = await wallet.send(amount, proofs, { includeFees: true });
         proofsToKeep = result.keep;
         proofsToSend = result.send;
       } catch (error) {
@@ -225,8 +225,6 @@ export function useCashuToken() {
               proofsToKeep = result.keep;
               proofsToSend = result.send;
             } catch (error2) {
-              const message =
-                error2 instanceof Error ? error2.message : String(error2);
               throw new Error(
                 `Having issues with the mint ${normalizedMintUrl}, please refresh your app try again. `
               );

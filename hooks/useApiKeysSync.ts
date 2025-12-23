@@ -4,7 +4,6 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
 import { StoredApiKey } from "@/components/settings/ApiKeysTab";
-import { NostrEvent } from "nostr-tools";
 import { useState, useEffect, useCallback } from "react"; // Added useState, useEffect, and useCallback
 
 /**

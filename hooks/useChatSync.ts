@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Conversation, Message } from "@/types/chat";
 import { createPnsEvent, KIND_PNS, PnsKeys } from "@/lib/pns";
 import { useCurrentUser } from "./useCurrentUser";
-import { useNostrLogin } from "@nostrify/react/login";
-import { useNostr as useNostrify } from "@nostrify/react";
 import { getStorageItem, setStorageItem } from "@/utils/storageUtils";
 import { eventStore } from "@/lib/applesauce-core";
 import {
@@ -88,7 +86,6 @@ export const useChatSync = (): ChatSyncHook => {
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user } = useCurrentUser();
-  const { nostr } = useNostrify();
 
   // Use useSyncExternalStore to share chatSyncEnabled state across all hook instances
   const chatSyncEnabled = useSyncExternalStore(
@@ -231,7 +228,7 @@ export const useChatSync = (): ChatSyncHook => {
         setIsSyncing(false);
       }
     },
-    [createInnerEvent, nostr]
+    [createInnerEvent]
   );
 
   return {

@@ -4,11 +4,20 @@ import {
   PrivateKeyAccount,
 } from "applesauce-accounts/accounts";
 import { useObservableState } from "applesauce-react/hooks";
+import { RelayPool } from "applesauce-relay";
 import { NostrConnectSigner } from "applesauce-signers";
 import { useCallback, useState } from "react";
-import { relayPool } from "@/lib/applesauce-core";
 import { QRCodeSVG } from "qrcode.react";
 import { AccountMetadata } from "./ClientProviders";
+
+// Create a relay pool to make relay connections
+const pool = new RelayPool();
+
+// Setup nostr connect signer
+if (typeof window !== "undefined") {
+  NostrConnectSigner.subscriptionMethod = pool.subscription.bind(pool);
+  NostrConnectSigner.publishMethod = pool.publish.bind(pool);
+}
 
 function BunkerUrlLogin({
   onSignerCreated,
@@ -139,7 +148,7 @@ function QRCodeLogin({
             <QRCodeSVG value={nostrConnectUri} size={200} />
           </div>
           <button
-            className="btn btn-outline mt-4"
+            className="btn btn-outline btn-sm mt-4"
             onClick={() => setNostrConnectUri(null)}
           >
             Cancel
@@ -260,7 +269,7 @@ export default function AppleSauceLogin({
 }) {
   const accounts = useObservableState(manager.accounts$);
   const [loginMethod, setLoginMethod] = useState<"none" | "bunker" | "qr">(
-    "none",
+    "none"
   );
 
   const handleSignerCreated = useCallback(
@@ -269,17 +278,15 @@ export default function AppleSauceLogin({
       const account = new NostrConnectAccount<AccountMetadata>(pubkey, signer);
       account.metadata = { name: `Bunker ${accounts.length + 1}` };
       manager.addAccount(account);
-      manager.setActive(account);
       setLoginMethod("none");
     },
-    [accounts.length, manager],
+    [accounts.length, manager]
   );
 
   const createNewAccount = useCallback(() => {
     const account = PrivateKeyAccount.generateNew<AccountMetadata>();
     account.metadata = { name: `Account ${accounts.length + 1}` };
     manager.addAccount(account);
-    manager.setActive(account);
   }, [accounts.length, manager]);
 
   return (
@@ -300,7 +307,9 @@ export default function AppleSauceLogin({
           </button>
           <button
             className={`btn btn-accent btn-sm ${loginMethod === "qr" ? "btn-outline" : ""}`}
-            onClick={() => setLoginMethod(loginMethod === "qr" ? "none" : "qr")}
+            onClick={() =>
+              setLoginMethod(loginMethod === "qr" ? "none" : "qr")
+            }
           >
             QR Code
           </button>
