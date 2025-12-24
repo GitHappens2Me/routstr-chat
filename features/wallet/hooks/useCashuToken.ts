@@ -39,7 +39,7 @@ export function useCashuToken() {
   const recoverPendingProofs = async () => {
     try {
       const keys = Object.keys(localStorage).filter((key) =>
-        key.startsWith("pending_send_proofs_")
+        key.startsWith("pending_send_proofs_"),
       );
 
       for (const key of keys) {
@@ -49,7 +49,7 @@ export function useCashuToken() {
           if (sessionStorage.getItem(recoveryKey)) {
             console.log(
               "rdlogs: Skipping already processed pending proof:",
-              key
+              key,
             );
             continue;
           }
@@ -128,7 +128,7 @@ export function useCashuToken() {
     mintUrl: string,
     amount: number,
     p2pkPubkey?: string,
-    unit?: string
+    unit?: string,
   ): Promise<string> => {
     setIsLoading(true);
     setError(null);
@@ -168,7 +168,7 @@ export function useCashuToken() {
           acc[p.amount] = (acc[p.amount] || 0) + 1;
           return acc;
         },
-        {} as Record<number, number>
+        {} as Record<number, number>,
       );
       // console.log('rdlogs: Proof denomination groups:', denominationCounts);
       amount = preferredUnit == "msat" ? amount * 1000 : amount;
@@ -196,7 +196,7 @@ export function useCashuToken() {
           message.includes("Not enough balance to send")
         ) {
           console.log(
-            "rdlogs: wallet.send() failed with insufficient funds, trying exact change with tolerance"
+            "rdlogs: wallet.send() failed with insufficient funds, trying exact change with tolerance",
           );
 
           // Clean spent proofs
@@ -209,7 +209,7 @@ export function useCashuToken() {
           const newProofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
           if (newProofsAmount < amount) {
             throw new Error(
-              `Not enough funds on mint ${normalizedMintUrl} after cleaning spent proofs`
+              `Not enough funds on mint ${normalizedMintUrl} after cleaning spent proofs`,
             );
           }
 
@@ -218,7 +218,7 @@ export function useCashuToken() {
               amount,
               proofs,
               activeKeysets,
-              normalizedMintUrl
+              normalizedMintUrl,
             );
             // Use advanced proof selection with tolerance fallback
             proofsToKeep = result.proofsToKeep;
@@ -234,7 +234,7 @@ export function useCashuToken() {
               proofsToSend = result.send;
             } catch (error2) {
               throw new Error(
-                `Having issues with the mint ${normalizedMintUrl}, please refresh your app try again. `
+                `Having issues with the mint ${normalizedMintUrl}, please refresh your app try again. `,
               );
             }
           }
@@ -258,7 +258,7 @@ export function useCashuToken() {
           })),
           timestamp: Date.now(),
           tokenAmount: amount,
-        })
+        }),
       );
       const sendFees = calculateFees(proofsToSend, activeKeysets);
       // console.log('rdlogs: fees to send ', amount, ' is ', sendFees)
@@ -310,7 +310,7 @@ export function useCashuToken() {
   const ensureMintInitialized = async (mintUrl: string) => {
     const normalizedMintUrl = normalizeMintUrl(mintUrl);
     const existingMint = cashuStore.mints.find(
-      (mint) => mint.url === normalizedMintUrl
+      (mint) => mint.url === normalizedMintUrl,
     );
     const needsActivation =
       !existingMint ||
@@ -351,7 +351,7 @@ export function useCashuToken() {
     if (!wallet) {
       console.warn(
         "Wallet not loaded when trying to add mint URL:",
-        normalizedMintUrl
+        normalizedMintUrl,
       );
       return normalizedMintUrl;
     }
@@ -373,7 +373,7 @@ export function useCashuToken() {
   const removeMint = async (mintUrl: string) => {
     if (!wallet) {
       throw new Error(
-        "Wallet not found, trying to remove mint URL: " + mintUrl
+        "Wallet not found, trying to remove mint URL: " + mintUrl,
       );
     }
     // Check if mint exists in wallet
@@ -538,13 +538,13 @@ export function useCashuToken() {
 
         const proofStates = await wallet.checkProofsStates(proofs);
         const spentProofsStates = proofStates.filter(
-          (p) => p.state == CheckStateEnum.SPENT
+          (p) => p.state == CheckStateEnum.SPENT,
         );
         const enc = new TextEncoder();
         const spentProofs = proofs.filter((p) =>
           spentProofsStates.find(
-            (s) => s.Y == hashToCurve(enc.encode(p.secret)).toHex(true)
-          )
+            (s) => s.Y == hashToCurve(enc.encode(p.secret)).toHex(true),
+          ),
         );
         // console.log('rdlogs pd', spentProofs)
 
@@ -751,7 +751,7 @@ export function useCashuToken() {
     recoveryPromise = null;
     // Clear all recovery processed flags from sessionStorage
     const keys = Object.keys(sessionStorage).filter((key) =>
-      key.startsWith("recovery_processed_")
+      key.startsWith("recovery_processed_"),
     );
     keys.forEach((key) => sessionStorage.removeItem(key));
   };

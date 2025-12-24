@@ -269,7 +269,7 @@ export default function AppleSauceLogin({
 }) {
   const accounts = useObservableState(manager.accounts$);
   const [loginMethod, setLoginMethod] = useState<"none" | "bunker" | "qr">(
-    "none"
+    "none",
   );
 
   const handleSignerCreated = useCallback(
@@ -280,7 +280,7 @@ export default function AppleSauceLogin({
       manager.addAccount(account);
       setLoginMethod("none");
     },
-    [accounts.length, manager]
+    [accounts.length, manager],
   );
 
   const createNewAccount = useCallback(() => {
@@ -307,9 +307,7 @@ export default function AppleSauceLogin({
           </button>
           <button
             className={`btn btn-accent btn-sm ${loginMethod === "qr" ? "btn-outline" : ""}`}
-            onClick={() =>
-              setLoginMethod(loginMethod === "qr" ? "none" : "qr")
-            }
+            onClick={() => setLoginMethod(loginMethod === "qr" ? "none" : "qr")}
           >
             QR Code
           </button>
