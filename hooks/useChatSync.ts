@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Conversation, Message } from "@/types/chat";
 import { createPnsEvent, KIND_PNS, PnsKeys } from "@/lib/pns";
-import { useCurrentUser } from "./useCurrentUser";
 import { getStorageItem, setStorageItem } from "@/utils/storageUtils";
 import { eventStore } from "@/lib/applesauce-core";
 import {
   triggerDerivedPnsSync,
   updateChatSyncEnabled,
 } from "./useChatSync1081";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 
 // Storage key for chat sync enabled
 const CHAT_SYNC_ENABLED_KEY = "chatSyncEnabled";
@@ -65,11 +66,11 @@ interface ChatSyncHook {
     conversationId: string,
     message: Message,
     pnsKeys: PnsKeys,
-    onMessagePublished?: (conversationId: string, message: Message) => void
+    onMessagePublished?: (conversationId: string, message: Message) => void,
   ) => string | null;
   migrateConversations: (
     conversations: Conversation[],
-    pnsKeys: PnsKeys
+    pnsKeys: PnsKeys,
   ) => Conversation[] | null;
 }
 
@@ -85,13 +86,15 @@ export const useChatSync = (): ChatSyncHook => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const accounts = useObservableState(manager.accounts$) || [];
+  const activeAccount = useObservableState(manager.active$);
 
   // Use useSyncExternalStore to share chatSyncEnabled state across all hook instances
   const chatSyncEnabled = useSyncExternalStore(
     subscribeToChatSync,
     getChatSyncSnapshot,
-    getChatSyncServerSnapshot
+    getChatSyncServerSnapshot,
   );
 
   // Wrapper function that calls the global setter
@@ -102,7 +105,8 @@ export const useChatSync = (): ChatSyncHook => {
   // 1. Create Inner Event (Kind 20001)
   const createInnerEvent = useCallback(
     (conversationId: string, message: Message): InnerEventPayload => {
-      const pubkey = user?.pubkey;
+      const accountToUse = activeAccount || accounts[0];
+      const pubkey = accountToUse?.pubkey;
       if (!pubkey) throw new Error("No public key available");
 
       const tags = [
@@ -133,13 +137,13 @@ export const useChatSync = (): ChatSyncHook => {
         content: contentStr,
       };
     },
-    [user]
+    [activeAccount, accounts],
   );
 
   const migrateConversations = useCallback(
     (
       conversations: Conversation[],
-      pnsKeys: PnsKeys
+      pnsKeys: PnsKeys,
     ): Conversation[] | null => {
       try {
         setIsSyncing(true);
@@ -147,7 +151,7 @@ export const useChatSync = (): ChatSyncHook => {
 
         // Deep copy to avoid mutating state directly
         const updatedConversations: Conversation[] = JSON.parse(
-          JSON.stringify(conversations)
+          JSON.stringify(conversations),
         );
 
         for (const conversation of updatedConversations) {
@@ -186,7 +190,7 @@ export const useChatSync = (): ChatSyncHook => {
         setIsSyncing(false);
       }
     },
-    [createInnerEvent]
+    [createInnerEvent],
   );
 
   // Publish Message Flow
@@ -195,7 +199,7 @@ export const useChatSync = (): ChatSyncHook => {
       conversationId: string,
       message: Message,
       pnsKeys: PnsKeys,
-      onMessagePublished?: (conversationId: string, message: Message) => void
+      onMessagePublished?: (conversationId: string, message: Message) => void,
     ): string | null => {
       try {
         setIsSyncing(true);
@@ -228,7 +232,7 @@ export const useChatSync = (): ChatSyncHook => {
         setIsSyncing(false);
       }
     },
-    [createInnerEvent]
+    [createInnerEvent],
   );
 
   return {
