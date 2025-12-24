@@ -77,7 +77,7 @@ export interface NWCPaymentResult {
 export async function payWithNWC(
   amount: number,
   mintUrl: string,
-  callbacks?: NWCPaymentCallbacks,
+  callbacks?: NWCPaymentCallbacks
 ): Promise<NWCPaymentResult> {
   try {
     // Check NWC connection
@@ -126,7 +126,7 @@ export async function payWithNWC(
           const proofs = await mintTokensFromPaidInvoice(
             mintUrl,
             quoteId,
-            amount,
+            amount
           );
           if (proofs.length > 0) {
             callbacks?.onPaymentSuccess?.(proofs, amount);
@@ -139,7 +139,7 @@ export async function payWithNWC(
 
       // After polling, payment didn't complete
       throw new Error(
-        "Payment did not complete within timeout. Please check your wallet.",
+        "Payment did not complete within timeout. Please check your wallet."
       );
     }
   } catch (error) {
@@ -147,7 +147,7 @@ export async function payWithNWC(
       error instanceof Error ? error.message : "Unknown payment error";
     console.error(`[payWithNWC] Error:`, errorMessage);
     callbacks?.onPaymentError?.(
-      error instanceof Error ? error : new Error(errorMessage),
+      error instanceof Error ? error : new Error(errorMessage)
     );
     return { success: false, error: errorMessage };
   }
@@ -163,7 +163,7 @@ export async function payWithNWC(
 export async function attemptMintFromQuote(
   mintUrl: string,
   quoteId: string,
-  amount: number,
+  amount: number
 ): Promise<Proof[]> {
   try {
     const proofs = await mintTokensFromPaidInvoice(mintUrl, quoteId, amount);

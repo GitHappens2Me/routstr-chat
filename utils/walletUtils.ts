@@ -11,7 +11,7 @@ export type MintUnits = Record<string, string> | undefined;
 export function truncateMintUrl(
   url: string,
   maxDomainLen = 20,
-  shortLen = 15,
+  shortLen = 15
 ): string {
   try {
     const urlObj = new URL(url);
@@ -35,7 +35,7 @@ export function getAvailableMints(mintBalances: MintBalances): string[] {
  */
 export function isMintValid(
   activeMintUrl: string | null | undefined,
-  availableMints: string[],
+  availableMints: string[]
 ): boolean {
   return !!activeMintUrl && availableMints.includes(activeMintUrl);
 }
@@ -45,7 +45,7 @@ export function isMintValid(
  */
 export function getCurrentMintBalance(
   activeMintUrl: string | null | undefined,
-  mintBalances: MintBalances,
+  mintBalances: MintBalances
 ): number {
   if (!activeMintUrl || !mintBalances) return 0;
   return mintBalances[activeMintUrl] || 0;
@@ -56,7 +56,7 @@ export function getCurrentMintBalance(
  */
 export function computeTotalBalanceSats(
   mintBalances: MintBalances,
-  mintUnits: MintUnits,
+  mintUnits: MintUnits
 ): number {
   let total = 0;
   if (!mintBalances) return total;
@@ -138,8 +138,8 @@ export function getWalletMintData<
   cashuStore: { mints: TMints; proofs: TProofs },
   calculateBalanceByMint: (
     proofs: TProofs,
-    mints: TMints,
-  ) => { balances: Record<string, number>; units: Record<string, string> },
+    mints: TMints
+  ) => { balances: Record<string, number>; units: Record<string, string> }
 ): WalletMintData {
   // Get available mints from wallet.mints (same as SixtyWallet.tsx line 920)
   let availableMints: string[];

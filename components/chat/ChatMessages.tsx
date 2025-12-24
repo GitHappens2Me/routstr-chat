@@ -15,7 +15,7 @@ import {
 
 // Helper function to extract thinking from message content
 const getThinkingFromContent = (
-  content: string | MessageContent[],
+  content: string | MessageContent[]
 ): string | undefined => {
   if (typeof content === "string") return undefined;
 
@@ -25,7 +25,7 @@ const getThinkingFromContent = (
 
 // Helper function to extract citations from message content
 const getCitationsFromContent = (
-  content: string | MessageContent[],
+  content: string | MessageContent[]
 ): string[] | undefined => {
   if (typeof content === "string") return undefined;
 
@@ -35,7 +35,7 @@ const getCitationsFromContent = (
 
 // Helper function to extract annotations from message content
 const getAnnotationsFromContent = (
-  content: string | MessageContent[],
+  content: string | MessageContent[]
 ): import("@/types/chat").AnnotationData[] | undefined => {
   if (typeof content === "string") return undefined;
 
@@ -79,13 +79,13 @@ export default function ChatMessages({
   isLoading,
 }: ChatMessagesProps) {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(
-    null,
+    null
   );
   const [expandedSystemGroups, setExpandedSystemGroups] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
   const [selectedVersions, setSelectedVersions] = useState<Map<number, string>>(
-    new Map(),
+    new Map()
   );
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const lastUserMessageRef = useRef<HTMLDivElement | null>(null);
@@ -95,7 +95,7 @@ export default function ChatMessages({
 
   // Helper function to check if a system message should always be shown
   const shouldAlwaysShowSystemMessage = (
-    content: string | MessageContent[],
+    content: string | MessageContent[]
   ): boolean => {
     const textContent = getTextFromContent(content);
     return (
@@ -145,12 +145,12 @@ export default function ChatMessages({
     const messageEventIds = new Set(
       messages
         .map((msg) => msg._eventId)
-        .filter((id): id is string => id !== undefined),
+        .filter((id): id is string => id !== undefined)
     );
 
     // Check if any selected version's eventId is not in the messages list
     const hasInvalidSelection = Array.from(selectedVersions.values()).some(
-      (eventId) => !messageEventIds.has(eventId),
+      (eventId) => !messageEventIds.has(eventId)
     );
 
     // If any invalid selection found, reset the map
@@ -257,7 +257,7 @@ export default function ChatMessages({
     // Helper function to get the event ID of the last message in a system group
     const getEventIdForLastMessage = (
       eventId: string,
-      systemGroupMap: Map<number, { firstMessage: Message; count: number }>,
+      systemGroupMap: Map<number, { firstMessage: Message; count: number }>
     ): string | undefined => {
       if (!eventId) return eventId;
 
@@ -318,7 +318,7 @@ export default function ChatMessages({
       const selectedMsg = versions.find((v) => v._eventId === selectedId);
       if (selectedMsg) {
         const versionIndex = versions.findIndex(
-          (v) => v._eventId === selectedId,
+          (v) => v._eventId === selectedId
         );
         return {
           msg: selectedMsg,
@@ -331,7 +331,7 @@ export default function ChatMessages({
     // Default to the message passed in (which comes from the main thread)
     // We need to find its index in the sorted versions array
     const currentIndex = versions.findIndex(
-      (v) => v._eventId === message._eventId,
+      (v) => v._eventId === message._eventId
     );
 
     // If for some reason the message isn't in the group (shouldn't happen), default to last
@@ -358,7 +358,7 @@ export default function ChatMessages({
 
       const currentSelectedId = selectedVersions.get(index) || currentMessageId;
       const currentIndex = versions.findIndex(
-        (v) => v._eventId === currentSelectedId,
+        (v) => v._eventId === currentSelectedId
       );
       console.log(currentIndex, currentSelectedId, selectedVersions);
 
@@ -375,7 +375,7 @@ export default function ChatMessages({
         setSelectedVersions((prev) => new Map(prev).set(index, newVersionId));
       }
     },
-    [messageVersions, selectedVersions],
+    [messageVersions, selectedVersions]
   );
 
   const systemGroupsMap = identifySystemGroups();
@@ -439,7 +439,7 @@ export default function ChatMessages({
 
   const copyMessageContent = async (
     messageIndex: number,
-    content: string | MessageContent[],
+    content: string | MessageContent[]
   ) => {
     try {
       const textContent = getTextFromContent(content);
@@ -474,7 +474,7 @@ export default function ChatMessages({
         paddingTop: "calc(60px + env(safe-area-inset-top))",
         paddingBottom: `calc(${Math.max(
           (textareaHeight ?? 48) + 48,
-          isMobile ? 96 : 120,
+          isMobile ? 96 : 120
         )}px + env(safe-area-inset-bottom))`,
       }}
     >
@@ -501,7 +501,7 @@ export default function ChatMessages({
             // Check if this message represents a system message group
             // We need to match by the message itself, not by index
             const messageIndex = messages.findIndex(
-              (m) => m._eventId === message._eventId,
+              (m) => m._eventId === message._eventId
             );
             const systemGroup = systemGroupsMap.get(messageIndex);
 
@@ -533,7 +533,7 @@ export default function ChatMessages({
                             handleVersionChange(
                               index,
                               direction,
-                              originalMessage._eventId!,
+                              originalMessage._eventId!
                             )
                           }
                           className="mr-2"
@@ -553,12 +553,12 @@ export default function ChatMessages({
                               {typeof message.content !== "string" && (
                                 <>
                                   {message.content.filter(
-                                    (item) => item.type === "image_url",
+                                    (item) => item.type === "image_url"
                                   ).length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-2">
                                       {message.content
                                         .filter(
-                                          (item) => item.type === "image_url",
+                                          (item) => item.type === "image_url"
                                         )
                                         .map((item, imgIndex) => (
                                           <img
@@ -571,7 +571,7 @@ export default function ChatMessages({
                                     </div>
                                   )}
                                   {message.content.filter(
-                                    (item) => item.type === "file",
+                                    (item) => item.type === "file"
                                   ).length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-2">
                                       {message.content
@@ -650,10 +650,10 @@ export default function ChatMessages({
                                     <MessageContentRenderer
                                       content={message.content}
                                       citations={getCitationsFromContent(
-                                        message.content,
+                                        message.content
                                       )}
                                       annotations={getAnnotationsFromContent(
-                                        message.content,
+                                        message.content
                                       )}
                                     />
                                   </div>
@@ -702,7 +702,7 @@ export default function ChatMessages({
                             handleVersionChange(
                               index,
                               direction,
-                              originalMessage._eventId!,
+                              originalMessage._eventId!
                             )
                           }
                           className=""
@@ -712,12 +712,12 @@ export default function ChatMessages({
                       {isSystemGroupStart && (
                         <div className="flex justify-center items-center gap-3 mb-6">
                           {!expandedSystemGroups.has(
-                            systemGroup.firstMessage._eventId!,
+                            systemGroup.firstMessage._eventId!
                           ) ? (
                             <button
                               onClick={() =>
                                 toggleSystemGroup(
-                                  systemGroup.firstMessage._eventId!,
+                                  systemGroup.firstMessage._eventId!
                                 )
                               }
                               className="flex items-center gap-2 text-xs text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 bg-red-100 dark:bg-red-500/20 hover:bg-red-200 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 rounded-md px-3 py-1.5 transition-colors"
@@ -730,7 +730,7 @@ export default function ChatMessages({
                             <button
                               onClick={() =>
                                 toggleSystemGroup(
-                                  systemGroup.firstMessage._eventId!,
+                                  systemGroup.firstMessage._eventId!
                                 )
                               }
                               className="flex items-center gap-2 text-xs text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 bg-red-100 dark:bg-red-500/20 hover:bg-red-200 dark:hover:bg-red-500/30 border border-red-200 dark:border-red-500/30 rounded-md px-3 py-1.5 transition-colors"
@@ -752,21 +752,21 @@ export default function ChatMessages({
                           systemGroup &&
                           systemGroup.count > 1 &&
                           expandedSystemGroups.has(
-                            systemGroup.firstMessage._eventId!,
+                            systemGroup.firstMessage._eventId!
                           )
                             ? Array.from(
                                 { length: systemGroup.count },
                                 (_, i) => ({
                                   msg: messages[messageIndex + i],
                                   idx: messageIndex + i,
-                                }),
+                                })
                               ).filter((item) => item.msg)
                             : [{ msg: message, idx: index }];
 
                         // Check if we should render - either if any message should always be shown or if in expanded group
                         const shouldRender =
                           messagesToRender.some(({ msg }) =>
-                            shouldAlwaysShowSystemMessage(msg.content),
+                            shouldAlwaysShowSystemMessage(msg.content)
                           ) || isInExpandedGroup(message._eventId);
 
                         if (!shouldRender) return null;
@@ -847,7 +847,7 @@ export default function ChatMessages({
                                 </div>
                               </div>
                             </div>
-                          ),
+                          )
                         );
                       })()}
                     </>
@@ -861,7 +861,7 @@ export default function ChatMessages({
                             handleVersionChange(
                               index,
                               direction,
-                              originalMessage._eventId!,
+                              originalMessage._eventId!
                             )
                           }
                           className="ml-2"
@@ -882,7 +882,7 @@ export default function ChatMessages({
                             content={message.content}
                             citations={getCitationsFromContent(message.content)}
                             annotations={getAnnotationsFromContent(
-                              message.content,
+                              message.content
                             )}
                           />
                         </div>
@@ -939,7 +939,7 @@ export default function ChatMessages({
                               <span className="flex items-center gap-1 text-xs text-amber-400/80 px-2 py-1">
                                 -{" "}
                                 {message.satsSpent.toFixed(
-                                  message.satsSpent < 1 ? 3 : 0,
+                                  message.satsSpent < 1 ? 3 : 0
                                 )}{" "}
                                 <svg
                                   width="16"
