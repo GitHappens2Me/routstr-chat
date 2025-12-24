@@ -81,7 +81,7 @@ export function useAutoRefill({
       if (!lastRefillAt) return false;
       return Date.now() - lastRefillAt < AUTO_REFILL_COOLDOWN_MS;
     },
-    [],
+    []
   );
 
   /**
@@ -123,7 +123,7 @@ export function useAutoRefill({
               console.error("[useAutoRefill] NWC payment error:", error);
               toast.error(`Auto-refill failed: ${error.message}`);
             },
-          },
+          }
         );
 
         if (result.success) {
@@ -136,7 +136,7 @@ export function useAutoRefill({
         isProcessingNWCRef.current = false;
       }
     },
-    [cashuStore.activeMintUrl, updateProofs],
+    [cashuStore.activeMintUrl, updateProofs]
   );
 
   /**
@@ -146,7 +146,7 @@ export function useAutoRefill({
     async (
       settings: AutoTopupAPISettings,
       _apiKeyBalance: number,
-      apiKeyBaseUrl: string,
+      apiKeyBaseUrl: string
     ) => {
       if (isProcessingAPIRef.current) return;
       if (!settings.apiKey) return;
@@ -160,7 +160,7 @@ export function useAutoRefill({
         // Generate Cashu token for topup using sendToken
         const cashuToken = await sendToken(
           cashuStore.activeMintUrl,
-          settings.amount,
+          settings.amount
         );
 
         if (!cashuToken) {
@@ -170,7 +170,7 @@ export function useAutoRefill({
         // Make topup request to API
         const response = await fetch(
           `${apiKeyBaseUrl}v1/wallet/topup?cashu_token=${encodeURIComponent(
-            cashuToken,
+            cashuToken
           )}`,
           {
             method: "POST",
@@ -178,13 +178,13 @@ export function useAutoRefill({
               Authorization: `Bearer ${settings.apiKey}`,
               "Content-Type": "application/json",
             },
-          },
+          }
         );
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.detail || `Topup failed with status ${response.status}`,
+            errorData.detail || `Topup failed with status ${response.status}`
           );
         }
 
@@ -195,13 +195,13 @@ export function useAutoRefill({
         toast.error(
           `API auto-topup failed: ${
             error instanceof Error ? error.message : "Unknown error"
-          }`,
+          }`
         );
       } finally {
         isProcessingAPIRef.current = false;
       }
     },
-    [cashuStore.activeMintUrl, sendToken],
+    [cashuStore.activeMintUrl, sendToken]
   );
 
   /**
@@ -247,7 +247,7 @@ export function useAutoRefill({
         if (!isInCooldown(apiSettings.lastTopupAt)) {
           // Find the configured API key in synced keys
           const targetApiKey = syncedApiKeys.find(
-            (k) => k.key === apiSettings.apiKey,
+            (k) => k.key === apiSettings.apiKey
           );
 
           if (targetApiKey) {
@@ -260,7 +260,7 @@ export function useAutoRefill({
                 await executeAPITopup(
                   apiSettings,
                   apiKeyBalanceMsats,
-                  targetApiKey.baseUrl || "",
+                  targetApiKey.baseUrl || ""
                 );
               }
             }

@@ -175,7 +175,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         </div>
         {(otherUsers.length > 0 ||
           applesauceAccounts.some(
-            (acct) => acct.id !== activeApplesauceAccount?.id,
+            (acct) => acct.id !== activeApplesauceAccount?.id
           )) && (
           <div className="mb-3 bg-muted/50 border border-border rounded-md p-3">
             <div className="text-xs text-muted-foreground mb-2">

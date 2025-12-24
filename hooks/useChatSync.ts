@@ -66,11 +66,11 @@ interface ChatSyncHook {
     conversationId: string,
     message: Message,
     pnsKeys: PnsKeys,
-    onMessagePublished?: (conversationId: string, message: Message) => void,
+    onMessagePublished?: (conversationId: string, message: Message) => void
   ) => string | null;
   migrateConversations: (
     conversations: Conversation[],
-    pnsKeys: PnsKeys,
+    pnsKeys: PnsKeys
   ) => Conversation[] | null;
 }
 
@@ -94,7 +94,7 @@ export const useChatSync = (): ChatSyncHook => {
   const chatSyncEnabled = useSyncExternalStore(
     subscribeToChatSync,
     getChatSyncSnapshot,
-    getChatSyncServerSnapshot,
+    getChatSyncServerSnapshot
   );
 
   // Wrapper function that calls the global setter
@@ -137,13 +137,13 @@ export const useChatSync = (): ChatSyncHook => {
         content: contentStr,
       };
     },
-    [activeAccount, accounts],
+    [activeAccount, accounts]
   );
 
   const migrateConversations = useCallback(
     (
       conversations: Conversation[],
-      pnsKeys: PnsKeys,
+      pnsKeys: PnsKeys
     ): Conversation[] | null => {
       try {
         setIsSyncing(true);
@@ -151,7 +151,7 @@ export const useChatSync = (): ChatSyncHook => {
 
         // Deep copy to avoid mutating state directly
         const updatedConversations: Conversation[] = JSON.parse(
-          JSON.stringify(conversations),
+          JSON.stringify(conversations)
         );
 
         for (const conversation of updatedConversations) {
@@ -190,7 +190,7 @@ export const useChatSync = (): ChatSyncHook => {
         setIsSyncing(false);
       }
     },
-    [createInnerEvent],
+    [createInnerEvent]
   );
 
   // Publish Message Flow
@@ -199,7 +199,7 @@ export const useChatSync = (): ChatSyncHook => {
       conversationId: string,
       message: Message,
       pnsKeys: PnsKeys,
-      onMessagePublished?: (conversationId: string, message: Message) => void,
+      onMessagePublished?: (conversationId: string, message: Message) => void
     ): string | null => {
       try {
         setIsSyncing(true);
@@ -232,7 +232,7 @@ export const useChatSync = (): ChatSyncHook => {
         setIsSyncing(false);
       }
     },
-    [createInnerEvent],
+    [createInnerEvent]
   );
 
   return {
