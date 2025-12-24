@@ -64,7 +64,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const [cashuToken, setCashuToken] = useState("");
   const [isReceivingToken, setIsReceivingToken] = useState(false);
   const [activeTab, setActiveTab] = useState<"lightning" | "token" | "wallet">(
-    "lightning",
+    "lightning"
   );
   const [nwcCustomAmount, setNwcCustomAmount] = useState("");
   const [isPayingWithNWC, setIsPayingWithNWC] = useState(false);
@@ -178,7 +178,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         // Calculate total from original token proofs
         const originalTotalAmount = decodedToken.proofs.reduce(
           (sum: number, p: { amount: number }) => sum + p.amount,
-          0,
+          0
         );
 
         // Receive the token
@@ -265,7 +265,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
       // Calculate total from original token proofs
       const originalTotalAmount = decodedToken.proofs.reduce(
         (sum: number, p: { amount: number }) => sum + p.amount,
-        0,
+        0
       );
 
       // Receive the token
@@ -313,7 +313,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
 
       const invoiceData = await createLightningInvoice(
         cashuStore.activeMintUrl,
-        amt,
+        amt
       );
       setInvoice(invoiceData.paymentRequest);
       setQuoteId(invoiceData.quoteId);
@@ -347,7 +347,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         cashuStore.activeMintUrl,
         invoiceData.quoteId,
         amt,
-        pendingId,
+        pendingId
       );
     } catch (e) {
       console.error("Error creating invoice:", e);
@@ -363,7 +363,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
       const proofs = await mintTokensFromPaidInvoice(
         cashuStore.activeMintUrl,
         quoteId,
-        pendingAmount,
+        pendingAmount
       );
       if (proofs.length > 0) {
         await updateProofs({
@@ -377,7 +377,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         });
         if (pendingTransactionId)
           transactionHistoryStore.removePendingTransaction(
-            pendingTransactionId,
+            pendingTransactionId
           );
         setPendingTransactionId(null);
         setSuccessMessage(`Received ${formatBalance(pendingAmount, "sats")}!`);
@@ -394,7 +394,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
     mintUrl: string,
     qid: string,
     amt: number,
-    pendingId: string,
+    pendingId: string
   ) => {
     try {
       const proofs = await mintTokensFromPaidInvoice(mintUrl, qid, amt);
@@ -457,7 +457,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
       // Create invoice
       const invoiceData = await createLightningInvoice(
         cashuStore.activeMintUrl,
-        amt,
+        amt
       );
       const paymentRequest = invoiceData.paymentRequest;
       const qid = invoiceData.quoteId;
@@ -496,7 +496,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
           const proofs = await mintTokensFromPaidInvoice(
             cashuStore.activeMintUrl,
             qid,
-            amt,
+            amt
           );
           if (proofs.length > 0) {
             await updateProofs({
@@ -521,7 +521,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
               cashuStore.activeMintUrl,
               qid,
               amt,
-              pendingId,
+              pendingId
             );
           }
         } else {
@@ -530,7 +530,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
             cashuStore.activeMintUrl,
             qid,
             amt,
-            pendingId,
+            pendingId
           );
         }
       } catch (paymentError) {

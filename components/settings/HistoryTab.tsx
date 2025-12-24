@@ -13,9 +13,7 @@ interface HistoryTabProps {
   setTransactionHistory: (
     transactionHistory:
       | TransactionHistory[]
-      | ((
-          prevTransactionHistory: TransactionHistory[],
-        ) => TransactionHistory[]),
+      | ((prevTransactionHistory: TransactionHistory[]) => TransactionHistory[])
   ) => void;
   clearConversations: () => void;
   onClose: () => void;
@@ -28,7 +26,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
   onClose,
 }) => {
   const [pendingCashuAmount, setPendingCashuAmount] = useState<number | null>(
-    null,
+    null
   );
   const [pendingDistribution, setPendingDistribution] = useState<
     { baseUrl: string; amount: number }[]
@@ -37,7 +35,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
 
   // Get transaction history from the store
   const getHistoryEntries = useTransactionHistoryStore(
-    (state) => state.getHistoryEntries,
+    (state) => state.getHistoryEntries
   );
   const historyEntries = getHistoryEntries();
 
@@ -128,7 +126,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
   const handleClearTransactions = () => {
     if (
       window.confirm(
-        "Are you sure you want to clear all transaction history? This cannot be undone.",
+        "Are you sure you want to clear all transaction history? This cannot be undone."
       )
     ) {
       setTransactionHistory([]);
@@ -142,7 +140,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
   const handleClearConversations = () => {
     if (
       window.confirm(
-        "Are you sure you want to clear all conversations? This cannot be undone.",
+        "Are you sure you want to clear all conversations? This cannot be undone."
       )
     ) {
       clearConversations();
@@ -260,7 +258,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
                           <div className="text-xs text-muted-foreground">
                             {entry.timestamp
                               ? new Date(
-                                  entry.timestamp * 1000,
+                                  entry.timestamp * 1000
                                 ).toLocaleString()
                               : "N/A"}
                           </div>
@@ -317,7 +315,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
                           <div className="text-xs text-muted-foreground">
                             {entry.timestamp
                               ? new Date(
-                                  entry.timestamp * 1000,
+                                  entry.timestamp * 1000
                                 ).toLocaleString()
                               : "N/A"}
                           </div>
