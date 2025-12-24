@@ -48,7 +48,7 @@ export function useCashuHistory() {
       // Encrypt content
       const content = await user.signer.nip44.encrypt(
         user.pubkey,
-        JSON.stringify(contentData),
+        JSON.stringify(contentData)
       );
 
       // Create history event with unencrypted redeemed tags
@@ -94,7 +94,7 @@ export function useCashuHistory() {
       // Get the last stored timestamp for the HISTORY event kind
       const lastTimestamp = getLastEventTimestamp(
         user.pubkey,
-        CASHU_EVENT_KINDS.HISTORY,
+        CASHU_EVENT_KINDS.HISTORY
       );
 
       // Create the filter with 'since' if a timestamp exists
@@ -124,7 +124,7 @@ export function useCashuHistory() {
             // Decrypt content
             decrypted = await user.signer.nip44.decrypt(
               user.pubkey,
-              event.content,
+              event.content
             );
           } catch (error) {
             if (
@@ -132,7 +132,7 @@ export function useCashuHistory() {
               error.message.includes("invalid MAC")
             ) {
               toast.error(
-                "Nostr Extention: invalid MAC. Please switch to your previously connected account on the extension OR sign out and login. .",
+                "Nostr Extention: invalid MAC. Please switch to your previously connected account on the extension OR sign out and login. ."
               );
             }
             throw error;
