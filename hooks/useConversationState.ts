@@ -7,7 +7,6 @@ import {
   deleteConversationFromStorage,
   clearAllConversations,
   sortConversationsByRecentActivity,
-  persistConversationsSnapshot,
 } from "@/utils/conversationUtils";
 import {
   getTextFromContent,
