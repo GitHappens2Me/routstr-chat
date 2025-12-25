@@ -40,17 +40,17 @@ export function calculateBalanceByMint(
       }
     }
   }
-  // // Check if sum of all balances is 0
+  // Check if sum of all balances is 0
   // const totalBalance = Object.values(balances).reduce(
   //   (sum, balance) => sum + balance,
-  //   0,
+  //   0
   // );
   // if (totalBalance === 0) {
   //   console.log("[Balance Check] Total balance is 0. Debug info:");
   //   mints.forEach((mint, index) => {
   //     console.log(
   //       `[Balance Check] Mint ${index + 1} (${mint.url}) keysets:`,
-  //       mint.keysets,
+  //       mint.keysets
   //     );
   //   });
   //   console.log("[Balance Check] Proofs:", proofs);
