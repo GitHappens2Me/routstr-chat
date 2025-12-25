@@ -152,19 +152,10 @@ function ChatPageContent() {
     if (pendingUrlSyncRef.current) return;
     if (!conversationsLoaded) return;
 
-    if (!conversations.length) {
-      pendingUrlSyncRef.current = true;
-      const params = new URLSearchParams(searchParamsString);
-      params.delete("chatId");
-      const queryString = params.toString();
-      router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`, {
-        scroll: false,
-      });
-      return;
-    }
-
+    // If chatId matches the active conversation, nothing to do
     if (chatIdFromUrl === activeConversationId) return;
 
+    // Try to find and load the conversation matching the URL chatId
     const matchingConversation = conversations.find(
       (conversation) => conversation.id === chatIdFromUrl
     );
@@ -173,10 +164,16 @@ function ChatPageContent() {
       return;
     }
 
-    const fallbackConversation = conversations[0];
-    if (fallbackConversation) {
-      loadConversation(fallbackConversation.id);
+    // Only remove chatId from URL if we have other conversations but this one doesn't exist
+    // This prevents removing the chatId when conversations are still being synced (empty array)
+    if (conversations.length > 0) {
+      // The chatId doesn't match any existing conversation, load most recent one
+      const fallbackConversation = conversations[0];
+      if (fallbackConversation) {
+        loadConversation(fallbackConversation.id);
+      }
     }
+    // If conversations.length === 0, keep the chatId in URL - it might load after sync
   }, [
     chatIdFromUrl,
     conversations,
