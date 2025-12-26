@@ -1,5 +1,13 @@
 import { Message, MessageContent } from "@/types/chat";
-import { Edit, Copy, Check, Eye, EyeOff, FileText } from "lucide-react";
+import {
+  Edit,
+  Copy,
+  Check,
+  Eye,
+  EyeOff,
+  FileText,
+  ArrowDown,
+} from "lucide-react";
 import MessageContentRenderer from "@/components/MessageContent";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import ThinkingSection from "@/components/ui/ThinkingSection";
@@ -88,6 +96,7 @@ export default function ChatMessages({
     new Map()
   );
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Helper function to check if a system message should always be shown
   const shouldAlwaysShowSystemMessage = (
@@ -437,15 +446,140 @@ export default function ChatMessages({
     isMobile ? 96 : 120
   );
 
+  const [spacerHeight, setSpacerHeight] = useState<number | string>(
+    `calc(${bottomPadding}px + env(safe-area-inset-bottom))`
+  );
+  const [scrollingMessageId, setScrollingMessageId] = useState<string | null>(
+    null
+  );
+
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const lastScrolledMessageIdRef = useRef<string | null>(null);
+  const isFirstRun = useRef(true);
+
+  // Handle spacer sizing and scrolling
+  useEffect(() => {
+    // Find the latest user message
+    const latestUserMessage = messages
+      .slice()
+      .reverse()
+      .find((m) => m.role === "user");
+
+    // Initial load handling
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      if (latestUserMessage?._eventId) {
+        lastScrolledMessageIdRef.current = latestUserMessage._eventId;
+      }
+      return;
+    }
+
+    if (!latestUserMessage || !latestUserMessage._eventId) return;
+
+    const msgId = latestUserMessage._eventId;
+    const msgEl = messageRefs.current.get(msgId);
+
+    if (msgEl) {
+      // Use container height instead of window height for accuracy
+      const containerHeight =
+        scrollContainerRef.current?.clientHeight || window.innerHeight;
+
+      // Calculate content height from the user message to the bottom
+      // This includes the user message + all assistant responses after it
+      const msgRect = msgEl.getBoundingClientRect();
+      const containerRect = scrollContainerRef.current?.getBoundingClientRect();
+
+      // Get the bottom of the last message element to calculate total content below the user msg
+      const allMsgElements = Array.from(messageRefs.current.values());
+      let contentBottom = msgRect.bottom;
+      allMsgElements.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > contentBottom) {
+          contentBottom = rect.bottom;
+        }
+      });
+
+      const headerOffset = 120; // 60px header + 60px buffer
+      const marginBottom = 32; // mb-8 = 32px
+
+      // Total content height from user message top to all content bottom
+      const contentHeightFromUserMsg = contentBottom - msgRect.top;
+
+      const requiredSpacer = Math.max(
+        bottomPadding, // Always ensure minimum padding for the input bar
+        containerHeight - contentHeightFromUserMsg - headerOffset - marginBottom
+      );
+
+      setSpacerHeight(requiredSpacer);
+
+      // Only trigger scroll animation on NEW user messages
+      const isNewUserMessage = msgId !== lastScrolledMessageIdRef.current;
+      if (isNewUserMessage) {
+        setScrollingMessageId(msgId);
+        lastScrolledMessageIdRef.current = msgId;
+      }
+    }
+  }, [messages, bottomPadding, streamingContent]);
+
+  // Execute scroll after spacer update
+  useEffect(() => {
+    if (scrollingMessageId) {
+      const el = messageRefs.current.get(scrollingMessageId);
+
+      if (el) {
+        // Double RAF to ensure layout is fully settled after spacer change
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            setScrollingMessageId(null);
+          });
+        });
+      }
+    }
+  }, [scrollingMessageId]);
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Show button when user is more than 200px from bottom
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      setShowScrollButton(distanceFromBottom > 200);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messagesEndRef]);
+
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto flex flex-col"
+      className="flex-1 overflow-y-auto flex flex-col relative"
       style={{
         paddingTop: "calc(60px + env(safe-area-inset-top))",
       }}
     >
-      <div className="mx-auto w-full max-w-[44rem] px-4 sm:px-6 lg:px-0 py-4 md:py-2 flex flex-col min-h-full">
+      {/* Scroll to bottom button */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToBottom}
+          className="fixed z-50 right-4 sm:right-6 bg-background/80 backdrop-blur-sm hover:bg-muted/90 border border-border/50 rounded-full p-2 shadow-md transition-all duration-300 ease-out hover:shadow-lg hover:border-border animate-in fade-in slide-in-from-bottom-2"
+          style={{
+            bottom: `calc(${bottomPadding}px + env(safe-area-inset-bottom) + 8px)`,
+          }}
+          aria-label="Scroll to bottom"
+        >
+          <ArrowDown className="w-4 h-4 text-muted-foreground" />
+        </button>
+      )}
+      <div className="mx-auto w-full max-w-176 px-4 sm:px-6 lg:px-0 py-4 md:py-2 flex flex-col min-h-full">
         {/* Messages container - doesn't grow, just takes natural height */}
         <div className="shrink-0">
           {messageVersions.size === 0 ? (
@@ -480,7 +614,20 @@ export default function ChatMessages({
                 !shouldAlwaysShowSystemMessage(message.content);
 
               return (
-                <div key={`msg-${index}-${originalMessage._eventId}`}>
+                <div
+                  key={`msg-${index}-${originalMessage._eventId}`}
+                  ref={(el) => {
+                    if (el && message._eventId) {
+                      messageRefs.current.set(message._eventId, el);
+                    } else if (message._eventId) {
+                      messageRefs.current.delete(message._eventId);
+                    }
+                  }}
+                  style={{
+                    scrollMarginTop:
+                      "calc(60px + env(safe-area-inset-top) + 40px)",
+                  }}
+                >
                   <div className="mb-8 last:mb-0">
                     {message.role === "user" ? (
                       <>
@@ -966,7 +1113,7 @@ export default function ChatMessages({
         <div
           className="grow"
           style={{
-            minHeight: `calc(${bottomPadding}px + env(safe-area-inset-bottom))`,
+            minHeight: spacerHeight,
           }}
         />
       </div>
