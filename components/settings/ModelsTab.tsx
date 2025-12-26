@@ -19,6 +19,7 @@ import {
 import {
   loadDisabledProviders,
   saveDisabledProviders,
+  setProviderLastUpdate,
 } from "@/utils/storageUtils";
 
 type ProviderItem = {
@@ -227,6 +228,10 @@ const ModelsTab: React.FC<ModelsTabProps> = ({
     const normalized = normalizeProviderUrl(providerUrl);
     setDisabledProviders((prev) => {
       const isDisabled = prev.includes(normalized);
+      // If re-enabling, expire cache to force fresh fetch
+      if (isDisabled) {
+        setProviderLastUpdate(normalized, 0);
+      }
       const updated = isDisabled
         ? prev.filter((url) => url !== normalized)
         : [...prev, normalized];
@@ -341,7 +346,10 @@ const ModelsTab: React.FC<ModelsTabProps> = ({
                   onCheckedChange={() => {
                     const shouldEnableAll = disabledProviders.length > 0;
                     if (shouldEnableAll) {
-                      // Enable all providers
+                      // Enable all - expire cache for previously disabled providers
+                      disabledProviders.forEach((url) =>
+                        setProviderLastUpdate(url, 0)
+                      );
                       setDisabledProviders([]);
                       saveDisabledProviders([]);
                       setProviders(allProviders);

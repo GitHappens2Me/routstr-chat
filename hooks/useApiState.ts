@@ -114,15 +114,11 @@ export const useApiState = (
             bases.add(n);
         }
       }
-      // Filter out disabled providers and staging providers on production
-      const disabledProviders = loadDisabledProviders();
+      // Filter out staging providers on production (disabled providers are filtered at fetch time)
       const isProduction =
         typeof window !== "undefined" &&
         window.location.hostname === "chat.routstr.com";
       const list = Array.from(bases).filter((base) => {
-        const normalized = base.endsWith("/") ? base : `${base}/`;
-        // Filter out disabled providers
-        if (disabledProviders.includes(normalized)) return false;
         // Filter out staging providers on production
         if (isProduction && base.includes("staging")) return false;
         return true;
