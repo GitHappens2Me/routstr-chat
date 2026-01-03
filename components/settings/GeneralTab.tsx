@@ -15,6 +15,8 @@ import { useObservableState } from "applesauce-react/hooks";
 import {
   loadAutoDeleteConversations,
   saveAutoDeleteConversations,
+  loadKeepAliveEnabled,
+  saveKeepAliveEnabled,
 } from "@/utils/storageUtils";
 
 interface GeneralTabProps {
@@ -51,9 +53,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   const activeApplesauceAccount = useObservableState(manager.active$);
   const { chatSyncEnabled, setChatSyncEnabled } = useChatSync();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
+  const [keepAliveEnabled, setKeepAliveEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     setAutoDeleteEnabled(loadAutoDeleteConversations());
+    setKeepAliveEnabled(loadKeepAliveEnabled());
   }, []);
 
   useEffect(() => {
@@ -107,6 +111,33 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
 
       {/* Theme Settings */}
       <ThemeSettings />
+
+      {/* Background Keep-Alive Settings */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-foreground/80 mb-2">
+          Background Mode
+        </h3>
+        <div className="bg-muted/50 border border-border rounded-md p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-foreground/70">Keep App Active</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Prevents app from sleeping when screen is off (may pause other
+                audio)
+              </div>
+            </div>
+            <Switch
+              checked={keepAliveEnabled}
+              onCheckedChange={(checked) => {
+                setKeepAliveEnabled(checked);
+                saveKeepAliveEnabled(checked);
+                // Reload to apply the change
+                window.location.reload();
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Chat Sync Settings */}
       <div className="mb-6">

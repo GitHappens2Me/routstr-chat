@@ -9,27 +9,68 @@ import { useEffect, useRef, useCallback, useState } from "react";
  * Uses an HTML audio element with Media Session API to:
  * 1. Keep the app active in background
  * 2. Show media controls on lock screen (like music apps)
+ *
+ * iOS Safari specific requirements:
+ * - Audio must be 5+ seconds for lock screen controls
+ * - audioSession.type must be "playback" (iOS 17+)
+ * - playbackState must be explicitly set
+ *
+ * @param enabled Whether the keep-alive feature is enabled (defaults to false)
  */
-export function useKeepAlive() {
+export function useKeepAlive(enabled: boolean = false) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
 
-  // Create a silent audio blob URL (1 second of silence as MP3)
+  // Create a silent audio blob URL (10 seconds of silence as WAV for better iOS compatibility)
   const createSilentAudioUrl = useCallback(() => {
-    // Minimal valid MP3 file with 1 second of silence (base64 encoded)
-    // This is a tiny (~1KB) silent MP3 that loops seamlessly
-    const silentMp3Base64 =
-      "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+1DEAAAHAAGf9AAAIgAANIAAAAQAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7UMQFg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
+    // Create a 10-second silent WAV file programmatically
+    // WAV format has better iOS Safari compatibility than MP3
+    const sampleRate = 8000; // Low sample rate to minimize size
+    const duration = 10; // 10 seconds (iOS needs 5+ for lock screen)
+    const numChannels = 1;
+    const bitsPerSample = 8;
+    const numSamples = sampleRate * duration;
+    const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+    const blockAlign = (numChannels * bitsPerSample) / 8;
+    const dataSize = numSamples * blockAlign;
+    const fileSize = 44 + dataSize;
 
-    const byteCharacters = atob(silentMp3Base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    const buffer = new ArrayBuffer(fileSize);
+    const view = new DataView(buffer);
+
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, "RIFF");
+    view.setUint32(4, fileSize - 8, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, 1, true); // AudioFormat (PCM)
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, "data");
+    view.setUint32(40, dataSize, true);
+
+    // Fill with silence (128 for 8-bit audio = silence)
+    for (let i = 44; i < fileSize; i++) {
+      view.setUint8(i, 128);
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: "audio/mpeg" });
-    return URL.createObjectURL(blob);
+
+    const blob = new Blob([buffer], { type: "audio/wav" });
+    const url = URL.createObjectURL(blob);
+    // Store for cleanup
+    blobUrlRef.current = url;
+    return url;
   }, []);
 
   // Setup Media Session metadata for lock screen
@@ -53,18 +94,37 @@ export function useKeepAlive() {
         ],
       });
 
+      // Set playback state explicitly (required for iOS)
+      navigator.mediaSession.playbackState = "playing";
+
       // Handle media session actions
       navigator.mediaSession.setActionHandler("play", () => {
         audioRef.current?.play();
+        navigator.mediaSession.playbackState = "playing";
       });
       navigator.mediaSession.setActionHandler("pause", () => {
         audioRef.current?.pause();
+        navigator.mediaSession.playbackState = "paused";
       });
       // Disable skip actions
       navigator.mediaSession.setActionHandler("seekbackward", null);
       navigator.mediaSession.setActionHandler("seekforward", null);
       navigator.mediaSession.setActionHandler("previoustrack", null);
       navigator.mediaSession.setActionHandler("nexttrack", null);
+    }
+  }, []);
+
+  // Set audio session type for iOS 17+ (allows playback with ringer off)
+  const setupAudioSession = useCallback(() => {
+    const nav = navigator as Navigator & {
+      audioSession?: { type: string };
+    };
+    if (nav.audioSession) {
+      try {
+        nav.audioSession.type = "playback";
+      } catch (e) {
+        console.warn("[useKeepAlive] Failed to set audioSession type:", e);
+      }
     }
   }, []);
 
@@ -75,12 +135,18 @@ export function useKeepAlive() {
     }
 
     try {
+      // Setup audio session first (iOS 17+)
+      setupAudioSession();
+
       if (!audioRef.current) {
         const audio = new Audio();
         audio.src = createSilentAudioUrl();
         audio.loop = true;
-        // Set very low volume as fallback (in case silence isn't perfect)
+        // Volume must be > 0 for iOS to show lock screen controls
+        // 0.01 is barely audible
         audio.volume = 0.01;
+        // Prevent audio from being muted (iOS requirement)
+        audio.muted = false;
         audioRef.current = audio;
       }
 
@@ -89,7 +155,6 @@ export function useKeepAlive() {
         .then(() => {
           setupMediaSession();
           setIsActive(true);
-          console.log("[useKeepAlive] Started with lock screen controls");
         })
         .catch((error) => {
           console.warn("[useKeepAlive] Failed to start audio:", error);
@@ -99,7 +164,7 @@ export function useKeepAlive() {
       console.warn("[useKeepAlive] Failed to initialize audio:", error);
       setIsSupported(false);
     }
-  }, [createSilentAudioUrl, setupMediaSession]);
+  }, [createSilentAudioUrl, setupMediaSession, setupAudioSession]);
 
   // Stop silent audio playback
   const stop = useCallback(() => {
@@ -113,17 +178,30 @@ export function useKeepAlive() {
       // Clear media session
       if ("mediaSession" in navigator) {
         navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = "none";
+      }
+
+      // Revoke blob URL to prevent memory leak
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
 
       setIsActive(false);
-      console.log("[useKeepAlive] Stopped");
     } catch (error) {
       console.warn("[useKeepAlive] Failed to stop audio:", error);
     }
   }, []);
 
   // Auto-start on first user interaction (required by mobile browsers)
+  // Only if enabled is true
   useEffect(() => {
+    if (!enabled) {
+      // If disabled, ensure audio is stopped
+      stop();
+      return;
+    }
+
     const handleInteraction = () => {
       start();
       // Remove listeners after first interaction
@@ -141,13 +219,18 @@ export function useKeepAlive() {
       document.removeEventListener("touchstart", handleInteraction);
       document.removeEventListener("keydown", handleInteraction);
     };
-  }, [start]);
+  }, [enabled, start, stop]);
 
   // Handle visibility changes - resume audio when app becomes visible
   useEffect(() => {
+    if (!enabled) return;
+
     const handleVisibilityChange = () => {
       if (!document.hidden && audioRef.current?.paused && isActive) {
         audioRef.current.play().catch(() => {});
+        if ("mediaSession" in navigator) {
+          navigator.mediaSession.playbackState = "playing";
+        }
       }
     };
 
@@ -156,7 +239,7 @@ export function useKeepAlive() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isActive]);
+  }, [enabled, isActive]);
 
   // Cleanup on unmount
   useEffect(() => {

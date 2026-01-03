@@ -506,6 +506,7 @@ export const STORAGE_KEYS = {
   INFO_FROM_ALL_PROVIDERS: "info_from_all_providers",
   LAST_MODELS_UPDATE: "lastModelsUpdate",
   AUTO_DELETE_CONVERSATIONS: "auto_delete_conversations",
+  KEEP_ALIVE_ENABLED: "keep_alive_enabled",
 } as const;
 
 /**
@@ -522,6 +523,22 @@ export const loadAutoDeleteConversations = (): boolean => {
  */
 export const saveAutoDeleteConversations = (enabled: boolean): void => {
   setStorageItem(STORAGE_KEYS.AUTO_DELETE_CONVERSATIONS, enabled);
+};
+
+/**
+ * Load keep-alive (background audio) preference from localStorage
+ * @returns True if keep-alive is enabled, defaults to false
+ */
+export const loadKeepAliveEnabled = (): boolean => {
+  return getStorageItem<boolean>(STORAGE_KEYS.KEEP_ALIVE_ENABLED, false);
+};
+
+/**
+ * Save keep-alive (background audio) preference to localStorage
+ * @param enabled Whether keep-alive is enabled
+ */
+export const saveKeepAliveEnabled = (enabled: boolean): void => {
+  setStorageItem(STORAGE_KEYS.KEEP_ALIVE_ENABLED, enabled);
 };
 
 /**
