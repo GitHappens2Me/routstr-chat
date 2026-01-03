@@ -16,7 +16,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCashuWallet } from "@/features/wallet";
 import { hasSeenTopUpPrompt, markTopUpPromptSeen } from "@/utils/storageUtils";
 import { useAutoRefill } from "@/hooks/useAutoRefill";
-import { KeepAliveProvider } from "@/components/pwa/KeepAliveProvider";
+import {
+  KeepAliveProvider,
+  useKeepAliveContext,
+} from "@/components/pwa/KeepAliveProvider";
 
 function ChatPageContent() {
   const router = useRouter();
@@ -56,7 +59,27 @@ function ChatPageContent() {
     loadConversation,
     activeConversationId,
     conversationsLoaded,
+
+    // Streaming State
+    isLoading: isStreaming,
   } = useChat();
+
+  // Keep-alive: sync with streaming state
+  const {
+    startKeepAlive,
+    stopKeepAlive,
+    isEnabled: keepAliveEnabled,
+  } = useKeepAliveContext();
+
+  useEffect(() => {
+    if (!keepAliveEnabled) return;
+
+    if (isStreaming) {
+      startKeepAlive();
+    } else {
+      stopKeepAlive();
+    }
+  }, [isStreaming, keepAliveEnabled, startKeepAlive, stopKeepAlive]);
 
   const [isTopUpPromptOpen, setIsTopUpPromptOpen] = useState(false);
   const [topUpPromptDismissed, setTopUpPromptDismissed] = useState(false);

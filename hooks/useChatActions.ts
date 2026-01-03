@@ -88,6 +88,10 @@ export interface UseChatActionsParams {
     conversationId: string,
     satsSpent: number
   ) => void;
+  /** Called when inference/streaming starts (for keep-alive) */
+  onInferenceStart?: () => void;
+  /** Called when inference/streaming ends (for keep-alive) */
+  onInferenceEnd?: () => void;
 }
 
 /**
@@ -99,6 +103,8 @@ export const useChatActions = ({
   createAndStoreChatEvent,
   getLastNonSystemMessageEventId,
   updateLastMessageSatsSpent,
+  onInferenceStart,
+  onInferenceEnd,
 }: UseChatActionsParams): UseChatActionsReturn => {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -342,6 +348,9 @@ export const useChatActions = ({
       setThinkingContent("");
       setStreamingConversationId(originConversationId ?? null);
       streamingConversationIdRef.current = originConversationId ?? null;
+
+      // Start keep-alive for background processing
+      onInferenceStart?.();
       if (originConversationId) {
         setStreamingContentByConversation((prev) => ({
           ...prev,
@@ -436,6 +445,9 @@ export const useChatActions = ({
         setThinkingContent("");
         setStreamingConversationId(null);
         streamingConversationIdRef.current = null;
+
+        // Stop keep-alive when inference ends
+        onInferenceEnd?.();
         if (originConversationId) {
           setStreamingContentByConversation((prev) => ({
             ...prev,
