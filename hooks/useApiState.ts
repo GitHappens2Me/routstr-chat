@@ -194,9 +194,9 @@ export const useApiState = (
         try {
           // Check if we need to fetch or can use cached data
           const lastUpdate = getProviderLastUpdate(base);
-          const ONE_HOUR = 21 * 60 * 1000; // 21 mins in milliseconds
+          const TWENTY_ONE = 21 * 60 * 1000; // 21 mins in milliseconds
           const cacheExpired =
-            !lastUpdate || Date.now() - lastUpdate > ONE_HOUR;
+            !lastUpdate || Date.now() - lastUpdate > TWENTY_ONE;
 
           // Load from storage first
           const cachedModels = getStorageItem<Record<string, Model[]>>(
@@ -215,6 +215,7 @@ export const useApiState = (
             // Fetch fresh data from provider
             const res = await fetch(`${base}v1/models`);
             if (!res.ok) {
+              modelsFromAllProviders[base] = [];
               setProviderLastUpdate(base, Date.now());
               throw new Error(`Failed ${res.status}`);
             }
