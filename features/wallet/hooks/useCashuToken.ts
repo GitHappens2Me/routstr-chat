@@ -508,6 +508,7 @@ export function useCashuToken() {
           unit: preferredUnit,
           keysets: keysets,
           mintInfo: mintDetails?.mintInfo,
+          keys: Object.values(mintDetails?.keys || {}).flatMap(record => Object.values(record)),
         });
 
         try {

@@ -37,12 +37,6 @@ export class MintService {
           })
         )
       ).flat();
-      console.log("ECASH MINT", mintKeys, mintKeysets);
-      // const singleWallet = new Wallet(mint, {
-      //   keysets: mintKeysets,
-      //   keys: mintKeys,
-      // });
-      // await singleWallet.loadMint();
 
       // Create wallets for all unique units
       const wallets = await Promise.all(

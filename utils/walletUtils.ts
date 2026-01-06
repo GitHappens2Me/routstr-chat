@@ -142,8 +142,13 @@ export function getWalletMintData<
   ) => { balances: Record<string, number>; units: Record<string, string> }
 ): WalletMintData {
   // Get available mints from wallet.mints (same as SixtyWallet.tsx line 920)
-
-  const availableMints = cashuStore.mints.map((m) => m.url);
+  let availableMints: string[];
+  if (wallet?.mints && wallet.mints.length > 0) {
+    availableMints = wallet.mints;
+  } else {
+    // Fallback to cashuStore.mints if wallet is not loaded yet
+    availableMints = cashuStore.mints.map((m) => m.url);
+  }
 
   // Compute mintBalances and mintUnits (same as SixtyWallet.tsx lines 366-369)
   const { balances: mintBalances, units: mintUnits } = cashuStore.proofs

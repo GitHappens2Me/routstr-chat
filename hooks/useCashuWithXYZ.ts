@@ -121,7 +121,6 @@ export function useCashuWithXYZ() {
               maxBalance = Math.max(maxBalance, balance);
             }
           }
-          console.log("BALANCE", mintBalances, mintUnits);
           const balanceBeingSet = Math.round(totalBalance * 100) / 100;
           setBalance(balanceBeingSet);
           setMaxBalance(maxBalance);
@@ -382,11 +381,9 @@ export function useCashuWithXYZ() {
     if (retryCount > 0) {
       // If retrying, get the latest proofs from the store
       const proofs = await cashuStore.getAllProofs();
-      latestMintBalances = calculateBalanceByMint(
-        proofs,
-        cashuStore.mints
-      ).balances;
-      latestMintUnits = calculateBalanceByMint(proofs, cashuStore.mints).units;
+      const result = calculateBalanceByMint(proofs, cashuStore.mints);
+      latestMintBalances = result.balances;
+      latestMintUnits = result.units;
     }
 
     for (const mintUrl in latestMintBalances) {
@@ -411,11 +408,9 @@ export function useCashuWithXYZ() {
     if (totalBalance === 0) {
       const proofs = await cashuStore.getAllProofs();
       console.log(proofs);
-      latestMintBalances = calculateBalanceByMint(
-        proofs,
-        cashuStore.mints
-      ).balances;
-      latestMintUnits = calculateBalanceByMint(proofs, cashuStore.mints).units;
+      const result = calculateBalanceByMint(proofs, cashuStore.mints);
+      latestMintBalances = result.balances;
+      latestMintUnits = result.units;
       console.log("Lat", latestMintBalances);
 
       nip60Balance = 0;
