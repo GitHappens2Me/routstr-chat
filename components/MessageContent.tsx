@@ -211,7 +211,7 @@ export default function MessageContentRenderer({
           start_index: 0,
           end_index: 0,
           url: url,
-          title: null,
+          title: "",
         });
       }
     }
