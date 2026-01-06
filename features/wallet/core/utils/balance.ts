@@ -31,8 +31,6 @@ export function calculateBalanceByMint(
       // Select all proofs with id == keyset.id or keyset._id
       const keysetId = keyset.id ?? (keyset as any)._id;
       const proofsForKeyset = proofs.filter((proof) => proof.id === keysetId);
-      if (keysetId === "00500550f0494146")
-        console.log("INACTIVE", proofsForKeyset);
       if (proofsForKeyset.length) {
         balances[mint.url] += proofsForKeyset.reduce(
           (acc, proof) => acc + proof.amount,

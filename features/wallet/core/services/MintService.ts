@@ -26,6 +26,8 @@ export class MintService {
       const mint = new CashuMint(normalizedUrl);
       const keysets = await mint.getKeySets();
       const mintKeysets = keysets.keysets;
+      const activeKeysets = keysets.keysets.filter((k) => k.active);
+      const units = [...new Set(activeKeysets.map((k) => k.unit))];
 
       const mintKeys = (
         await Promise.all(
@@ -35,17 +37,32 @@ export class MintService {
           })
         )
       ).flat();
-      const singleWallet = new Wallet(mint, {
-        keysets: mintKeysets,
-        keys: mintKeys,
-      });
-      await singleWallet.loadMint();
+      console.log("ECASH MINT", mintKeys, mintKeysets);
+      // const singleWallet = new Wallet(mint, {
+      //   keysets: mintKeysets,
+      //   keys: mintKeys,
+      // });
+      // await singleWallet.loadMint();
+
+      // Create wallets for all unique units
+      const wallets = await Promise.all(
+        units.map(async (unit) => {
+          const wallet = new Wallet(mint, {
+            unit: unit,
+            keysets: mintKeysets,
+            keys: mintKeys,
+          });
+
+          await wallet.loadMint();
+          return { unit, wallet };
+        })
+      );
 
       // Get mint info from the first wallet
-      const mintInfo = singleWallet.getMintInfo();
+      const mintInfo = wallets[0].wallet.getMintInfo();
 
       // Collect all keysets from all wallets
-      const allKeysets = singleWallet.keyChain.getKeysets();
+      const allKeysets = wallets.flatMap((w) => w.wallet.keyChain.getKeysets());
 
       // Some mints or clients may return malformed keyset ids. Filter to valid hex ids to avoid downstream fromHex errors.
       const isValidHexId = (id: string) =>
@@ -57,7 +74,10 @@ export class MintService {
       // Use wallets to fetch keys for each keyset
       const keys = await Promise.all(
         filteredKeysets.map(async (keyset) => {
-          const walletToUse = singleWallet;
+          const walletEntry = wallets.find(
+            ({ wallet }) => wallet.keyChain.getKeyset().id === keyset.id
+          );
+          const walletToUse = walletEntry?.wallet || wallets[0].wallet;
           const keysetVar = walletToUse.keyChain.getKeyset(keyset.id);
           const matchedMintKey = mintKeys.find((mk) => mk.id === keyset.id);
           if (matchedMintKey) {

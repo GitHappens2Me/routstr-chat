@@ -121,6 +121,7 @@ export function useCashuWithXYZ() {
               maxBalance = Math.max(maxBalance, balance);
             }
           }
+          console.log("BALANCE", mintBalances, mintUnits);
           const balanceBeingSet = Math.round(totalBalance * 100) / 100;
           setBalance(balanceBeingSet);
           setMaxBalance(maxBalance);

@@ -2,7 +2,8 @@ import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { filter } from "rxjs";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
 import { Wallet as CashuWalletStruct } from "../core/domain/Wallet";
@@ -20,6 +21,15 @@ import { z } from "zod";
 import { useNutzaps } from "./useNutzaps";
 import { hexToBytes } from "@noble/hashes/utils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import {
+  cashuUserPubkey$,
+  syncCashuWallet$,
+  syncCashuTokens$,
+  walletEose$,
+  tokensEose$,
+  getCashuWalletEvents,
+  getCashuTokenEvents,
+} from "./cashuSync";
 
 /**
  * Type for storing deleted events with timestamp
@@ -77,6 +87,19 @@ export function useCashuWallet() {
     []
   );
 
+  // Activate cashu sync when user changes
+  useEffect(() => {
+    if (user?.pubkey) {
+      cashuUserPubkey$.next(user.pubkey);
+      const sub1 = syncCashuWallet$.subscribe();
+      const sub2 = syncCashuTokens$.subscribe();
+      return () => {
+        sub1.unsubscribe();
+        sub2.unsubscribe();
+      };
+    }
+  }, [user?.pubkey]);
+
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery<
     { id: string; wallet: CashuWalletStruct; createdAt: number } | null,
@@ -85,36 +108,35 @@ export function useCashuWallet() {
     any[]
   >({
     queryKey: ["cashu", "wallet", user?.pubkey],
-    queryFn: async ({ signal }) => {
+    queryFn: async () => {
       if (!user) {
         return null;
       }
       try {
-        // Add timeout to prevent hanging queries
-        const queryPromise = nostr.query(
-          [
-            {
-              kinds: [CASHU_EVENT_KINDS.WALLET],
-              authors: [user.pubkey],
-              limit: 1,
-            },
-          ],
-          { signal }
-        );
+        // Wait for EOSE from applesauce sync or timeout
+        const waitForEose = () =>
+          new Promise<void>((resolve) => {
+            if (walletEose$.getValue()) return resolve();
+            const sub = walletEose$.pipe(filter(Boolean)).subscribe(() => {
+              sub.unsubscribe();
+              resolve();
+            });
+            setTimeout(() => {
+              sub.unsubscribe();
+              resolve();
+            }, 10000);
+          });
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error("Query timeout")), 10000);
-        });
+        await waitForEose();
 
-        const events = await Promise.race([queryPromise, timeoutPromise]);
+        // Get events from eventStore (populated by cashuSync)
+        const events = getCashuWalletEvents(user.pubkey);
         console.log(
-          "rdlogs: Wallet Event Found: ",
-          events,
-          queryPromise,
-          nostr.relays
+          "rdlogs: Wallet Event Found from eventStore:",
+          events.length
         );
 
-        if ((events as any[]).length === 0) {
+        if (events.length === 0) {
           // No events found, but query completed successfully: clear timeout indicators
           try {
             localStorage.setItem("cashu_relays_timeout", "false");
@@ -130,7 +152,8 @@ export function useCashuWallet() {
         setShowQueryTimeoutModal(false);
         setDidRelaysTimeout(false);
 
-        const event = (events as any[])[0];
+        // Sort by created_at descending to get latest (replaceable event)
+        const event = events.sort((a, b) => b.created_at - a.created_at)[0];
 
         // Decrypt wallet content
         if (!user.signer.nip44) {
@@ -194,57 +217,7 @@ export function useCashuWallet() {
           createdAt: event.created_at,
         };
       } catch (error) {
-        if (error instanceof Error && error.message === "Query timeout") {
-          setShowQueryTimeoutModal(true);
-          // Log failed/disconnected relays
-          const relayEntries = nostr.relays
-            ? Array.from(nostr.relays.entries())
-            : [];
-          const failedRelays = relayEntries.filter(
-            ([url, relay]: [string, any]) => {
-              const readyState = relay.socket?._underlyingWebsocket?.readyState;
-              return readyState !== 1; // 1 = connected, 3 = closed/failed
-            }
-          );
-          console.log("rdlogs: wallet query timed out", {
-            totalRelays: nostr.relays?.size || 0,
-            failedRelays: failedRelays.map(([url, relay]: [string, any]) => {
-              const readyState = relay.socket?._underlyingWebsocket?.readyState;
-              const getReadyStateText = (state: number) => {
-                switch (state) {
-                  case 0:
-                    return "CONNECTING";
-                  case 1:
-                    return "OPEN";
-                  case 2:
-                    return "CLOSING";
-                  case 3:
-                    return "CLOSED";
-                  default:
-                    return "UNKNOWN";
-                }
-              };
-              return {
-                url: url,
-                readyState: readyState,
-                readyStateText: getReadyStateText(readyState),
-                closedByUser: relay.closedByUser,
-                lastConnection: relay.socket?._lastConnection,
-              };
-            }),
-            workingRelays: relayEntries
-              .filter(([url, relay]: [string, any]) => {
-                return relay.socket?._underlyingWebsocket?.readyState === 1;
-              })
-              .map(([url]) => url),
-          });
-
-          setDidRelaysTimeout(true);
-          // Store timeout status in localStorage for persistence across hook instances
-          localStorage.setItem("cashu_relays_timeout", "true");
-        } else {
-          console.error("walletQuery: Error in queryFn", error);
-        }
+        console.error("walletQuery: Error in queryFn", error);
         return null;
       }
     },
@@ -326,40 +299,31 @@ export function useCashuWallet() {
     any[]
   >({
     queryKey: ["cashu", "tokens", user?.pubkey],
-    queryFn: async ({ signal }) => {
+    queryFn: async () => {
       if (!user) {
         return [];
       }
       try {
-        // Get the last stored timestamp for the TOKEN event kind
-        // const lastTimestamp = getLastEventTimestamp(user.pubkey, CASHU_EVENT_KINDS.TOKEN);
-        let lastTimestamp; // Commneted out because if a different client changes balance there seems to be problems with it loading. Now every reload is like loading with a new login.
+        // Wait for EOSE from applesauce sync or timeout
+        const waitForEose = () =>
+          new Promise<void>((resolve) => {
+            if (tokensEose$.getValue()) return resolve();
+            const sub = tokensEose$.pipe(filter(Boolean)).subscribe(() => {
+              sub.unsubscribe();
+              resolve();
+            });
+            setTimeout(() => {
+              sub.unsubscribe();
+              resolve();
+            }, 15000);
+          });
 
-        // Create the filter with 'since' if a timestamp exists
-        const filter = {
-          kinds: [CASHU_EVENT_KINDS.TOKEN],
-          authors: [user.pubkey],
-          limit: 100,
-        };
+        await waitForEose();
 
-        // Add the 'since' property if we have a previous timestamp
-        if (lastTimestamp) {
-          Object.assign(filter, { since: lastTimestamp + 1 });
-        }
+        // Get events from eventStore (populated by cashuSync)
+        const events = getCashuTokenEvents(user.pubkey);
 
-        // Add timeout to prevent hanging queries
-        const queryPromise = nostr.query([filter], { signal });
-
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
-            () => reject(new Error("Cashu events query timeout")),
-            15000
-          );
-        });
-
-        const events = await Promise.race([queryPromise, timeoutPromise]);
-
-        if ((events as any[]).length === 0) {
+        if (events.length === 0) {
           // No events found, but query completed successfully: clear timeout indicators
           try {
             localStorage.setItem("cashu_relays_timeout", "false");
@@ -426,7 +390,6 @@ export function useCashuWallet() {
             console.error("Failed to decrypt token data:", error);
           }
         }
-        console.log("ALL EVENRTS", nip60TokenEvents);
         const mintService = new MintService();
         await initiateMints(Array.from(uniqueMints), mintService, cashuStore);
 
@@ -460,28 +423,15 @@ export function useCashuWallet() {
         const filteredEvents = nip60TokenEvents.filter(
           (event) => !deletedEventIds.has(event.id)
         );
-        console.log("FILTER S ASJFKOSDGFMEVENTS", filteredEvents);
 
         // Add proofs to store only for non-deleted events
         filteredEvents.forEach((event) => {
           cashuStore.addProofs(event.token.proofs, event.id);
         });
 
-        // console.log('rdlogs ', deletedEventIds);
-
-        // console.log('rdlogs events: \n' + filteredEvents.map(event =>
-        //   `eventId: ${event.id}\nproofsCount: ${event.token.proofs.length}\ncreatedAt: ${event.createdAt}`
-        // ).join('\n\n'));
-
         return filteredEvents;
       } catch (error) {
         console.error("getNip60TokensQuery: Error in queryFn", error);
-        if (error instanceof Error && error.message === "Query timeout") {
-          setShowQueryTimeoutModal(true);
-          setDidRelaysTimeout(true);
-          // Store timeout status in localStorage for persistence across hook instances
-          localStorage.setItem("cashu_relays_timeout", "true");
-        }
         return [];
       }
     },
