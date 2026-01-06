@@ -21,6 +21,7 @@ import { z } from "zod";
 import { useNutzaps } from "./useNutzaps";
 import { hexToBytes } from "@noble/hashes/utils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { eventDatabase } from "@/lib/applesauce-core";
 import {
   cashuUserPubkey$,
   syncCashuWallet$,
@@ -524,6 +525,11 @@ export function useCashuWallet() {
 
       // delete nostr events
       if (eventIdsToRemove.length) {
+        // remove events from local eventStore/eventDatabase
+        eventIdsToRemove.forEach((id) => {
+          eventDatabase.remove(id);
+        });
+
         // create deletion event
         const deletionEvent = await user.signer.signEvent({
           kind: 5,
