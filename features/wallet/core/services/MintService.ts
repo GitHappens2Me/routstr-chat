@@ -53,7 +53,7 @@ export class MintService {
       );
 
       // Get mint info from the first wallet
-      const mintInfo = wallets[0].wallet.getMintInfo();
+      const mintInfo = singleWallet.getMintInfo();
 
       // Collect all keysets from all wallets
       const allKeysets = wallets.flatMap((w) => w.wallet.keyChain.getKeysets());
@@ -80,6 +80,7 @@ export class MintService {
           return { [keyset.id]: keysetVar };
         })
       );
+      console.log("Filtered Keysets", filteredKeysets, keys);
 
       return { mintInfo, keysets: filteredKeysets, keys: keys };
     } catch (error) {

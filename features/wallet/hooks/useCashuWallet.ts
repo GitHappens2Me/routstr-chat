@@ -424,6 +424,7 @@ export function useCashuWallet() {
         const filteredEvents = nip60TokenEvents.filter(
           (event) => !deletedEventIds.has(event.id)
         );
+        console.log("FILTER S ASJFKOSDGFMEVENTS", filteredEvents);
 
         // Add proofs to store only for non-deleted events
         filteredEvents.forEach((event) => {
