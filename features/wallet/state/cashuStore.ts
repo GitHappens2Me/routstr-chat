@@ -19,7 +19,7 @@ export interface Nip60TokenEvent {
   createdAt: number;
 }
 
-interface CashuStore {
+export interface CashuStore {
   mints: {
     url: string;
     mintInfo?: GetInfoResponse;

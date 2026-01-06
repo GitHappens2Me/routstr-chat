@@ -9,7 +9,11 @@ import { Wallet as CashuWalletStruct } from "../core/domain/Wallet";
 import { CashuToken } from "../core/domain/Token";
 import { MintService, defaultMints } from "../core/services/MintService";
 import { NostrEvent, getPublicKey } from "nostr-tools";
-import { useCashuStore, Nip60TokenEvent } from "../state/cashuStore";
+import {
+  useCashuStore,
+  Nip60TokenEvent,
+  type CashuStore,
+} from "../state/cashuStore";
 import { Proof } from "@cashu/cashu-ts";
 import { NSchema as n } from "@nostrify/nostrify";
 import { z } from "zod";
@@ -23,6 +27,38 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 export interface DeletedEvents {
   eventId: string;
   timestamp: number;
+}
+
+/**
+ * Initialize mints by fetching mint info and keysets
+ */
+async function initiateMints(
+  mints: string[],
+  mintService: MintService,
+  cashuStore: CashuStore
+) {
+  await Promise.all(
+    mints.map(async (mint) => {
+      try {
+        const lastUpdate = cashuStore.getLastUpdate(mint);
+        if (lastUpdate && lastUpdate > Date.now() - 60 * 60 * 1000) {
+          console.log("mint already activated", mint);
+          return;
+        } else {
+          const { mintInfo, keysets, keys } =
+            await mintService.activateMint(mint);
+          cashuStore.addMint(mint);
+          cashuStore.setMintInfo(mint, mintInfo);
+          cashuStore.setKeysets(mint, keysets);
+          cashuStore.setKeys(mint, keys);
+          cashuStore.setLastUpdate(mint, Date.now());
+        }
+      } catch (error) {
+        console.error(`Failed to activate or update mint ${mint}:`, error);
+        // Skip this mint and continue with others
+      }
+    })
+  );
 }
 
 /**
@@ -133,31 +169,7 @@ export function useCashuWallet() {
 
         // fetch the mint info and keysets for each mint
         const mintService = new MintService();
-        await Promise.all(
-          walletData.mints.map(async (mint) => {
-            try {
-              const lastUpdate = cashuStore.getLastUpdate(mint);
-              if (lastUpdate && lastUpdate > Date.now() - 60 * 60 * 1000) {
-                console.log("mint already activated", mint);
-                return;
-              } else {
-                const { mintInfo, keysets, keys } =
-                  await mintService.activateMint(mint);
-                cashuStore.addMint(mint);
-                cashuStore.setMintInfo(mint, mintInfo);
-                cashuStore.setKeysets(mint, keysets);
-                cashuStore.setKeys(mint, keys);
-                cashuStore.setLastUpdate(mint, Date.now());
-              }
-            } catch (error) {
-              console.error(
-                `Failed to activate or update mint ${mint}:`,
-                error
-              );
-              // Skip this mint and continue with others
-            }
-          })
-        );
+        await initiateMints(walletData.mints, mintService, cashuStore);
 
         cashuStore.setPrivkey(walletData.privkey);
 
@@ -365,6 +377,7 @@ export function useCashuWallet() {
 
         const nip60TokenEvents: Nip60TokenEvent[] = [];
         const deletedEventsTemp = new Set<DeletedEvents>();
+        const uniqueMints = new Set<string>();
 
         // First pass: collect all deleted event IDs from del arrays
         for (const event of events) {
@@ -392,6 +405,8 @@ export function useCashuWallet() {
             }
             const tokenData = JSON.parse(decrypted) as CashuToken;
 
+            uniqueMints.add(tokenData.mint);
+
             // Collect deleted event IDs
             if (tokenData.del && Array.isArray(tokenData.del)) {
               tokenData.del.forEach((id) =>
@@ -411,6 +426,9 @@ export function useCashuWallet() {
             console.error("Failed to decrypt token data:", error);
           }
         }
+        console.log("ALL EVENRTS", nip60TokenEvents);
+        const mintService = new MintService();
+        await initiateMints(Array.from(uniqueMints), mintService, cashuStore);
 
         // Get existing deleted events from local storage
         const existingDeletedEvents = Array.isArray(deletedEvents)
@@ -442,6 +460,7 @@ export function useCashuWallet() {
         const filteredEvents = nip60TokenEvents.filter(
           (event) => !deletedEventIds.has(event.id)
         );
+        console.log("FILTER S ASJFKOSDGFMEVENTS", filteredEvents);
 
         // Add proofs to store only for non-deleted events
         filteredEvents.forEach((event) => {
