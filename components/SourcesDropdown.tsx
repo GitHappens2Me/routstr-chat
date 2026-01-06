@@ -34,12 +34,11 @@ export default function SourcesDropdown({
           <ChevronDown className="h-3.5 w-3.5" />
         )}
       </button>
-      
+
       {isExpanded && (
         <div className="mt-2 space-y-3 pl-4 border-l-2 border-border">
           {hasCitations && (
             <div>
-              <h4 className="text-sm font-semibold mb-2">Citations</h4>
               <ol className="space-y-2">
                 {citations.map((url, index) => (
                   <li key={index} className="flex items-start gap-2">
@@ -63,7 +62,6 @@ export default function SourcesDropdown({
 
           {hasAnnotations && (
             <div>
-              <h4 className="text-sm font-semibold mb-2">Annotations</h4>
               <ol className="space-y-2">
                 {annotations.map((annotation, index) => (
                   <li key={index} className="flex items-start gap-2">

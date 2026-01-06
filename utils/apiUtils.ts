@@ -1384,13 +1384,19 @@ async function handlePostResponseRefund(params: {
         : Math.ceil(estimatedCosts).toString();
     const actualDisplay =
       unit === "msat" ? satsSpent.toFixed(3) : satsSpent.toString();
-    logApiError(
-      "ATTENTION: Looks like this provider is overcharging you for your query. Estimated Costs: " +
-        estimatedDisplay +
-        ". Actual Costs: " +
-        actualDisplay,
-      onMessageAppend
-    );
+    const isDev = process.env.NODE_ENV === "development";
+    const isBeta =
+      typeof window !== "undefined" &&
+      window.location.origin === "https://beta.chat.routstr.com";
+    if (isBeta || isDev)
+      // Hiding these for now. We'll enable them again once its more stable.
+      logApiError(
+        "ATTENTION: Looks like this provider is overcharging you for your query. Estimated Costs: " +
+          estimatedDisplay +
+          ". Actual Costs: " +
+          actualDisplay,
+        onMessageAppend
+      );
   }
 
   const newTransaction: TransactionHistory = {

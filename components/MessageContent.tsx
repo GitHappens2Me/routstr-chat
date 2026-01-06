@@ -189,7 +189,9 @@ export default function MessageContentRenderer({
 
   // Collect all citations and annotations from items using concat to avoid argument limit issues
   let allCitations: string[] = citations ? citations.slice() : [];
-  let allAnnotations: import("@/types/chat").AnnotationData[] = annotations ? annotations.slice() : [];
+  let allAnnotations: import("@/types/chat").AnnotationData[] = annotations
+    ? annotations.slice()
+    : [];
   for (const item of textContent) {
     if (item.citations && item.citations.length > 0) {
       allCitations = allCitations.concat(item.citations);
@@ -197,13 +199,32 @@ export default function MessageContentRenderer({
     if (item.annotations && item.annotations.length > 0) {
       allAnnotations = allAnnotations.concat(item.annotations);
     }
+
+    // Extract markdown links from text and add them as annotations
+    if (item.text) {
+      const urlRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+      let match;
+      while ((match = urlRegex.exec(item.text)) !== null) {
+        const [_, text, url] = match;
+        allAnnotations.push({
+          type: "url_citation",
+          start_index: 0,
+          end_index: 0,
+          url: url,
+          title: null,
+        });
+      }
+    }
   }
-  
+
   // Deduplicate citations (simple string deduplication)
   allCitations = Array.from(new Set(allCitations));
-  
+
   // Deduplicate annotations based on unique combination of properties
-  const annotationMap = new Map<string, import("@/types/chat").AnnotationData>();
+  const annotationMap = new Map<
+    string,
+    import("@/types/chat").AnnotationData
+  >();
   for (const annotation of allAnnotations) {
     const key = `${annotation.start_index}-${annotation.end_index}-${annotation.url}-${annotation.title}`;
     if (!annotationMap.has(key)) {
