@@ -104,7 +104,7 @@ export default function ChatMessages({
   ): boolean => {
     const textContent = getTextFromContent(content);
     return (
-      textContent.trim().startsWith("ATTENTION") ||
+      // textContent.trim().startsWith("ATTENTION") || // Hiding these for now. We'll enable them again once its more stable.
       textContent.trim().startsWith("Uncaught Error") ||
       textContent.trim().startsWith("Unknown Error")
     );

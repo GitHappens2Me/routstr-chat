@@ -336,7 +336,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
       {/* Version Information */}
       <div className="mt-8 pt-4 border-t border-border">
         <div className="text-xs text-muted-foreground text-center">
-          Version 0.1.0
+          Version 0.2.1
         </div>
       </div>
     </>

@@ -259,6 +259,7 @@ export const useApiState = (
           // Update UI with current best models
           processedCount++;
           updateBestModels();
+          console.log("PROCESSESD ", base);
 
           return { success: true, base, list };
         } catch (error) {
@@ -395,7 +396,7 @@ export const useApiState = (
     // Async function to handle model selection
     const selectModel = async () => {
       // Only auto-select if no model is selected or current model is not available
-      if (!selectedModel && !isLoadingModels && !isWalletLoading) {
+      if (!selectedModel && !isWalletLoading) {
         const model = await modelSelectionStrategy(
           models,
           maxBalance,

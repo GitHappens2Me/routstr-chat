@@ -367,7 +367,7 @@ export const getRequiredSatsForModel = (
 export const isModelAvailable = (model: Model, balance: number) => {
   try {
     const required = getRequiredSatsForModel(model);
-    if (!required || required <= 0) return true;
+    if (!required || required <= 0) return false;
     return balance >= required;
   } catch (error) {
     console.log(model);

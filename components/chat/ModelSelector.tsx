@@ -44,7 +44,7 @@ interface ModelSelectorProps {
   setIsModelDrawerOpen: (isOpen: boolean) => void;
   isAuthenticated: boolean;
   setIsLoginModalOpen: (isOpen: boolean) => void;
-  isLoadingModels: boolean;
+  isWalletLoading: boolean;
   filteredModels: Model[];
   handleModelChange: (modelId: string, configuredKeyOverride?: string) => void;
   balance: number;
@@ -62,7 +62,7 @@ export default function ModelSelector({
   setIsModelDrawerOpen,
   isAuthenticated,
   setIsLoginModalOpen,
-  isLoadingModels,
+  isWalletLoading,
   filteredModels: dedupedModels,
   handleModelChange,
   balance,
@@ -98,8 +98,6 @@ export default function ModelSelector({
   // Drawer open/close animation state
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [isDrawerAnimating, setIsDrawerAnimating] = useState(false);
-
-  const { isWalletLoading } = useCashuWithXYZ();
 
   useEffect(() => {
     try {
@@ -537,6 +535,145 @@ export default function ModelSelector({
     </div>
   );
 
+  // Shared search bar component
+  const renderSearchBar = () => (
+    <div className="sticky top-0 p-2 bg-card backdrop-blur-sm border-b border-border">
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+        <input
+          ref={searchInputRef}
+          type="text"
+          placeholder="Search models..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          className="w-full bg-muted/50 border border-border rounded-md py-1 pl-8 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-2">
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="flex items-center text-muted-foreground hover:text-foreground"
+              title="Clear"
+              type="button"
+            >
+              <span className="text-xs">×</span>
+            </button>
+          )}
+          {openModelsConfig && (
+            <button
+              onClick={() => openModelsConfig()}
+              className="text-muted-foreground hover:text-foreground"
+              title="Configure models"
+              type="button"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+      {renderQuickFilters()}
+    </div>
+  );
+
+  // Shared loading state component
+  const renderLoadingState = () => (
+    <div className="flex justify-center items-center py-4">
+      <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+    </div>
+  );
+
+  // Shared model list sections
+  const renderModelListSections = () => (
+    <div className="overflow-y-auto max-h-[60vh] pb-3">
+      {/* Current Model Section */}
+      {selectedModel && (
+        <div className="p-1">
+          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+            Current
+          </div>
+          <div className="space-y-1">
+            {renderModelItem(
+              selectedModel,
+              isConfiguredModel(selectedModel.id),
+              currentProviderLabel,
+              currentConfiguredKey
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Favorite Models Section */}
+      {favoriteEntries.length > 0 && (
+        <div className="p-1">
+          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+            Favorites
+          </div>
+          <div className="space-y-1">
+            {favoriteEntries.map((entry) =>
+              renderModelItem(entry.model, true, entry.providerLabel, entry.key)
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Separator */}
+      {(!!selectedModel || favoriteEntries.length > 0) &&
+        remainingModelsList.length > 0 && (
+          <div className="border-t border-border my-1" />
+        )}
+
+      {/* Recommended Models Section */}
+      <div className="p-1">
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          Recommended Models
+        </div>
+        {recommendedModelsList.length > 0 ? (
+          <div className="space-y-1">
+            {recommendedModelsList.map((model) =>
+              renderModelItem(model, false)
+            )}
+          </div>
+        ) : (
+          <div className="p-2 text-sm text-muted-foreground text-center">
+            No models found
+          </div>
+        )}
+      </div>
+
+      {/* Separator */}
+      {(!!selectedModel || favoriteEntries.length > 0) &&
+        remainingModelsList.length > 0 && (
+          <div className="border-t border-border my-1" />
+        )}
+
+      {/* All Models Section */}
+      <div className="p-1">
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          All Models{" "}
+          {uniqueModelCount > 0 && uniqueProviderCount > 0 && (
+            <span className="text-muted-foreground/70">
+              ({uniqueModelCount} models from {uniqueProviderCount} providers)
+            </span>
+          )}
+        </div>
+        {remainingModelsList.length > 0 ? (
+          <div className="space-y-1">
+            {remainingModelsList
+              .filter((m) => m.id !== selectedModel?.id)
+              .map((model) => renderModelItem(model, false))}
+          </div>
+        ) : (
+          <div className="p-2 text-sm text-muted-foreground text-center">
+            No models found
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // Render a model item
   const renderModelItem = (
     model: Model,
@@ -697,6 +834,8 @@ export default function ModelSelector({
       ? providerModels[model.id]
       : undefined;
     const effectiveModel = providerSpecificModel || model;
+    const providerLabel = formatProviderLabel(baseForDetails, effectiveModel);
+
     // Date formatter for created timestamp (epoch seconds)
     const formatDate = (epochSeconds?: number): string => {
       try {
@@ -744,8 +883,16 @@ export default function ModelSelector({
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-xs text-muted-foreground">
-              {getProviderFromModelName(effectiveModel.name)}
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <span>{getProviderFromModelName(effectiveModel.name)}</span>
+              {providerLabel &&
+                providerLabel !==
+                  getProviderFromModelName(effectiveModel.name) && (
+                  <>
+                    <span className="text-muted-foreground/50">•</span>
+                    <span>{providerLabel}</span>
+                  </>
+                )}
             </div>
             <div className="text-base font-semibold truncate text-foreground">
               {getModelNameWithoutProvider(effectiveModel.name)}
@@ -894,7 +1041,9 @@ export default function ModelSelector({
           <span className="font-medium truncate whitespace-nowrap">
             {selectedModel
               ? getModelNameWithoutProvider(selectedModel.name)
-              : "Select Model"}
+              : isWalletLoading
+                ? "Loading"
+                : "Select Model"}
           </span>
           {lowBalanceWarningForModel && !isWalletLoading && (
             <span className="text-red-600 dark:text-red-400 text-[10px] font-medium whitespace-nowrap">
@@ -934,144 +1083,10 @@ export default function ModelSelector({
           >
             {activeView === "list" ? (
               <div>
-                {/* Search bar */}
-                <div className="sticky top-0 p-2 bg-card backdrop-blur-sm border-b border-border">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                      <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      placeholder="Search models..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      className="w-full bg-muted/50 border border-border rounded-md py-1 pl-8 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-2">
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          className="flex items-center text-muted-foreground hover:text-foreground"
-                          title="Clear"
-                          type="button"
-                        >
-                          <span className="text-xs">×</span>
-                        </button>
-                      )}
-                      {openModelsConfig && (
-                        <button
-                          onClick={() => openModelsConfig()}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Configure models"
-                          type="button"
-                        >
-                          <Settings className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {renderQuickFilters()}
-                </div>
-
-                {isLoadingModels ? (
-                  <div className="flex justify-center items-center py-4">
-                    <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                  </div>
-                ) : (
-                  <div className="overflow-y-auto max-h-[60vh] pb-3">
-                    {/* Current Model Section */}
-                    {selectedModel && (
-                      <div className="p-1">
-                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          Current
-                        </div>
-                        <div className="space-y-1">
-                          {renderModelItem(
-                            selectedModel,
-                            isConfiguredModel(selectedModel.id),
-                            currentProviderLabel,
-                            currentConfiguredKey
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Favorite Models Section */}
-                    {favoriteEntries.length > 0 && (
-                      <div className="p-1">
-                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          Favorites
-                        </div>
-                        <div className="space-y-1">
-                          {favoriteEntries.map((entry) =>
-                            renderModelItem(
-                              entry.model,
-                              true,
-                              entry.providerLabel,
-                              entry.key
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Separator */}
-                    {(!!selectedModel || favoriteEntries.length > 0) &&
-                      remainingModelsList.length > 0 && (
-                        <div className="border-t border-border my-1" />
-                      )}
-
-                    {/* Recommended Models Section */}
-                    <div className="p-1">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                        Recommended Models
-                      </div>
-                      {recommendedModelsList.length > 0 ? (
-                        <div className="space-y-1">
-                          {recommendedModelsList.map((model) =>
-                            renderModelItem(model, false)
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          No models found
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Separator */}
-                    {(!!selectedModel || favoriteEntries.length > 0) &&
-                      remainingModelsList.length > 0 && (
-                        <div className="border-t border-border my-1" />
-                      )}
-
-                    {/* All Models Section */}
-                    <div className="p-1">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                        All Models{" "}
-                        {uniqueModelCount > 0 && uniqueProviderCount > 0 && (
-                          <span className="text-muted-foreground/70">
-                            ({uniqueModelCount} models from{" "}
-                            {uniqueProviderCount} providers)
-                          </span>
-                        )}
-                      </div>
-                      {remainingModelsList.length > 0 ? (
-                        <div className="space-y-1">
-                          {remainingModelsList
-                            .filter((m) => m.id !== selectedModel?.id)
-                            .map((model) => renderModelItem(model, false))}
-                        </div>
-                      ) : (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          No models found
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {renderSearchBar()}
+                {dedupedModels.length < 5
+                  ? renderLoadingState()
+                  : renderModelListSections()}
               </div>
             ) : (
               <div className="p-3 space-y-3">
@@ -1099,144 +1114,10 @@ export default function ModelSelector({
           <div className="hidden sm:grid grid-cols-2">
             {/* Left: Search + List */}
             <div className="border-r border-border">
-              {/* Search bar */}
-              <div className="sticky top-0 p-2 bg-card backdrop-blur-sm border-b border-border">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Search models..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    className="w-full bg-muted/50 border border-border rounded-md py-1 pl-8 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-2">
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="flex items-center text-muted-foreground hover:text-foreground"
-                        title="Clear"
-                        type="button"
-                      >
-                        <span className="text-xs">×</span>
-                      </button>
-                    )}
-                    {openModelsConfig && (
-                      <button
-                        onClick={() => openModelsConfig()}
-                        className="text-muted-foreground hover:text-foreground"
-                        title="Configure models"
-                        type="button"
-                      >
-                        <Settings className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {renderQuickFilters()}
-              </div>
-
-              {isLoadingModels ? (
-                <div className="flex justify-center items-center py-4">
-                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                </div>
-              ) : (
-                <div className="overflow-y-auto max-h-[60vh] pb-3">
-                  {/* Current Model Section */}
-                  {selectedModel && (
-                    <div className="p-1">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                        Current
-                      </div>
-                      <div className="space-y-1">
-                        {renderModelItem(
-                          selectedModel,
-                          isConfiguredModel(selectedModel.id),
-                          currentProviderLabel,
-                          currentConfiguredKey
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Favorite Models Section */}
-                  {favoriteEntries.length > 0 && (
-                    <div className="p-1">
-                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                        Favorites
-                      </div>
-                      <div className="space-y-1">
-                        {favoriteEntries.map((entry) =>
-                          renderModelItem(
-                            entry.model,
-                            true,
-                            entry.providerLabel,
-                            entry.key
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Separator */}
-                  {(!!selectedModel || favoriteEntries.length > 0) &&
-                    remainingModelsList.length > 0 && (
-                      <div className="border-t border-border my-1" />
-                    )}
-
-                  {/* Recommended Models Section */}
-                  <div className="p-1">
-                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                      Recommended Models
-                    </div>
-                    {recommendedModelsList.length > 0 ? (
-                      <div className="space-y-1">
-                        {recommendedModelsList.map((model) =>
-                          renderModelItem(model, false)
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No models found
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Separator */}
-                  {(!!selectedModel || favoriteEntries.length > 0) &&
-                    remainingModelsList.length > 0 && (
-                      <div className="border-t border-border my-1" />
-                    )}
-
-                  {/* All Models Section */}
-                  <div className="p-1">
-                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                      All Models{" "}
-                      {uniqueModelCount > 0 && uniqueProviderCount > 0 && (
-                        <span className="text-muted-foreground/70">
-                          ({uniqueModelCount} models from {uniqueProviderCount}{" "}
-                          providers)
-                        </span>
-                      )}
-                    </div>
-                    {remainingModelsList.length > 0 ? (
-                      <div className="space-y-1">
-                        {remainingModelsList
-                          .filter((m) => m.id !== selectedModel?.id)
-                          .map((model) => renderModelItem(model, false))}
-                      </div>
-                    ) : (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No models found
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              {renderSearchBar()}
+              {dedupedModels.length < 5
+                ? renderLoadingState()
+                : renderModelListSections()}
             </div>
 
             {/* Right: Details */}
