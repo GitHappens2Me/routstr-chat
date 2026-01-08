@@ -174,6 +174,11 @@ export const useApiState = (
         );
         setModels(combinedModels);
 
+        // Stop loading if we have enough models
+        if (combinedModels.length > 5) {
+          setIsLoadingModels(false);
+        }
+
         // Persist provider mapping for best-priced winners
         const newMap = loadModelProviderMap();
         let changed = false;
