@@ -33,6 +33,7 @@ import {
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import SettingsDialog from "@/components/ui/SettingsDialog";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
+import { removeLocalCashuToken } from "@/utils/storageUtils";
 
 export interface StoredApiKey {
   key: string;
@@ -501,43 +502,68 @@ const ApiKeysTab = ({
     }
   };
 
+  // Helper: persist keys to cloud or localStorage and optionally show a success toast
+  const persistKeys = async (
+    keys: StoredApiKey[],
+    successMessage?: string
+  ): Promise<void> => {
+    setStoredApiKeys(keys);
+    if (cloudSyncEnabled) {
+      await createOrUpdateApiKeys(keys);
+    } else {
+      localStorage.setItem("api_keys", JSON.stringify(keys));
+    }
+    if (successMessage) {
+      toast.success(successMessage);
+    }
+  };
+
+  // Helper: handle fetch error and optionally return a fallback key
+  const handleFetchError = (
+    error: "invalid_api_key" | "network" | "other" | null,
+    keyData: StoredApiKey,
+    context: "bulk" | "single"
+  ): StoredApiKey | null => {
+    const urlToUse = keyData.baseUrl || baseUrl;
+    if (error === "network") {
+      const msg =
+        context === "bulk"
+          ? `Base URL ${urlToUse} is not responding. Skipping key ${keyData.key}.`
+          : `Base URL ${urlToUse} is not responding. Skipping refresh.`;
+      toast.error(msg);
+      return { ...keyData, balance: null, isInvalid: true };
+    } else if (error === "other") {
+      const msg =
+        context === "bulk"
+          ? `Error refreshing balance for key ${keyData.key}.`
+          : "Error refreshing key.";
+      toast.error(msg);
+      return context === "bulk" ? keyData : null; // Keep old data for bulk, no update for single
+    } else if (error === "invalid_api_key") {
+      return { ...keyData, balance: null, isInvalid: true };
+    }
+    return null;
+  };
+
   const refreshApiKeysBalances = async () => {
-    setIsRefreshingBalances(true); // Set loading state
-    const updatedKeys: StoredApiKey[] = [];
+    setIsRefreshingBalances(true);
     try {
+      const updatedKeys: StoredApiKey[] = [];
       for (const keyData of storedApiKeys) {
         const { updatedKey, error } = await fetchUpdatedKey(keyData);
         if (updatedKey) {
           updatedKeys.push(updatedKey);
-          continue;
-        }
-
-        if (error === "network") {
-          const urlToUse = keyData.baseUrl || baseUrl;
-          toast.error(
-            `Base URL ${urlToUse} is not responding. Skipping key ${keyData.key}.`
-          );
-          // In network errors we still mark invalid (helper already does), but updatedKey is null by contract here
-          updatedKeys.push({ ...keyData, balance: null, isInvalid: true });
-        } else if (error === "other") {
-          toast.error(`Error refreshing balance for key ${keyData.key}.`);
-          updatedKeys.push(keyData); // Keep old data if other error occurs
-        } else if (error === "invalid_api_key") {
-          // Shouldn't happen because helper returns updatedKey for this case, but keep safe fallback
-          updatedKeys.push({ ...keyData, balance: null, isInvalid: true });
+        } else {
+          const fallback = handleFetchError(error, keyData, "bulk");
+          if (fallback) updatedKeys.push(fallback);
         }
       }
-      // Update local storage if not cloud syncing, otherwise the hook will handle it
-      setStoredApiKeys(updatedKeys);
-      if (cloudSyncEnabled) {
-        await createOrUpdateApiKeys(updatedKeys); // Sync updated keys to cloud
-        toast.success("API Key balances refreshed and synced to cloud!");
-      } else {
-        localStorage.setItem("api_keys", JSON.stringify(updatedKeys));
-        toast.success("API Key balances refreshed!");
-      }
+      const successMsg = cloudSyncEnabled
+        ? "API Key balances refreshed and synced to cloud!"
+        : "API Key balances refreshed!";
+      await persistKeys(updatedKeys, successMsg);
     } finally {
-      setIsRefreshingBalances(false); // Reset loading state
+      setIsRefreshingBalances(false);
     }
   };
 
@@ -549,38 +575,16 @@ const ApiKeysTab = ({
         const newKeys = storedApiKeys.map((k) =>
           k.key === keyData.key ? updatedKey : k
         );
-        setStoredApiKeys(newKeys);
-
-        if (cloudSyncEnabled) {
-          await createOrUpdateApiKeys(newKeys);
-          toast.success("API key balance refreshed!");
-        } else {
-          localStorage.setItem("api_keys", JSON.stringify(newKeys));
-          toast.success("API key balance refreshed!");
-        }
+        await persistKeys(newKeys, "API key balance refreshed!");
         return;
       }
 
-      if (error === "network") {
-        const urlToUse = keyData.baseUrl || baseUrl;
-        toast.error(
-          `Base URL ${urlToUse} is not responding. Skipping refresh.`
-        );
-      } else if (error === "other") {
-        toast.error("Error refreshing key.");
-      } else if (error === "invalid_api_key") {
-        // Mark invalid locally for single refresh as well
+      const fallback = handleFetchError(error, keyData, "single");
+      if (fallback) {
         const newKeys = storedApiKeys.map((k) =>
-          k.key === keyData.key
-            ? { ...keyData, balance: null, isInvalid: true }
-            : k
+          k.key === keyData.key ? fallback : k
         );
-        setStoredApiKeys(newKeys);
-        if (cloudSyncEnabled) {
-          await createOrUpdateApiKeys(newKeys);
-        } else {
-          localStorage.setItem("api_keys", JSON.stringify(newKeys));
-        }
+        await persistKeys(newKeys);
       }
     } finally {
       setIsRefreshingKey(null);
@@ -773,8 +777,9 @@ const ApiKeysTab = ({
       const data = await response.json();
       toast.success(`Successfully topped up ${topUpAmount} sats!`);
 
-      // Refresh the API key balances to show the updated balance
-      await refreshApiKeysBalances();
+      // Refresh only the topped-up key's balance
+      await refreshSingleApiKeyBalance(keyToTopUp);
+      if (data.msats) removeLocalCashuToken(baseUrl);
     } catch (error) {
       console.error("Error during top up:", error);
       if (error instanceof TypeError) {

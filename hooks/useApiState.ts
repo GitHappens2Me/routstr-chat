@@ -8,7 +8,6 @@ import {
   saveLastUsedModel,
   loadBaseUrlsList,
   saveBaseUrlsList,
-  migrateCurrentCashuToken,
   loadModelProviderMap,
   saveModelProviderMap,
   setStorageItem,
@@ -133,13 +132,6 @@ export const useApiState = (
       return [];
     }
   }, [normalizeBase]);
-
-  // Migrate old cashu token format on load
-  useEffect(() => {
-    if (baseUrl) {
-      migrateCurrentCashuToken(baseUrl);
-    }
-  }, [baseUrl]);
 
   // Fetch available models from API and handle URL model selection
   const fetchModels = useCallback(async () => {

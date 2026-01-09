@@ -63,7 +63,12 @@ export function useCashuWithXYZ() {
   } = useCashuWallet();
   const cashuStore = useCashuStore();
   const usingNip60 = cashuStore.getUsingNip60();
-  const { sendToken, receiveToken, cleanSpentProofs, migrateInactiveKeysetBalances } = useCashuToken();
+  const {
+    sendToken,
+    receiveToken,
+    cleanSpentProofs,
+    migrateInactiveKeysetBalances,
+  } = useCashuToken();
   const { logins } = useAuth();
   const {
     mutate: handleCreateWallet,
@@ -358,10 +363,10 @@ export function useCashuWithXYZ() {
     let pendingBalances = getPendingCashuTokenDistribution();
 
     // TODO: Implement useProviderBalancesSync instead of local storage once the nodes are all stable with the refunds. Too early.
-    if (storedToken && reuseToken) {
+    if (storedToken) {
       const balanceForBaseUrl =
         pendingBalances.find((b) => b.baseUrl === baseUrl)?.amount || 0;
-      if (balanceForBaseUrl > amount) {
+      if (balanceForBaseUrl > amount && reuseToken) {
         return {
           token: storedToken,
           status: "success",
