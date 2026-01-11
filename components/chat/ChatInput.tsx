@@ -1,9 +1,11 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { ArrowRight, FileText, Loader2, Paperclip, X } from "lucide-react";
 import { useChat } from "@/context/ChatProvider";
 import { MessageAttachment } from "@/types/chat";
 import { extractTextFromPdf } from "@/utils/pdfUtils";
 import { saveFile } from "@/utils/indexedDb";
+import { useBlossomSync } from "@/hooks/useBlossomSync";
+import { usePnsKeys } from "@/hooks/usePnsKeys";
 
 // File upload constants
 const MAX_FILE_SIZE_MB = 10;
@@ -58,8 +60,69 @@ export default function ChatInput({
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
   const { isSidebarOpen } = useChat();
+  const { uploadToBlossomAsync, blossomSyncEnabled } = useBlossomSync();
+  const { pnsKeys } = usePnsKeys();
   const unifiedBgClass = "bg-background";
   const maxTextareaHeight = isMobile ? 176 : 240;
+
+  // State for layout mode
+  const [isStackLayout, setIsStackLayout] = useState(false);
+
+  // Update layout mode based on content
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    const scrollHeight = textareaRef.current.scrollHeight;
+    const shouldStack = uploadedAttachments.length > 0 || scrollHeight > 56;
+    if (shouldStack !== isStackLayout) {
+      setIsStackLayout(shouldStack);
+    }
+  }, [inputMessage, uploadedAttachments.length, isStackLayout]);
+
+  /**
+   * Helper to handle Blossom upload for an attachment
+   * Updates the attachment state with hash/servers on success or failed status on error
+   */
+  const handleBlossomUpload = useCallback(
+    (attachmentId: string, file: File) => {
+      if (!blossomSyncEnabled || !pnsKeys) return;
+
+      uploadToBlossomAsync(file, pnsKeys)
+        .then((result) => {
+          if (result) {
+            setUploadedAttachments((prev) =>
+              prev.map((item) =>
+                item.id === attachmentId
+                  ? {
+                      ...item,
+                      blossomHash: result.hash,
+                      blossomServers: result.servers,
+                      blossomUploadStatus: "success",
+                    }
+                  : item
+              )
+            );
+          } else {
+            setUploadedAttachments((prev) =>
+              prev.map((item) =>
+                item.id === attachmentId
+                  ? { ...item, blossomUploadStatus: "failed" }
+                  : item
+              )
+            );
+          }
+        })
+        .catch(() => {
+          setUploadedAttachments((prev) =>
+            prev.map((item) =>
+              item.id === attachmentId
+                ? { ...item, blossomUploadStatus: "failed" }
+                : item
+            )
+          );
+        });
+    },
+    [blossomSyncEnabled, pnsKeys, uploadToBlossomAsync]
+  );
 
   // Handle centering when messages change from external updates
   useEffect(() => {
@@ -180,14 +243,17 @@ export default function ChatInput({
           // Continue without storageId (will rely on base64 in memory)
         }
 
+        const attachmentId = createAttachmentId();
         const attachment: MessageAttachment = {
-          id: createAttachmentId(),
+          id: attachmentId,
           name: file.name,
           mimeType: file.type,
           size: file.size,
           dataUrl,
           type: isImage ? "image" : "file",
           storageId,
+          blossomUploadStatus:
+            blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
         };
 
         attachmentsToAdd.push({ attachment, file });
@@ -197,13 +263,13 @@ export default function ChatInput({
     }
 
     if (attachmentsToAdd.length > 0) {
-      console.log(attachmentsToAdd);
       setUploadedAttachments((prev) => [
         ...prev,
         ...attachmentsToAdd.map((item) => item.attachment),
       ]);
 
       attachmentsToAdd.forEach(({ attachment, file }) => {
+        // Extract text from PDFs
         if (attachment.mimeType === "application/pdf") {
           extractTextFromPdf(file)
             .then((text) => {
@@ -223,6 +289,9 @@ export default function ChatInput({
               );
             });
         }
+
+        // Upload to Blossom for cross-device sync (async, non-blocking)
+        handleBlossomUpload(attachment.id, file);
       });
     }
 
@@ -297,8 +366,9 @@ export default function ChatInput({
           // Continue without storageId
         }
 
+        const attachmentId = createAttachmentId();
         const attachment: MessageAttachment = {
-          id: createAttachmentId(),
+          id: attachmentId,
           name:
             file.name ||
             `pasted-image-${Date.now()}.${file.type.split("/")[1]}`,
@@ -307,6 +377,8 @@ export default function ChatInput({
           dataUrl,
           type: "image",
           storageId,
+          blossomUploadStatus:
+            blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
         };
 
         attachmentsToAdd.push({ attachment, file });
@@ -320,6 +392,11 @@ export default function ChatInput({
         ...prev,
         ...attachmentsToAdd.map((item) => item.attachment),
       ]);
+
+      // Upload to Blossom for cross-device sync (async, non-blocking)
+      attachmentsToAdd.forEach(({ attachment, file }) => {
+        handleBlossomUpload(attachment.id, file);
+      });
     }
   };
 
@@ -394,14 +471,17 @@ export default function ChatInput({
         // Continue without storageId
       }
 
+      const attachmentId = createAttachmentId();
       const attachment: MessageAttachment = {
-        id: createAttachmentId(),
+        id: attachmentId,
         name: file.name,
         mimeType: file.type,
         size: file.size,
         dataUrl,
         type: isImage ? "image" : "file",
         storageId,
+        blossomUploadStatus:
+          blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
       };
 
       setUploadedAttachments((prev) => [...prev, attachment]);
@@ -426,6 +506,9 @@ export default function ChatInput({
             );
           });
       }
+
+      // Upload to Blossom for cross-device sync (async, non-blocking)
+      handleBlossomUpload(attachment.id, file);
     } catch (error) {
       console.error("Error processing file:", error);
     }
@@ -472,7 +555,6 @@ export default function ChatInput({
           </div>
         </div>
       )}
-
       {/* Chat Input Container */}
       <div
         className={`${
@@ -513,7 +595,7 @@ export default function ChatInput({
         >
           {/* Unified Input Container with Attachment Preview Inside */}
           <div
-            className={`relative flex flex-col w-full rounded-full transition-all duration-300 ease-out ${
+            className={`relative flex flex-col w-full rounded-3xl transition-all duration-300 ease-out ${
               isDragging
                 ? "bg-linear-to-br from-purple-500/20 via-purple-500/10 to-purple-500/5 border-2 border-dashed border-purple-400/70 shadow-[0_0_40px_-5px_rgba(168,85,247,0.5)] scale-[1.01]"
                 : "bg-muted/50 border border-border"
@@ -586,7 +668,11 @@ export default function ChatInput({
             )}
 
             {/* Textarea and Buttons - Second Row */}
-            <div className="relative flex items-center w-full pb-1">
+            <div
+              className={`relative flex w-full pb-1 ${
+                isStackLayout ? "flex-col items-start gap-2" : "items-end"
+              }`}
+            >
               <textarea
                 ref={textareaRef}
                 value={inputMessage}
@@ -616,7 +702,9 @@ export default function ChatInput({
                       : `Ask anything...`
                     : `Sign in to start chatting...`
                 }
-                className="flex-1 bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] text-foreground placeholder:text-muted-foreground focus:outline-none pl-14 pr-12 resize-none min-h-[48px] overflow-y-auto"
+                className={`bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] text-foreground placeholder:text-muted-foreground focus:outline-none resize-none min-h-[48px] overflow-y-auto ${
+                  isStackLayout ? "w-full" : "flex-1 pl-14 pr-12"
+                }`}
                 autoComplete="off"
                 data-tutorial="chat-input"
                 rows={1}
@@ -637,49 +725,68 @@ export default function ChatInput({
                   // Include attachment height in total height
                   const attachmentHeight =
                     uploadedAttachments.length > 0 ? 88 : 0;
-                  setTextareaHeight(textareaOnlyHeight + attachmentHeight);
+                  // Include toolbar height if stack layout
+                  const layoutIsStack =
+                    uploadedAttachments.length > 0 || textareaOnlyHeight > 56;
+                  const toolbarHeight = layoutIsStack ? 40 : 0;
+                  setTextareaHeight(
+                    textareaOnlyHeight + attachmentHeight + toolbarHeight
+                  );
                 }}
               />
 
-              {/* Attachment upload button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!isAuthenticated}
-                className="absolute left-3 bottom-2 p-2 rounded-full bg-transparent hover:bg-muted disabled:opacity-50 disabled:bg-transparent transition-colors cursor-pointer"
-                aria-label="Upload attachment"
-              >
-                <Paperclip className="h-5 w-5 text-foreground" />
-              </button>
-
-              {/* Send button */}
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  isLoading ||
-                  isLoadingModels ||
-                  isWalletLoading ||
-                  (!isAuthenticated &&
-                    !inputMessage.trim() &&
-                    uploadedAttachments.length === 0)
+              {/* Toolbar or Absolute Buttons */}
+              <div
+                className={
+                  isStackLayout
+                    ? "flex w-full items-center justify-between px-2 pb-1"
+                    : "contents"
                 }
-                className={`absolute right-3 bottom-2 p-2 rounded-full transition-colors text-foreground ${
-                  showRedButton
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-transparent hover:bg-secondary disabled:hover:bg-transparent"
-                } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
-                aria-label="Send message"
               >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <ArrowRight className="h-5 w-5" />
-                )}
-              </button>
+                {/* Attachment upload button */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!isAuthenticated}
+                  className={`p-2 rounded-full bg-transparent hover:bg-muted disabled:opacity-50 disabled:bg-transparent transition-colors cursor-pointer ${
+                    isStackLayout ? "" : "absolute left-3 bottom-2"
+                  }`}
+                  aria-label="Upload attachment"
+                >
+                  <Paperclip className="h-5 w-5 text-foreground" />
+                </button>
+
+                {/* Send button */}
+                <button
+                  onClick={handleSendMessage}
+                  disabled={
+                    isLoading ||
+                    isLoadingModels ||
+                    isWalletLoading ||
+                    (!isAuthenticated &&
+                      !inputMessage.trim() &&
+                      uploadedAttachments.length === 0)
+                  }
+                  className={`p-2 rounded-full transition-colors text-foreground ${
+                    showRedButton
+                      ? "bg-red-500 hover:bg-red-600 text-white"
+                      : "bg-transparent hover:bg-secondary disabled:hover:bg-transparent"
+                  } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                    isStackLayout ? "" : "absolute right-3 bottom-2"
+                  }`}
+                  aria-label="Send message"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      {/* Bottom spacer for visible padding below the input */}
+      );{/* Bottom spacer for visible padding below the input */}
       {(!isCentered || isMobile) && (
         <div
           className={`fixed bottom-0 z-20 pointer-events-none ${
