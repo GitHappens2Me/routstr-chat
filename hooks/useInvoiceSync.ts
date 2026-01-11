@@ -1,10 +1,12 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
 import { useState, useEffect, useCallback } from "react";
 import { MintQuoteState, MeltQuoteState } from "@cashu/cashu-ts";
+import { relayPool } from "@/lib/applesauce-core";
 
 export interface StoredInvoice {
   id: string;
@@ -30,6 +32,7 @@ interface InvoiceStore {
 
 export function useInvoiceSync() {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
 
@@ -128,7 +131,7 @@ export function useInvoiceSync() {
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
       return event;
     },
     onSuccess: () => {

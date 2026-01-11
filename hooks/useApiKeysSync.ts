@@ -1,16 +1,19 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
 import { StoredApiKey } from "@/components/settings/ApiKeysTab";
 import { useState, useEffect, useCallback } from "react"; // Added useState, useEffect, and useCallback
+import { relayPool } from "@/lib/applesauce-core";
 
 /**
  * Hook to fetch and manage user's API keys synced with the cloud
  */
 export function useApiKeysSync() {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
 
@@ -58,7 +61,7 @@ export function useApiKeysSync() {
       });
 
       // Publish event
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
       return event;
     },
     onSuccess: () => {

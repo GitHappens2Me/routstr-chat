@@ -1,9 +1,11 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
 import { useState, useEffect, useCallback } from "react";
+import { relayPool } from "@/lib/applesauce-core";
 
 /**
  * Interface for provider balance data
@@ -30,6 +32,7 @@ export interface ProviderBalance {
  */
 export function useProviderBalancesSync() {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
 
@@ -81,7 +84,7 @@ export function useProviderBalancesSync() {
       });
 
       // Publish event
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
       return event;
     },
     onSuccess: () => {

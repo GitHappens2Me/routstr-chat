@@ -1,7 +1,9 @@
 import { useNostr } from "@/hooks/useNostr";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
+import { relayPool } from "@/lib/applesauce-core";
 import { Wallet as CashuWalletStruct } from "../core/domain/Wallet";
 import { NostrEvent } from "nostr-tools";
 import { useNutzapStore, NutzapInformationalEvent } from "../state/nutzapStore";
@@ -80,7 +82,7 @@ export function useNutzapInfo(pubkey?: string) {
  * Hook to manage Nutzap informational events (NIP-61)
  */
 export function useNutzaps() {
-  const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const nutzapStore = useNutzapStore();
@@ -133,7 +135,7 @@ export function useNutzaps() {
       });
 
       // Publish event
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
 
       // Create nutzap info object
       const nutzapInfo: NutzapInformationalEvent = {

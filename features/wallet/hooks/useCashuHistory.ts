@@ -1,18 +1,21 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
 import { SpendingHistoryEntry } from "../core/domain/Transaction";
 import { getLastEventTimestamp } from "@/lib/nostrTimestamps";
 import { useTransactionHistoryStore } from "../state/transactionHistoryStore";
 import { NostrEvent } from "nostr-tools";
+import { relayPool } from "@/lib/applesauce-core";
 
 /**
  * Hook to fetch and manage the user's Cashu spending history
  */
 export function useCashuHistory() {
   const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const transactionHistoryStore = useTransactionHistoryStore();
@@ -60,7 +63,7 @@ export function useCashuHistory() {
       });
 
       // Publish event
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
 
       // Add to transaction history store
       const historyEntry: SpendingHistoryEntry & { id: string } = {

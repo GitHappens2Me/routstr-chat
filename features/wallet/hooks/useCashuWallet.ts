@@ -1,6 +1,6 @@
-import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { filter } from "rxjs";
@@ -21,7 +21,7 @@ import { z } from "zod";
 import { useNutzaps } from "./useNutzaps";
 import { hexToBytes } from "@noble/hashes/utils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { eventDatabase } from "@/lib/applesauce-core";
+import { eventDatabase, relayPool } from "@/lib/applesauce-core";
 import {
   cashuUserPubkey$,
   syncCashuWallet$,
@@ -76,7 +76,7 @@ async function initiateMints(
  * Hook to fetch and manage the user's Cashu wallet
  */
 export function useCashuWallet() {
-  const { nostr } = useNostr();
+  const { config } = useAppContext();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
@@ -262,7 +262,7 @@ export function useCashuWallet() {
       });
 
       // Publish event
-      await nostr.event(event);
+      await relayPool.publish(config.relayUrls, event);
 
       // Also create or update the nutzap informational event
       try {
@@ -511,7 +511,7 @@ export function useCashuWallet() {
 
         // publish token event
         try {
-          await nostr.event(newTokenEvent);
+          await relayPool.publish(config.relayUrls, newTokenEvent);
         } catch (error) {
           console.error("Failed to publish token event:", error);
         }
@@ -547,7 +547,7 @@ export function useCashuWallet() {
 
         // publish deletion event
         try {
-          await nostr.event(deletionEvent);
+          await relayPool.publish(config.relayUrls, deletionEvent);
         } catch (error) {
           console.error("Failed to publish deletion event:", error);
         }
