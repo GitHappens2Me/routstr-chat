@@ -1,5 +1,6 @@
 import { AccountManager, IAccount } from "applesauce-accounts";
 import {
+  ExtensionAccount,
   NostrConnectAccount,
   PrivateKeyAccount,
 } from "applesauce-accounts/accounts";
@@ -325,8 +326,10 @@ export default function AppleSauceLogin({
 }) {
   const accounts = useObservableState(manager.accounts$);
   const [loginMethod, setLoginMethod] = useState<
-    "none" | "bunker" | "qr" | "privatekey"
+    "none" | "bunker" | "qr" | "privatekey" | "extension"
   >("none");
+  const [extensionError, setExtensionError] = useState<string | null>(null);
+  const [isConnectingExtension, setIsConnectingExtension] = useState(false);
 
   const handleSignerCreated = useCallback(
     async (signer: NostrConnectSigner) => {
@@ -346,6 +349,24 @@ export default function AppleSauceLogin({
     manager.addAccount(account);
     manager.setActive(account);
   }, [accounts.length, manager]);
+
+  const handleExtensionLogin = useCallback(async () => {
+    try {
+      setExtensionError(null);
+      setIsConnectingExtension(true);
+      const account = await ExtensionAccount.fromExtension();
+      manager.addAccount(account as unknown as IAccount<any, any, AccountMetadata>);
+      manager.setActive(account as unknown as IAccount<any, any, AccountMetadata>);
+      setLoginMethod("none");
+    } catch (err) {
+      console.error("Extension login error:", err);
+      setExtensionError(
+        err instanceof Error ? err.message : "Failed to connect to extension"
+      );
+    } finally {
+      setIsConnectingExtension(false);
+    }
+  }, [manager]);
 
   const handlePrivateKeyAccountCreated = useCallback(
     (account: PrivateKeyAccount<AccountMetadata>) => {
@@ -389,8 +410,44 @@ export default function AppleSauceLogin({
           >
             QR Code
           </button>
+          <button
+            className={`btn btn-warning btn-sm ${loginMethod === "extension" ? "btn-outline" : ""}`}
+            onClick={() =>
+              setLoginMethod(loginMethod === "extension" ? "none" : "extension")
+            }
+          >
+            Connect Extension
+          </button>
         </div>
       </div>
+
+      {loginMethod === "extension" && (
+        <div className="card bg-base-200 shadow-md mb-6">
+          <div className="card-body">
+            <h2 className="card-title mb-4 text-sm">Login with NIP-07 Extension</h2>
+            <p className="text-sm text-base-content/70 mb-4">
+              Connect using a browser extension like nos2x, Alby, or other NIP-07 compatible signers.
+            </p>
+            <button
+              className="btn btn-warning btn-sm w-full"
+              onClick={handleExtensionLogin}
+              disabled={isConnectingExtension}
+            >
+              {isConnectingExtension ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                "Connect Extension"
+              )}
+            </button>
+
+            {extensionError && (
+              <div className="alert alert-error mt-4 py-2 text-xs">
+                <span>{extensionError}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {loginMethod === "privatekey" && (
         <PrivateKeyLogin onAccountCreated={handlePrivateKeyAccountCreated} />
