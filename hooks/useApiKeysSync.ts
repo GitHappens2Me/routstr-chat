@@ -1,6 +1,7 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
@@ -14,7 +15,8 @@ import { relayPool } from "@/lib/applesauce-core";
 export function useApiKeysSync() {
   const { nostr } = useNostr();
   const { config } = useAppContext();
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const queryClient = useQueryClient();
 
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState<boolean>(() => {
@@ -39,21 +41,21 @@ export function useApiKeysSync() {
   // Mutation to create/update API keys event
   const createApiKeysMutation = useMutation({
     mutationFn: async (apiKeys: StoredApiKey[]) => {
-      if (!user) {
+      if (!activeAccount) {
         throw new Error("User not logged in");
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       // Encrypt the content
-      const content = await user.signer.nip44.encrypt(
-        user.pubkey,
+      const content = await activeAccount.nip44.encrypt(
+        activeAccount.pubkey,
         JSON.stringify(apiKeys)
       );
 
       // Create the NIP-78 event
-      const event = await user.signer.signEvent({
+      const event = await activeAccount.signEvent({
         kind: KINDS.ARBITRARY_APP_DATA,
         content,
         tags: [["d", API_KEYS_D_TAG]],
@@ -66,7 +68,7 @@ export function useApiKeysSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["apiKeys", user?.pubkey, API_KEYS_D_TAG],
+        queryKey: ["apiKeys", activeAccount?.pubkey, API_KEYS_D_TAG],
       });
     },
   });
@@ -74,15 +76,15 @@ export function useApiKeysSync() {
   // Mutation to handle API key deletion, including Kind 5 for specific events if needed
   const deleteApiKeyMutation = useMutation({
     mutationFn: async (keyToDelete: string) => {
-      if (!user) {
+      if (!activeAccount) {
         throw new Error("User not logged in");
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       const currentApiKeys =
-        (queryClient.getQueryData(["apiKeys", user?.pubkey, API_KEYS_D_TAG]) as
+        (queryClient.getQueryData(["apiKeys", activeAccount?.pubkey, API_KEYS_D_TAG]) as
           | StoredApiKey[]
           | undefined) || [];
       const updatedKeys = currentApiKeys.filter(
@@ -103,25 +105,25 @@ export function useApiKeysSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["apiKeys", user?.pubkey, API_KEYS_D_TAG],
+        queryKey: ["apiKeys", activeAccount?.pubkey, API_KEYS_D_TAG],
       });
     },
   });
 
   // Query to fetch API keys from Nostr
   const apiKeysQuery = useQuery({
-    queryKey: ["apiKeys", user?.pubkey, API_KEYS_D_TAG],
+    queryKey: ["apiKeys", activeAccount?.pubkey, API_KEYS_D_TAG],
     queryFn: async ({ signal }) => {
-      if (!user || !cloudSyncEnabled) {
+      if (!activeAccount || !cloudSyncEnabled) {
         return [];
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       const filter = {
         kinds: [KINDS.ARBITRARY_APP_DATA],
-        authors: [user.pubkey],
+        authors: [activeAccount.pubkey],
         "#d": [API_KEYS_D_TAG], // Filter by the 'd' tag
         limit: 1, // We only need the latest replaceable event
       };
@@ -136,8 +138,8 @@ export function useApiKeysSync() {
 
       try {
         // Decrypt content
-        const decrypted = await user.signer.nip44.decrypt(
-          user.pubkey,
+        const decrypted = await activeAccount.nip44.decrypt(
+          activeAccount.pubkey,
           latestEvent.content
         );
         const cloudApiKeys: StoredApiKey[] = JSON.parse(decrypted);
@@ -167,7 +169,7 @@ export function useApiKeysSync() {
         return [];
       }
     },
-    enabled: !!user && cloudSyncEnabled && !!user.signer.nip44,
+    enabled: !!activeAccount && cloudSyncEnabled && !!activeAccount.nip44,
   });
 
   // Memoize the mutation functions to prevent infinite re-renders

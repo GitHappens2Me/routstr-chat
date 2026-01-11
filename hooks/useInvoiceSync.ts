@@ -1,6 +1,7 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
@@ -33,7 +34,8 @@ interface InvoiceStore {
 export function useInvoiceSync() {
   const { nostr } = useNostr();
   const { config } = useAppContext();
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const queryClient = useQueryClient();
 
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState<boolean>(() => {
@@ -100,10 +102,10 @@ export function useInvoiceSync() {
   // Cloud sync mutations
   const syncInvoicesMutation = useMutation({
     mutationFn: async (invoices: StoredInvoice[]) => {
-      if (!user || !cloudSyncEnabled) {
+      if (!activeAccount || !cloudSyncEnabled) {
         return null;
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported");
       }
 
@@ -119,12 +121,12 @@ export function useInvoiceSync() {
         return inv.createdAt > cutoffTime;
       });
 
-      const content = await user.signer.nip44.encrypt(
-        user.pubkey,
+      const content = await activeAccount.nip44.encrypt(
+        activeAccount.pubkey,
         JSON.stringify(relevantInvoices)
       );
 
-      const event = await user.signer.signEvent({
+      const event = await activeAccount.signEvent({
         kind: KINDS.ARBITRARY_APP_DATA,
         content,
         tags: [["d", INVOICES_D_TAG]],
@@ -136,26 +138,26 @@ export function useInvoiceSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["invoices", user?.pubkey, INVOICES_D_TAG],
+        queryKey: ["invoices", activeAccount?.pubkey, INVOICES_D_TAG],
       });
     },
   });
 
   // Query to fetch invoices from Nostr
   const invoicesQuery = useQuery({
-    queryKey: ["invoices", user?.pubkey, INVOICES_D_TAG],
+    queryKey: ["invoices", activeAccount?.pubkey, INVOICES_D_TAG],
     queryFn: async ({ signal }) => {
-      if (!user || !cloudSyncEnabled) {
+      if (!activeAccount || !cloudSyncEnabled) {
         return getLocalInvoices();
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         return getLocalInvoices();
       }
 
       try {
         const filter = {
           kinds: [KINDS.ARBITRARY_APP_DATA],
-          authors: [user.pubkey],
+          authors: [activeAccount.pubkey],
           "#d": [INVOICES_D_TAG],
           limit: 1,
         };
@@ -167,8 +169,8 @@ export function useInvoiceSync() {
         }
 
         const latestEvent = events[0];
-        const decrypted = await user.signer.nip44.decrypt(
-          user.pubkey,
+        const decrypted = await activeAccount.nip44.decrypt(
+          activeAccount.pubkey,
           latestEvent.content
         );
         const cloudInvoices: StoredInvoice[] = JSON.parse(decrypted);
@@ -212,7 +214,7 @@ export function useInvoiceSync() {
 
       addLocalInvoice(newInvoice);
 
-      if (user && cloudSyncEnabled) {
+      if (activeAccount && cloudSyncEnabled) {
         const allInvoices = [
           ...getLocalInvoices().filter((inv) => inv.id !== newInvoice.id),
           newInvoice,
@@ -225,7 +227,7 @@ export function useInvoiceSync() {
     [
       addLocalInvoice,
       getLocalInvoices,
-      user,
+      activeAccount,
       cloudSyncEnabled,
       syncInvoicesMutation,
     ]
@@ -236,7 +238,7 @@ export function useInvoiceSync() {
     async (id: string, updates: Partial<StoredInvoice>) => {
       updateLocalInvoice(id, updates);
 
-      if (user && cloudSyncEnabled) {
+      if (activeAccount && cloudSyncEnabled) {
         const allInvoices = getLocalInvoices();
         await syncInvoicesMutation.mutateAsync(allInvoices);
       }
@@ -244,7 +246,7 @@ export function useInvoiceSync() {
     [
       updateLocalInvoice,
       getLocalInvoices,
-      user,
+      activeAccount,
       cloudSyncEnabled,
       syncInvoicesMutation,
     ]
@@ -315,14 +317,14 @@ export function useInvoiceSync() {
 
     if (cleaned.length !== invoices.length) {
       saveLocalInvoices(cleaned);
-      if (user && cloudSyncEnabled) {
+      if (activeAccount && cloudSyncEnabled) {
         await syncInvoicesMutation.mutateAsync(cleaned);
       }
     }
   }, [
     getLocalInvoices,
     saveLocalInvoices,
-    user,
+    activeAccount,
     cloudSyncEnabled,
     syncInvoicesMutation,
   ]);
@@ -334,18 +336,18 @@ export function useInvoiceSync() {
       const filtered = invoices.filter((inv) => inv.id !== id);
       saveLocalInvoices(filtered);
 
-      if (user && cloudSyncEnabled) {
+      if (activeAccount && cloudSyncEnabled) {
         await syncInvoicesMutation.mutateAsync(filtered);
       }
 
       queryClient.invalidateQueries({
-        queryKey: ["invoices", user?.pubkey, INVOICES_D_TAG],
+        queryKey: ["invoices", activeAccount?.pubkey, INVOICES_D_TAG],
       });
     },
     [
       getLocalInvoices,
       saveLocalInvoices,
-      user,
+      activeAccount,
       cloudSyncEnabled,
       syncInvoicesMutation,
       queryClient,

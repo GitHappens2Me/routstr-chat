@@ -1,5 +1,6 @@
 import { useNostr } from "@/hooks/useNostr";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
@@ -83,7 +84,8 @@ export function useNutzapInfo(pubkey?: string) {
  */
 export function useNutzaps() {
   const { config } = useAppContext();
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const queryClient = useQueryClient();
   const nutzapStore = useNutzapStore();
   const cashuStore = useCashuStore();
@@ -99,7 +101,7 @@ export function useNutzaps() {
       mintOverrides?: Array<{ url: string; units?: string[] }>;
       p2pkPubkey: string;
     }) => {
-      if (!user) throw new Error("User not logged in");
+      if (!activeAccount) throw new Error("User not logged in");
 
       // Get mints from store or override
       const mintsToUse =
@@ -127,7 +129,7 @@ export function useNutzaps() {
       ];
 
       // Create nutzap informational event
-      const event = await user.signer.signEvent({
+      const event = await activeAccount.signEvent({
         kind: CASHU_EVENT_KINDS.ZAPINFO,
         content: "",
         tags,
@@ -146,16 +148,16 @@ export function useNutzaps() {
       };
 
       // Store in nutzapStore
-      nutzapStore.setNutzapInfo(user.pubkey, nutzapInfo);
+      nutzapStore.setNutzapInfo(activeAccount.pubkey, nutzapInfo);
 
       console.log("Nutzap info created", nutzapInfo);
 
       return event;
     },
     onSuccess: () => {
-      if (user) {
+      if (activeAccount) {
         queryClient.invalidateQueries({
-          queryKey: ["nutzap", "info", user.pubkey],
+          queryKey: ["nutzap", "info", activeAccount.pubkey],
         });
       }
     },

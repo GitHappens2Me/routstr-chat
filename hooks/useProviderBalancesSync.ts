@@ -1,6 +1,7 @@
 import { useNostr } from "@/hooks/useNostr";
 import { toast } from "sonner";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { KINDS } from "@/lib/nostr-kinds";
@@ -33,7 +34,8 @@ export interface ProviderBalance {
 export function useProviderBalancesSync() {
   const { nostr } = useNostr();
   const { config } = useAppContext();
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const queryClient = useQueryClient();
 
   const [balancesSyncEnabled, setBalancesSyncEnabled] = useState<boolean>(
@@ -62,21 +64,21 @@ export function useProviderBalancesSync() {
   // Mutation to create/update provider balances event
   const createProviderBalancesMutation = useMutation({
     mutationFn: async (providerBalances: ProviderBalance[]) => {
-      if (!user) {
+      if (!activeAccount) {
         throw new Error("User not logged in");
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       // Encrypt the content
-      const content = await user.signer.nip44.encrypt(
-        user.pubkey,
+      const content = await activeAccount.nip44.encrypt(
+        activeAccount.pubkey,
         JSON.stringify(providerBalances)
       );
 
       // Create the NIP-78 event
-      const event = await user.signer.signEvent({
+      const event = await activeAccount.signEvent({
         kind: KINDS.ARBITRARY_APP_DATA,
         content,
         tags: [["d", PROVIDER_BALANCES_D_TAG]],
@@ -89,7 +91,7 @@ export function useProviderBalancesSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["providerBalances", user?.pubkey, PROVIDER_BALANCES_D_TAG],
+        queryKey: ["providerBalances", activeAccount?.pubkey, PROVIDER_BALANCES_D_TAG],
       });
     },
   });
@@ -97,17 +99,17 @@ export function useProviderBalancesSync() {
   // Mutation to handle provider balance deletion
   const deleteProviderBalanceMutation = useMutation({
     mutationFn: async (providerToDelete: string) => {
-      if (!user) {
+      if (!activeAccount) {
         throw new Error("User not logged in");
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       const currentProviderBalances =
         (queryClient.getQueryData([
           "providerBalances",
-          user?.pubkey,
+          activeAccount?.pubkey,
           PROVIDER_BALANCES_D_TAG,
         ]) as ProviderBalance[] | undefined) || [];
       const updatedBalances = currentProviderBalances.filter(
@@ -128,25 +130,25 @@ export function useProviderBalancesSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["providerBalances", user?.pubkey, PROVIDER_BALANCES_D_TAG],
+        queryKey: ["providerBalances", activeAccount?.pubkey, PROVIDER_BALANCES_D_TAG],
       });
     },
   });
 
   // Query to fetch provider balances from Nostr
   const providerBalancesQuery = useQuery({
-    queryKey: ["providerBalances", user?.pubkey, PROVIDER_BALANCES_D_TAG],
+    queryKey: ["providerBalances", activeAccount?.pubkey, PROVIDER_BALANCES_D_TAG],
     queryFn: async ({ signal }) => {
-      if (!user || !balancesSyncEnabled) {
+      if (!activeAccount || !balancesSyncEnabled) {
         return [];
       }
-      if (!user.signer.nip44) {
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
       const filter = {
         kinds: [KINDS.ARBITRARY_APP_DATA],
-        authors: [user.pubkey],
+        authors: [activeAccount.pubkey],
         "#d": [PROVIDER_BALANCES_D_TAG], // Filter by the 'd' tag
         limit: 1, // We only need the latest replaceable event
       };
@@ -161,8 +163,8 @@ export function useProviderBalancesSync() {
 
       try {
         // Decrypt content
-        const decrypted = await user.signer.nip44.decrypt(
-          user.pubkey,
+        const decrypted = await activeAccount.nip44.decrypt(
+          activeAccount.pubkey,
           latestEvent.content
         );
         const cloudProviderBalances: ProviderBalance[] = JSON.parse(decrypted);
@@ -192,7 +194,7 @@ export function useProviderBalancesSync() {
         return [];
       }
     },
-    enabled: !!user && balancesSyncEnabled && !!user.signer.nip44,
+    enabled: !!activeAccount && balancesSyncEnabled && !!activeAccount.nip44,
   });
 
   // Memoize the mutation functions to prevent infinite re-renders

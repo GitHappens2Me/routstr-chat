@@ -1,5 +1,6 @@
 import { toast } from "sonner";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
@@ -77,7 +78,8 @@ async function initiateMints(
  */
 export function useCashuWallet() {
   const { config } = useAppContext();
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
   const { createNutzapInfo } = useNutzaps();
@@ -88,10 +90,10 @@ export function useCashuWallet() {
     []
   );
 
-  // Activate cashu sync when user changes
+  // Activate cashu sync when activeAccount changes
   useEffect(() => {
-    if (user?.pubkey) {
-      cashuUserPubkey$.next(user.pubkey);
+    if (activeAccount?.pubkey) {
+      cashuUserPubkey$.next(activeAccount.pubkey);
       const sub1 = syncCashuWallet$.subscribe();
       const sub2 = syncCashuTokens$.subscribe();
       return () => {
@@ -99,7 +101,7 @@ export function useCashuWallet() {
         sub2.unsubscribe();
       };
     }
-  }, [user?.pubkey]);
+  }, [activeAccount?.pubkey]);
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery<
@@ -108,9 +110,9 @@ export function useCashuWallet() {
     { id: string; wallet: CashuWalletStruct; createdAt: number } | null,
     any[]
   >({
-    queryKey: ["cashu", "wallet", user?.pubkey],
+    queryKey: ["cashu", "wallet", activeAccount?.pubkey],
     queryFn: async () => {
-      if (!user) {
+      if (!activeAccount) {
         return null;
       }
       try {
@@ -131,7 +133,7 @@ export function useCashuWallet() {
         await waitForEose();
 
         // Get events from eventStore (populated by cashuSync)
-        const events = getCashuWalletEvents(user.pubkey);
+        const events = getCashuWalletEvents(activeAccount.pubkey);
         console.log(
           "rdlogs: Wallet Event Found from eventStore:",
           events.length
@@ -157,11 +159,11 @@ export function useCashuWallet() {
         const event = events.sort((a, b) => b.created_at - a.created_at)[0];
 
         // Decrypt wallet content
-        if (!user.signer.nip44) {
+        if (!activeAccount.nip44) {
           throw new Error("NIP-44 encryption not supported by your signer");
         }
-        const decrypted = await user.signer.nip44.decrypt(
-          user.pubkey,
+        const decrypted = await activeAccount.nip44.decrypt(
+          activeAccount.pubkey,
           event.content
         );
         const data = n.json().pipe(z.string().array().array()).parse(decrypted);
@@ -222,7 +224,7 @@ export function useCashuWallet() {
         return null;
       }
     },
-    enabled: !!user,
+    enabled: !!activeAccount,
     staleTime: Infinity, // Prevent refetching on window focus or component re-mount
     retry: false, // Do not retry on failure, as the connection issue is persistent
   });
@@ -230,8 +232,8 @@ export function useCashuWallet() {
   // Create or update wallet
   const createWalletMutation = useMutation({
     mutationFn: async (walletData: CashuWalletStruct) => {
-      if (!user) throw new Error("User not logged in");
-      if (!user.signer.nip44) {
+      if (!activeAccount) throw new Error("User not logged in");
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
@@ -248,13 +250,13 @@ export function useCashuWallet() {
       ];
 
       // Encrypt wallet data
-      const content = await user.signer.nip44.encrypt(
-        user.pubkey,
+      const content = await activeAccount.nip44.encrypt(
+        activeAccount.pubkey,
         JSON.stringify(tags)
       );
 
       // Create wallet event
-      const event = await user.signer.signEvent({
+      const event = await activeAccount.signEvent({
         kind: CASHU_EVENT_KINDS.WALLET,
         content,
         tags: [],
@@ -284,10 +286,10 @@ export function useCashuWallet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["cashu", "wallet", user?.pubkey],
+        queryKey: ["cashu", "wallet", activeAccount?.pubkey],
       });
       queryClient.invalidateQueries({
-        queryKey: ["nutzap", "info", user?.pubkey],
+        queryKey: ["nutzap", "info", activeAccount?.pubkey],
       });
     },
   });
@@ -299,9 +301,9 @@ export function useCashuWallet() {
     Nip60TokenEvent[],
     any[]
   >({
-    queryKey: ["cashu", "tokens", user?.pubkey],
+    queryKey: ["cashu", "tokens", activeAccount?.pubkey],
     queryFn: async () => {
-      if (!user) {
+      if (!activeAccount) {
         return [];
       }
       try {
@@ -322,7 +324,7 @@ export function useCashuWallet() {
         await waitForEose();
 
         // Get events from eventStore (populated by cashuSync)
-        const events = getCashuTokenEvents(user.pubkey);
+        const events = getCashuTokenEvents(activeAccount.pubkey);
 
         if (events.length === 0) {
           // No events found, but query completed successfully: clear timeout indicators
@@ -347,14 +349,14 @@ export function useCashuWallet() {
         // First pass: collect all deleted event IDs from del arrays
         for (const event of events) {
           try {
-            if (!user.signer.nip44) {
+            if (!activeAccount.nip44) {
               throw new Error("NIP-44 encryption not supported by your signer");
             }
 
             let decrypted: string;
             try {
-              decrypted = await user.signer.nip44.decrypt(
-                user.pubkey,
+              decrypted = await activeAccount.nip44.decrypt(
+                activeAccount.pubkey,
                 event.content
               );
             } catch (error) {
@@ -437,7 +439,7 @@ export function useCashuWallet() {
         return [];
       }
     },
-    enabled: !!user,
+    enabled: !!activeAccount,
     staleTime: Infinity, // Prevent refetching on window focus or component re-mount
     retry: false, // Do not retry on failure, as the connection issue is persistent
   });
@@ -452,8 +454,8 @@ export function useCashuWallet() {
       proofsToAdd: Proof[];
       proofsToRemove: Proof[];
     }): Promise<NostrEvent | null> => {
-      if (!user) throw new Error("User not logged in");
-      if (!user.signer.nip44) {
+      if (!activeAccount) throw new Error("User not logged in");
+      if (!activeAccount.nip44) {
         throw new Error("NIP-44 encryption not supported by your signer");
       }
 
@@ -493,13 +495,13 @@ export function useCashuWallet() {
         };
 
         // encrypt token event
-        const newTokenEventContent = await user.signer.nip44.encrypt(
-          user.pubkey,
+        const newTokenEventContent = await activeAccount.nip44.encrypt(
+          activeAccount.pubkey,
           JSON.stringify(newToken)
         );
 
         // create token event
-        const newTokenEvent = await user.signer.signEvent({
+        const newTokenEvent = await activeAccount.signEvent({
           kind: CASHU_EVENT_KINDS.TOKEN,
           content: newTokenEventContent,
           tags: [],
@@ -532,7 +534,7 @@ export function useCashuWallet() {
         });
 
         // create deletion event
-        const deletionEvent = await user.signer.signEvent({
+        const deletionEvent = await activeAccount.signEvent({
           kind: 5,
           content: "Deleted token event",
           tags: eventIdsToRemove.map((id) => ["e", id]),
@@ -557,7 +559,7 @@ export function useCashuWallet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["cashu", "tokens", user?.pubkey],
+        queryKey: ["cashu", "tokens", activeAccount?.pubkey],
       });
     },
   });
