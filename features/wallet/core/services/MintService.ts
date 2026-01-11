@@ -53,7 +53,7 @@ export class MintService {
       );
 
       // Get mint info from the first wallet
-      const mintInfo = singleWallet.getMintInfo();
+      const mintInfo = wallets[0].wallet.getMintInfo();
 
       // Collect all keysets from all wallets
       const allKeysets = wallets.flatMap((w) => w.wallet.keyChain.getKeysets());
