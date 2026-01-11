@@ -13,7 +13,6 @@ import {
 import { calculateInactiveKeysetBalances } from "../core/utils/balance";
 import { MintService } from "../core/services/MintService";
 import { hashToCurve } from "@cashu/crypto/modules/common";
-import { hexToBytes } from "@noble/hashes/utils";
 
 // Global flag to track if recovery has been initiated in this session
 let recoveryInitiated = false;

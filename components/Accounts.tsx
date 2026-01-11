@@ -82,6 +82,62 @@ function BunkerUrlLogin({
   );
 }
 
+function PrivateKeyLogin({
+  onAccountCreated,
+}: {
+  onAccountCreated: (account: PrivateKeyAccount<AccountMetadata>) => void;
+}) {
+  const [privateKey, setPrivateKey] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = () => {
+    if (!privateKey) return;
+
+    try {
+      setError(null);
+      const account = PrivateKeyAccount.fromKey<AccountMetadata>(
+        privateKey.trim()
+      );
+      onAccountCreated(account);
+      setPrivateKey("");
+    } catch (err) {
+      console.error("Private key login error:", err);
+      setError(err instanceof Error ? err.message : "Invalid private key");
+    }
+  };
+
+  return (
+    <div className="card bg-base-200 shadow-md mb-6">
+      <div className="card-body">
+        <h2 className="card-title mb-4 text-sm">Login with Private Key</h2>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            placeholder="nsec1... or hex private key"
+            className="input input-bordered flex-1"
+            value={privateKey}
+            onChange={(e) => setPrivateKey(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={handleLogin}
+            disabled={!privateKey}
+          >
+            Login
+          </button>
+        </div>
+
+        {error && (
+          <div className="alert alert-error mt-4 py-2 text-xs">
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function QRCodeLogin({
   onSignerCreated,
 }: {
@@ -268,9 +324,9 @@ export default function AppleSauceLogin({
   onSave: () => void;
 }) {
   const accounts = useObservableState(manager.accounts$);
-  const [loginMethod, setLoginMethod] = useState<"none" | "bunker" | "qr">(
-    "none"
-  );
+  const [loginMethod, setLoginMethod] = useState<
+    "none" | "bunker" | "qr" | "privatekey"
+  >("none");
 
   const handleSignerCreated = useCallback(
     async (signer: NostrConnectSigner) => {
@@ -278,6 +334,7 @@ export default function AppleSauceLogin({
       const account = new NostrConnectAccount<AccountMetadata>(pubkey, signer);
       account.metadata = { name: `Bunker ${accounts.length + 1}` };
       manager.addAccount(account);
+      manager.setActive(account);
       setLoginMethod("none");
     },
     [accounts.length, manager]
@@ -287,7 +344,18 @@ export default function AppleSauceLogin({
     const account = PrivateKeyAccount.generateNew<AccountMetadata>();
     account.metadata = { name: `Account ${accounts.length + 1}` };
     manager.addAccount(account);
+    manager.setActive(account);
   }, [accounts.length, manager]);
+
+  const handlePrivateKeyAccountCreated = useCallback(
+    (account: PrivateKeyAccount<AccountMetadata>) => {
+      account.metadata = { name: `Account ${accounts.length + 1}` };
+      manager.addAccount(account);
+      manager.setActive(account);
+      setLoginMethod("none");
+    },
+    [accounts.length, manager]
+  );
 
   return (
     <div className="container mx-auto p-2 h-full">
@@ -296,6 +364,16 @@ export default function AppleSauceLogin({
         <div className="flex gap-2">
           <button className="btn btn-primary btn-sm" onClick={createNewAccount}>
             New Private Key
+          </button>
+          <button
+            className={`btn btn-info btn-sm ${loginMethod === "privatekey" ? "btn-outline" : ""}`}
+            onClick={() =>
+              setLoginMethod(
+                loginMethod === "privatekey" ? "none" : "privatekey"
+              )
+            }
+          >
+            Import Key
           </button>
           <button
             className={`btn btn-secondary btn-sm ${loginMethod === "bunker" ? "btn-outline" : ""}`}
@@ -314,6 +392,9 @@ export default function AppleSauceLogin({
         </div>
       </div>
 
+      {loginMethod === "privatekey" && (
+        <PrivateKeyLogin onAccountCreated={handlePrivateKeyAccountCreated} />
+      )}
       {loginMethod === "bunker" && (
         <BunkerUrlLogin onSignerCreated={handleSignerCreated} />
       )}

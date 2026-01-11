@@ -43,7 +43,7 @@ export default function LoginModal({
   const [activeTab, setActiveTab] = useState<"create" | "signin">("signin");
 
   // Version tab state
-  const [versionTab, setVersionTab] = useState<"old" | "new">("old");
+  const [versionTab, setVersionTab] = useState<"old" | "new">("new");
 
   const loginActions = useLoginActions();
   const { setLogin } = useLoggedInAccounts();
