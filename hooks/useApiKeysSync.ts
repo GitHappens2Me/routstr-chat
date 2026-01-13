@@ -84,9 +84,11 @@ export function useApiKeysSync() {
       }
 
       const currentApiKeys =
-        (queryClient.getQueryData(["apiKeys", activeAccount?.pubkey, API_KEYS_D_TAG]) as
-          | StoredApiKey[]
-          | undefined) || [];
+        (queryClient.getQueryData([
+          "apiKeys",
+          activeAccount?.pubkey,
+          API_KEYS_D_TAG,
+        ]) as StoredApiKey[] | undefined) || [];
       const updatedKeys = currentApiKeys.filter(
         (k: StoredApiKey) => k.key !== keyToDelete
       );
@@ -127,8 +129,10 @@ export function useApiKeysSync() {
         "#d": [API_KEYS_D_TAG], // Filter by the 'd' tag
         limit: 1, // We only need the latest replaceable event
       };
+      console.log(filter, signal);
 
       const events = await nostr.query([filter], { signal });
+      console.log(events);
 
       if (events.length === 0) {
         return [];

@@ -664,7 +664,9 @@ export default function ChatMessages({
                                       <div className="flex flex-wrap gap-2 mb-2">
                                         {message.content
                                           .filter(
-                                            (item) => item.type === "image_url"
+                                            (item) =>
+                                              item.type === "image_url" &&
+                                              item.image_url?.url
                                           )
                                           .map((item, imgIndex) => (
                                             <img

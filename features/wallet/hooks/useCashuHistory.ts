@@ -121,6 +121,7 @@ export function useCashuHistory() {
       }
 
       const history: (SpendingHistoryEntry & { id: string })[] = [];
+      console.log("Decrypt agsian");
 
       for (const event of events) {
         try {

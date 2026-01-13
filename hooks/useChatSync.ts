@@ -9,6 +9,7 @@ import {
 } from "./useChatSync1081";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
+import { ConsoleLogger } from "@cashu/cashu-ts";
 
 // Storage key for chat sync enabled
 const CHAT_SYNC_ENABLED_KEY = "chatSyncEnabled";
@@ -107,7 +108,11 @@ export const useChatSync = (): ChatSyncHook => {
     (conversationId: string, message: Message): InnerEventPayload => {
       const accountToUse = activeAccount || accounts[0];
       const pubkey = accountToUse?.pubkey;
-      if (!pubkey) throw new Error("No public key available");
+      if (!pubkey) {
+        console.log("WHY ACitge", accounts, activeAccount);
+
+        throw new Error("No public key available");
+      }
 
       const tags = [
         ["d", conversationId],
