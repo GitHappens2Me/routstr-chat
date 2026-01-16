@@ -377,7 +377,7 @@ export default function AppleSauceLogin({
             activeTab === "create" ? "block" : "hidden md:block"
           }`}
         >
-          <div className="p-3 md:p-4 bg-white/5 border border-white/10 rounded-xl h-full">
+          <div className="p-3 md:p-4 bg-white/5 border border-white/10 rounded-xl flex flex-col min-h-[400px]">
             <div className="hidden md:block text-center pb-3 border-b border-white/10 mb-4">
               <h3 className="text-base font-semibold text-white mb-1">
                 Create Account
@@ -386,7 +386,7 @@ export default function AppleSauceLogin({
             </div>
 
             {signupStep === "initial" && (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col flex-1">
                 <div className="mb-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
