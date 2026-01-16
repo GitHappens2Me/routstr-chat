@@ -47,6 +47,25 @@ export interface SpendCashuResult {
 export function useCashuWithXYZ() {
   // Balance and wallet state
   const [balance, setBalance] = useState(0);
+  
+  // Ref to track critical spending section to prevent accidental refresh
+  const isSpendingCritical = useRef(false);
+  
+  // Set up beforeunload listener to warn user during critical spending operation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSpendingCritical.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
   const [maxBalance, setMaxBalance] = useState(0);
   const [currentMintUnit, setCurrentMintUnit] = useState("sat");
   const [isBalanceLoading, setIsBalanceLoading] = useState(true);
@@ -515,6 +534,8 @@ export function useCashuWithXYZ() {
         activeMintBalanceInSats >= adjustedAmount &&
         (baseUrl === "" || providerMints?.includes(mintUrl))
       ) {
+        // Enter critical section - prevent accidental refresh
+        isSpendingCritical.current = true;
         try {
           token = await sendToken(mintUrl, adjustedAmount, p2pkPubkey);
         } catch (error) {
@@ -546,6 +567,7 @@ export function useCashuWithXYZ() {
               console.log(
                 `NetworkError on active mint. Retrying with alternate mint ${alternateMintUrl}`
               );
+              isSpendingCritical.current = false;
               return spendCashu(
                 alternateMintUrl as string,
                 amount,
@@ -557,6 +579,7 @@ export function useCashuWithXYZ() {
               );
             }
           }
+          isSpendingCritical.current = false;
           return {
             token: null,
             status: "failed",
@@ -569,6 +592,8 @@ export function useCashuWithXYZ() {
         baseUrl !== "" &&
         selectedMintBalance >= adjustedAmount
       ) {
+        // Enter critical section - prevent accidental refresh
+        isSpendingCritical.current = true;
         console.log(
           `Active mint insufficient. Using mint ${selectedMintUrl} with balance ${selectedMintBalance} sats instead`
         );
@@ -580,6 +605,7 @@ export function useCashuWithXYZ() {
             error.message.includes("Not enough funds on mint") &&
             error.message.includes("after cleaning spent proofs")
           ) {
+            isSpendingCritical.current = false;
             return spendCashu(selectedMintUrl, adjustedAmount, baseUrl);
           } else if (
             error instanceof Error &&
@@ -603,6 +629,7 @@ export function useCashuWithXYZ() {
               console.log(
                 `NetworkError on active mint. Retrying with alternate mint ${alternateMintUrl}`
               );
+              isSpendingCritical.current = false;
               return spendCashu(
                 alternateMintUrl as string,
                 amount,
@@ -618,6 +645,7 @@ export function useCashuWithXYZ() {
             error instanceof Error ? error.message : String(error);
           console.error("Error generating token from alternate mint:", error);
           console.error(errorMsg);
+          isSpendingCritical.current = false;
           return {
             token: null,
             status: "failed",
@@ -665,6 +693,7 @@ export function useCashuWithXYZ() {
           console.log("All pending balances refunded. Retrying spend...");
           // Update pending amount state so UI reflects cleared pendings immediately
           setPendingCashuAmountState(getPendingCashuTokenAmount());
+          isSpendingCritical.current = false;
           return spendCashu(
             mintUrl,
             amount,
@@ -677,6 +706,7 @@ export function useCashuWithXYZ() {
         } else {
           console.error("Some refunds failed, still gonna retry");
           setPendingCashuAmountState(getPendingCashuTokenAmount());
+          isSpendingCritical.current = false;
           return spendCashu(
             mintUrl,
             amount,
@@ -712,6 +742,7 @@ export function useCashuWithXYZ() {
           console.error(`  ${mintUrl}: ${balanceInSats} sats`);
         }
         const errorMsg = `Insufficient balance. Required: ${adjustedAmount} sats, Available: ${maxMintBalance} sats from mint ${maxMintUrl} is your biggest mint balance.`;
+        isSpendingCritical.current = false;
         return {
           token: null,
           status: "failed",
@@ -720,12 +751,15 @@ export function useCashuWithXYZ() {
         };
       }
     } else {
+      // Enter critical section for legacy wallet - prevent accidental refresh
+      isSpendingCritical.current = true;
       try {
         // Use the generateTokenCore function from useWalletOperations
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error("Error generating legacy token:", error);
         console.error(errorMsg);
+        isSpendingCritical.current = false;
         return {
           token: null,
           status: "failed",
@@ -740,6 +774,8 @@ export function useCashuWithXYZ() {
       if (baseUrl !== "") {
         setLocalCashuToken(baseUrl, token);
       }
+      // Exit critical section - token stored successfully
+      isSpendingCritical.current = false;
       return {
         token,
         status: "success",
@@ -747,6 +783,7 @@ export function useCashuWithXYZ() {
       };
     }
 
+    isSpendingCritical.current = false;
     return {
       token: null,
       status: "failed",
