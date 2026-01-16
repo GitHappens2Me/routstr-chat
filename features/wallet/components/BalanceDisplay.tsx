@@ -58,7 +58,6 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 /**
  * User balance and authentication status component with comprehensive wallet popover
@@ -86,6 +85,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   const { isAuthenticated } = useAuth();
   const {
     balance,
+    activeAccount,
     currentMintUnit,
     isBalanceLoading,
     setIsLoginModalOpen,
@@ -164,7 +164,6 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     error: nip60Error,
   } = useCashuToken();
   const cashuStore = useCashuStore();
-  const user = useCurrentUser();
   const usingNip60 = cashuStore.getUsingNip60();
   const transactionHistoryStore = useTransactionHistoryStore();
   const { spendCashu } = useCashuWithXYZ();
@@ -191,7 +190,9 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
   };
 
   // Get formatted npub
-  const npub = user.user?.pubkey ? formatPublicKey(user.user?.pubkey) : "";
+  const npub = activeAccount?.pubkey
+    ? formatPublicKey(activeAccount?.pubkey)
+    : "";
   const truncatedNpub = npub ? truncateNpub(npub) : "";
 
   // Use shared mint helpers

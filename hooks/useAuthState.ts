@@ -8,7 +8,6 @@ export interface UseAuthStateReturn {
   isAuthenticated: boolean;
   authChecked: boolean;
   logout: () => Promise<void>;
-  logins: readonly any[];
 }
 
 /**
@@ -17,20 +16,13 @@ export interface UseAuthStateReturn {
  * user session persistence, and authentication checks
  */
 export const useAuthState = (): UseAuthStateReturn => {
-  const { logins, removeLogin } = useNostrLogin();
   const { manager } = useAccountManager();
   const accounts = useObservableState(manager.accounts$) || [];
   const [authChecked, setAuthChecked] = useState(true);
 
-  const isAuthenticated = logins.length > 0 || accounts.length > 0;
+  const isAuthenticated = accounts.length > 0;
 
   const logout = useCallback(async () => {
-    // Logout from nostrify
-    const login = logins[0];
-    if (login) {
-      removeLogin(login.id);
-    }
-
     // Logout from applesauce-accounts
     const activeAccount = manager.active$.value;
     if (activeAccount) {
@@ -41,7 +33,7 @@ export const useAuthState = (): UseAuthStateReturn => {
     // For now, just clearing active account and storage seems consistent with existing logic
 
     clearAllStorage();
-  }, [logins, removeLogin, manager]);
+  }, [manager]);
 
   // Set authChecked to true on initial render
   useEffect(() => {
@@ -52,6 +44,5 @@ export const useAuthState = (): UseAuthStateReturn => {
     isAuthenticated,
     authChecked,
     logout,
-    logins,
   };
 };

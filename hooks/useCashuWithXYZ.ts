@@ -56,8 +56,6 @@ export function useCashuWithXYZ() {
   >([]);
   const [hotTokenBalance, setHotTokenBalance] = useState<number>(0);
 
-  // Cashu wallet hooks
-  const { isAuthenticated } = useAuth();
   const {
     wallet,
     isLoading: isWalletLoading,
@@ -71,7 +69,6 @@ export function useCashuWithXYZ() {
     cleanSpentProofs,
     migrateInactiveKeysetBalances,
   } = useCashuToken();
-  const { logins } = useAuth();
   const {
     mutate: handleCreateWallet,
     isPending: isCreatingWallet,
@@ -211,7 +208,7 @@ export function useCashuWithXYZ() {
         }
       }
     }
-  }, [wallet, isWalletLoading, logins, handleCreateWallet, didRelaysTimeout]);
+  }, [wallet, isWalletLoading, handleCreateWallet, didRelaysTimeout]);
 
   // Auto-switch active mint to one that has balance if current has zero (NIP-60 only)
   useEffect(() => {
@@ -789,7 +786,7 @@ export function useCashuWithXYZ() {
     isWalletLoading,
     didRelaysTimeout,
     cashuStore,
-    logins,
+    activeAccount,
     handleCreateWallet,
     isCreatingWallet,
     createWalletError,

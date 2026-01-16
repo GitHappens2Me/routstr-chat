@@ -1,26 +1,25 @@
-import { useNostr } from "@/hooks/useNostr";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
 import { relayPool } from "@/lib/applesauce-core";
-import { Wallet as CashuWalletStruct } from "../core/domain/Wallet";
-import { NostrEvent } from "nostr-tools";
 import { useNutzapStore, NutzapInformationalEvent } from "../state/nutzapStore";
 import { useCashuStore } from "../state/cashuStore";
+import { fetchNutzapInfo, getNutzapInfoEvent } from "./cashuSync";
+import { relayUrls$ } from "@/hooks/useChatSync1081";
 
 /**
  * Hook to fetch a nutzap informational event for a specific pubkey
  */
 
 export function useNutzapInfo(pubkey?: string) {
-  const { nostr } = useNostr();
   const nutzapStore = useNutzapStore();
+  const { config } = useAppContext();
 
   return useQuery({
     queryKey: ["nutzap", "info", pubkey],
-    queryFn: async ({ signal }) => {
+    queryFn: async () => {
       if (!pubkey) throw new Error("Pubkey is required");
 
       // First check if we have it in the store
@@ -29,20 +28,23 @@ export function useNutzapInfo(pubkey?: string) {
         return storedInfo;
       }
 
-      // Otherwise fetch it from the network
-      const events = await nostr.query(
-        [{ kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [pubkey], limit: 1 }],
-        { signal }
-      );
+      // Check eventStore cache
+      let event = getNutzapInfoEvent(pubkey);
 
-      if (events.length === 0) {
+      // If not cached, fetch from relays using applesauce
+      if (!event) {
+        const relays = relayUrls$.getValue();
+        // Use relayUrls$ if available, otherwise fall back to config
+        const relayUrlsToUse = relays.length > 0 ? relays : config.relayUrls;
+        event = await fetchNutzapInfo(pubkey, relayUrlsToUse);
+      }
+
+      if (!event) {
         return null;
       }
 
-      const event = events[0];
-
       // Parse the nutzap informational event
-      const relays = event.tags
+      const eventRelays = event.tags
         .filter((tag) => tag[0] === "relay")
         .map((tag) => tag[1]);
 
@@ -65,7 +67,7 @@ export function useNutzapInfo(pubkey?: string) {
 
       const nutzapInfo: NutzapInformationalEvent = {
         event,
-        relays,
+        relays: eventRelays,
         mints,
         p2pkPubkey,
       };

@@ -26,7 +26,6 @@ import {
   formatBalance,
   calculateBalanceByMint,
 } from "@/features/wallet";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/utils";
 import {
   computeTotalBalanceSats,

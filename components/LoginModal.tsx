@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
-import { useLoginActions } from "@/hooks/useLoginActions";
-import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { Shield, Eye, EyeOff, Copy, Check } from "lucide-react";
 import {
   hasCreatedEphemeralNsec,
@@ -45,8 +43,6 @@ export default function LoginModal({
   // Version tab state
   const [versionTab, setVersionTab] = useState<"old" | "new">("new");
 
-  const loginActions = useLoginActions();
-  const { setLogin } = useLoggedInAccounts();
   const { manager, manualSave } = useAccountManager();
 
   // Reset state when modal opens

@@ -29,6 +29,7 @@ export function useApiKeysSync() {
   const { config } = useAppContext();
   const { manager } = useAccountManager();
   const activeAccount = useObservableState(manager.active$);
+  const hasActiveAccount = activeAccount !== undefined;
 
   // Subscribe to the generic config sync
   const syncedApiKeys = useObservableState(apiKeys$, []);
@@ -181,5 +182,6 @@ export function useApiKeysSync() {
     deleteApiKey,
     cloudSyncEnabled,
     setCloudSyncEnabled,
+    hasActiveAccount,
   };
 }

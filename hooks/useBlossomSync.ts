@@ -9,7 +9,7 @@ import {
 import { encryptBlob, decryptBlob } from "@/utils/blobEncryption";
 import { PnsKeys } from "@/lib/pns";
 import { getStorageItem, setStorageItem } from "@/utils/storageUtils";
-import { useCurrentUser } from "./useCurrentUser";
+import { finalizeEvent } from "nostr-tools";
 
 // ============================================================================
 // Storage Keys & State Management
@@ -103,7 +103,6 @@ export interface BlossomSyncHook {
 // ============================================================================
 
 export const useBlossomSync = (): BlossomSyncHook => {
-  const { user } = useCurrentUser();
   const [uploadProgress] = useState<Map<string, number>>(new Map());
 
   // Use useSyncExternalStore to share state across all hook instances
@@ -135,11 +134,6 @@ export const useBlossomSync = (): BlossomSyncHook => {
       file: File,
       pnsKeys: PnsKeys
     ): Promise<BlossomUploadResult | null> => {
-      if (!user?.signer) {
-        console.warn("No signer available for Blossom upload");
-        return null;
-      }
-
       try {
         // Convert file to Uint8Array
         const fileData = await fileToUint8Array(file);
@@ -147,11 +141,11 @@ export const useBlossomSync = (): BlossomSyncHook => {
         // Encrypt the file data
         const encryptedData = encryptBlob(fileData, file.type, pnsKeys.pnsKey);
 
-        // Create a signer adapter for the Blossom upload
+        // Create a signer adapter for the Blossom upload using PNS private key
         const blossomSigner: BlossomSigner = {
-          getPublicKey: async () => user.pubkey,
+          getPublicKey: async () => pnsKeys.pnsKeypair.pubKey,
           signEvent: async (event) => {
-            return await user.signer.signEvent(event);
+            return finalizeEvent(event, pnsKeys.pnsKeypair.privKey);
           },
         };
 
@@ -175,7 +169,7 @@ export const useBlossomSync = (): BlossomSyncHook => {
         return null;
       }
     },
-    [user, blossomServers]
+    [blossomServers]
   );
 
   /**

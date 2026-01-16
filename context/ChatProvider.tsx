@@ -18,7 +18,6 @@ import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { useBlossomSync } from "@/hooks/useBlossomSync";
 import { usePnsKeys } from "@/hooks/usePnsKeys";
 import { useAuth } from "./AuthProvider";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
 import type { NostrEvent } from "nostr-tools";

@@ -24,7 +24,6 @@ import {
 } from "@/utils/cashuUtils";
 import { toast } from "sonner";
 import { useApiKeysSync } from "@/hooks/useApiKeysSync"; // Import the new hook
-import { useCurrentUser } from "@/hooks/useCurrentUser"; // For checking user login
 import {
   useCashuStore,
   useCashuToken,
@@ -132,7 +131,6 @@ const ApiKeysTab = ({
     void fetchProviders();
   }, [baseUrl]);
 
-  const { user } = useCurrentUser();
   const {
     syncedApiKeys,
     isLoadingApiKeys,
@@ -141,6 +139,7 @@ const ApiKeysTab = ({
     deleteApiKey,
     cloudSyncEnabled,
     setCloudSyncEnabled,
+    hasActiveAccount,
   } = useApiKeysSync();
   const cashuStore = useCashuStore();
   const usingNip60 = cashuStore.getUsingNip60();
@@ -281,7 +280,7 @@ const ApiKeysTab = ({
 
   // Effect to manage API keys based on cloud sync setting
   useEffect(() => {
-    if (cloudSyncEnabled && user) {
+    if (cloudSyncEnabled && hasActiveAccount) {
       // Only update if syncedApiKeys content actually changed
       if (!areApiKeysEqual(prevSyncedApiKeysRef.current, syncedApiKeys)) {
         setStoredApiKeys(syncedApiKeys);
@@ -356,7 +355,7 @@ const ApiKeysTab = ({
         setStoredApiKeys((prevKeys) => (prevKeys.length > 0 ? [] : prevKeys)); // Only clear if not already empty
       }
     }
-  }, [cloudSyncEnabled, user, syncedApiKeys, baseUrl]); // Added syncedApiKeys back with proper deep comparison
+  }, [cloudSyncEnabled, syncedApiKeys, baseUrl, hasActiveAccount]); // Added hasActiveAccount dependency
 
   const handleCopyClick = async (keyToCopy: string) => {
     if (keyToCopy) {
@@ -871,7 +870,7 @@ const ApiKeysTab = ({
       {" "}
       {/* Added relative positioning back */}
       <h3 className="text-sm font-medium text-foreground/80">API Keys</h3>
-      {user && (
+      {
         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md border border-border">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground/80">
@@ -908,7 +907,7 @@ const ApiKeysTab = ({
             onCheckedChange={setCloudSyncEnabled}
           />
         </div>
-      )}
+      }
       <div className="bg-muted/50 border border-border rounded-md p-4">
         <div className="flex items-center justify-between">
           <div>

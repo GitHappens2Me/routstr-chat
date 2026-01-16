@@ -10,7 +10,6 @@ import ModelsTab from "@/components/settings/ModelsTab";
 import HistoryTab from "./settings/HistoryTab";
 import ApiKeysTab from "./settings/ApiKeysTab";
 import UnifiedWallet from "@/features/wallet/components/UnifiedWallet";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Drawer } from "vaul";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
@@ -62,7 +61,6 @@ const SettingsModal = ({
   fetchModels,
   isMobile: propIsMobile,
 }: SettingsModalProps) => {
-  const { user } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<
     "settings" | "wallet" | "history" | "api-keys" | "models"
   >(initialActiveTab || "settings");
@@ -151,13 +149,7 @@ const SettingsModal = ({
 
       <div className="p-4 flex-1 overflow-y-auto">
         {activeTab === "settings" ? (
-          <GeneralTab
-            publicKey={user?.pubkey}
-            loginType={user?.method}
-            logout={logout}
-            router={router}
-            onClose={onClose}
-          />
+          <GeneralTab logout={logout} router={router} onClose={onClose} />
         ) : activeTab === "models" ? (
           <ModelsTab
             models={models}
