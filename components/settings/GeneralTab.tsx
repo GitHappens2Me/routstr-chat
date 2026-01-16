@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { LogOut, XCircle, Copy } from "lucide-react";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { nip19 } from "nostr-tools";
 import NostrRelayManager from "./NostrRelayManager"; // Import the new component
 import NWCWalletManager from "./NWCWalletManager"; // Import the NWC wallet manager
 import AutoRefillSettings from "./AutoRefillSettings"; // Import auto-refill settings
 import ThemeSettings from "./ThemeSettings"; // Import theme settings
 import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { useLoginActions } from "@/hooks/useLoginActions";
-import { useNostrLogin } from "@nostrify/react/login";
 import { useChatSync } from "@/hooks/useChatSync";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
@@ -46,7 +46,6 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
 
   const { currentUser, otherUsers, setLogin, removeLogin } =
     useLoggedInAccounts();
-  const { logins } = useNostrLogin();
   const loginActions = useLoginActions();
   const { manager } = useAccountManager();
   const applesauceAccounts = useObservableState(manager.accounts$) || [];
@@ -201,7 +200,9 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
               activeApplesauceAccount?.pubkey ||
               publicKey ||
               "Not available"}
-            {activeApplesauceAccount && !currentUser && " (Applesauce)"}
+            {activeApplesauceAccount &&
+              !currentUser &&
+              " [" + activeApplesauceAccount.type + "]"}
           </div>
         </div>
         {(otherUsers.length > 0 ||
@@ -239,7 +240,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                 .map((acct) => (
                   <div key={acct.id} className="flex items-center gap-2">
                     <div className="flex-1 font-mono text-xs text-muted-foreground break-all">
-                      {acct.pubkey} (Applesauce)
+                      {acct.pubkey} ({acct.type})
                     </div>
                     <button
                       className="px-2 py-1 rounded-md bg-muted hover:bg-muted/80 border border-border text-foreground text-xs transition-colors cursor-pointer"
@@ -289,31 +290,36 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
           </div>
         </div>
         <div className="flex gap-2 mt-2">
-          {loginType === "nsec" && logins[0]?.data && (
-            <button
-              className="grow flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer"
-              onClick={() => {
-                const nsecData = logins[0]?.data;
-                const nsec =
-                  nsecData &&
-                  "nsec" in nsecData &&
-                  typeof nsecData.nsec === "string" &&
-                  nsecData.nsec.startsWith("nsec1")
-                    ? nsecData.nsec
-                    : "";
-                if (nsec) {
-                  navigator.clipboard.writeText(nsec);
-                  toast("nsec copied to clipboard!");
-                } else {
-                  toast("Unable to export nsec");
-                }
-              }}
-              type="button"
-            >
-              <Copy className="h-4 w-4" />
-              <span>Copy nsec</span>
-            </button>
-          )}
+          {activeApplesauceAccount &&
+            activeApplesauceAccount.type === "nsec" && (
+              <button
+                className="grow flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer"
+                onClick={() => {
+                  try {
+                    const keyData = activeApplesauceAccount.signer.key;
+                    // Convert Uint8Array to nsec format
+                    const nsec =
+                      keyData instanceof Uint8Array
+                        ? nip19.nsecEncode(keyData)
+                        : "";
+
+                    if (nsec) {
+                      navigator.clipboard.writeText(nsec);
+                      toast("nsec copied to clipboard!");
+                    } else {
+                      toast("Unable to export nsec");
+                    }
+                  } catch (error) {
+                    console.error("Error converting key to nsec:", error);
+                    toast("Unable to export nsec");
+                  }
+                }}
+                type="button"
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copy nsec</span>
+              </button>
+            )}
           {logout && router && (
             <button
               className="grow flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 border border-border text-foreground px-3 py-2 rounded-md text-sm transition-colors cursor-pointer"

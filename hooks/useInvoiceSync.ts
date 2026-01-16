@@ -2,7 +2,6 @@
  * Hook to fetch and manage user's invoices synced with the cloud
  *
  * Uses the generic config sync system with applesauce relayPool.
- * No dependency on useNostr.
  *
  * Features:
  * - Cloud sync via Nostr (NIP-78)
@@ -180,11 +179,22 @@ export function useInvoiceSync() {
 
   // Save merged invoices to local storage after initial sync
   useEffect(() => {
-    if (syncEose && !hasMergedRef.current && cloudSyncEnabled && activeAccount) {
+    if (
+      syncEose &&
+      !hasMergedRef.current &&
+      cloudSyncEnabled &&
+      activeAccount
+    ) {
       hasMergedRef.current = true;
       saveLocalInvoices(mergedInvoices);
     }
-  }, [syncEose, cloudSyncEnabled, activeAccount, mergedInvoices, saveLocalInvoices]);
+  }, [
+    syncEose,
+    cloudSyncEnabled,
+    activeAccount,
+    mergedInvoices,
+    saveLocalInvoices,
+  ]);
 
   // Reset merge flag when account changes
   useEffect(() => {
@@ -243,7 +253,10 @@ export function useInvoiceSync() {
 
       // Update local storage
       const existing = getLocalInvoices();
-      const updated = [...existing.filter((inv) => inv.id !== newInvoice.id), newInvoice];
+      const updated = [
+        ...existing.filter((inv) => inv.id !== newInvoice.id),
+        newInvoice,
+      ];
       saveLocalInvoices(updated);
 
       // Sync to cloud

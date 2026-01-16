@@ -30,6 +30,8 @@ import { TransactionHistory } from "@/types/chat";
 import { Proof } from "@cashu/cashu-ts";
 import { useAuth } from "@/context/AuthProvider";
 import React from "react";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useObservableState } from "applesauce-react/hooks";
 
 export interface SpendCashuResult {
   token: string | null;
@@ -75,6 +77,9 @@ export function useCashuWithXYZ() {
     isPending: isCreatingWallet,
     error: createWalletError,
   } = useCreateCashuWallet();
+
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
 
   // Load transaction history on mount
   useEffect(() => {
@@ -172,7 +177,7 @@ export function useCashuWithXYZ() {
 
   // Set active mint URL based on wallet and current mint URL
   useEffect(() => {
-    if (logins.length > 0) {
+    if (activeAccount) {
       if (wallet) {
         const currentActiveMintUrl = cashuStore.getActiveMintUrl();
 
@@ -251,35 +256,6 @@ export function useCashuWithXYZ() {
     },
     []
   );
-
-  const { generateTokenCore, initWallet } = useWalletOperations({
-    mintUrl: DEFAULT_MINT_URL,
-    baseUrl: "",
-    setBalance: (balance: number | ((prevBalance: number) => number)) => {
-      if (typeof balance === "function") {
-        setBalance(balance);
-      } else {
-        setBalance(balance);
-      }
-    },
-    setTransactionHistory: setTransactionHistory,
-    transactionHistory: transactionHistory,
-  });
-
-  // Initialize wallet when component mounts or mintUrl changes
-  useEffect(() => {
-    const initializeWallet = async () => {
-      try {
-        await initWallet();
-      } catch (error) {
-        console.error("Failed to initialize wallet. Please try again.");
-      }
-    };
-
-    if (isAuthenticated && false && process.env.NODE_ENV === "production") {
-      void initializeWallet();
-    }
-  }, [initWallet]);
 
   /**
    * Selects a mint with sufficient balance, excluding specified mints
@@ -749,8 +725,6 @@ export function useCashuWithXYZ() {
     } else {
       try {
         // Use the generateTokenCore function from useWalletOperations
-        token = await generateTokenCore(adjustedAmount, mintUrl);
-        console.log("rdlogs: token", token);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error("Error generating legacy token:", error);

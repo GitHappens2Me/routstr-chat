@@ -50,6 +50,8 @@ import InvoiceHistory from "./InvoiceHistory";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { useObservableState } from "applesauce-react/hooks";
+import { useAccountManager } from "@/components/ClientProviders";
 
 // Helper function to generate unique IDs
 const generateId = () => crypto.randomUUID();
@@ -325,7 +327,8 @@ const SixtyWallet: React.FC<{
     await handleCreateInvoice(amount);
   };
 
-  const { user } = useCurrentUser();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const { wallet, isLoading, updateProofs } = useCashuWallet();
   const {
     mutate: handleCreateWallet,
@@ -801,13 +804,13 @@ const SixtyWallet: React.FC<{
           <div className="mt-4">
             <button
               onClick={() => handleCreateWallet()}
-              disabled={!user}
+              disabled={!activeAccount}
               className="bg-muted border border-border text-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 cursor-pointer"
               type="button"
             >
               Create Wallet
             </button>
-            {!user && (
+            {!activeAccount && (
               <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-300 p-3 rounded-md text-sm mt-4">
                 <div className="flex items-center">
                   <AlertCircle className="h-4 w-4 mr-2" />

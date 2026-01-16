@@ -2,7 +2,6 @@
  * Hook to fetch and manage user's API keys synced with the cloud
  *
  * Uses the generic config sync system with applesauce relayPool.
- * No dependency on useNostr.
  */
 
 import { toast } from "sonner";
