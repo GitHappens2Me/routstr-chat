@@ -395,12 +395,15 @@ export const useApiState = (
     const selectModel = async () => {
       // Only auto-select if no model is selected or current model is not available
       if (!selectedModel && !isWalletLoading) {
+        const lastUsedModel = loadLastUsedModel();
         const model = await modelSelectionStrategy(
           models,
           maxBalance,
           pendingCashuAmountState
         );
-        if (model) {
+        if (model && lastUsedModel && lastUsedModel === model.id) {
+          handleModelChange(model.id);
+        } else if (model && !lastUsedModel) {
           handleModelChange(model.id);
         }
       }
