@@ -36,6 +36,7 @@ import {
   isModelAvailable,
 } from "@/utils/modelUtils";
 import { recommendedModels, webSearchModels } from "@/lib/preconfiguredModels";
+import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
 
 interface ModelSelectorProps {
   selectedModel: Model | null;
@@ -739,7 +740,10 @@ export default function ModelSelector({
       ? providerModels[model.id]
       : undefined;
     const effectiveModelForPricing = providerSpecificModel || model;
-    const isAvailable = isModelAvailable(effectiveModelForPricing, balance);
+    const isAvailable = isModelAvailable(
+      effectiveModelForPricing,
+      balance + getPendingCashuTokenAmount()
+    );
     const requiredMin = getRequiredSatsForModel(effectiveModelForPricing);
     const isFav = isFavorite || isConfiguredModel(model.id);
     const effectiveProviderLabel =
