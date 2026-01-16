@@ -19,8 +19,8 @@ import {
 } from "@/lib/cashuLightning";
 import { MintQuoteState, getDecodedToken } from "@cashu/cashu-ts";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { useLoginActions } from "@/hooks/useLoginActions";
-import { generateSecretKey, nip19 } from "nostr-tools";
+import { useAccountManager, AccountMetadata } from "@/components/ClientProviders";
+import { PrivateKeyAccount } from "applesauce-accounts/accounts";
 import { markEphemeralNsecCreated } from "@/utils/storageUtils";
 
 interface TopUpPromptModalProps {
@@ -69,7 +69,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const [nwcCustomAmount, setNwcCustomAmount] = useState("");
   const [isPayingWithNWC, setIsPayingWithNWC] = useState(false);
 
-  const loginActions = useLoginActions();
+  const { manager, manualSave } = useAccountManager();
 
   useEffect(() => {
     let unsubConnect: undefined | (() => void);
@@ -214,9 +214,14 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const quickAmounts = [500, 1000, 5000];
 
   const createNsecForLogin = () => {
-    const sk = generateSecretKey();
-    const nsec = nip19.nsecEncode(sk);
-    loginActions.nsec(nsec);
+    // Only create if no accounts exist
+    const accounts = manager.accounts$.value;
+    if (accounts.length > 0) return;
+    
+    const account = PrivateKeyAccount.generateNew<AccountMetadata>();
+    manager.addAccount(account);
+    manager.setActive(account);
+    manualSave.next();
     markEphemeralNsecCreated();
   };
 
