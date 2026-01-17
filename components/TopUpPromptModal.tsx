@@ -19,8 +19,6 @@ import QRCode from "react-qr-code";
 import {
   Drawer,
   DrawerContent,
-  DrawerOverlay,
-  DrawerPortal,
   DrawerTitle,
 } from "@/components/ui/drawer";
 import {
@@ -1571,25 +1569,18 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
           if (!open) onClose();
         }}
       >
-        <DrawerPortal>
-          <DrawerOverlay className="fixed inset-0 bg-black/40 z-[60]" />
-          <DrawerContent
-            className={`bg-card flex flex-col rounded-t-[10px] mt-24 ${dialogHeightClass} fixed bottom-0 left-0 right-0 outline-none z-[60] overflow-hidden`}
-          >
-            <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 flex flex-col min-h-0">
-              <div
-                className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-muted-foreground/30 mb-8"
-                aria-hidden
-              />
-              <DrawerTitle className="sr-only">{headerTitle}</DrawerTitle>
-              <div
-                className={`mx-auto w-full ${modalWidthClass} px-5 flex flex-1 flex-col min-h-0`}
-              >
-                {modalContent}
-              </div>
+        <DrawerContent
+          className={`bg-card flex flex-col rounded-t-[10px] mt-24 ${dialogHeightClass} outline-none z-[60] overflow-hidden`}
+        >
+          <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 flex flex-col min-h-0">
+            <DrawerTitle className="sr-only">{headerTitle}</DrawerTitle>
+            <div
+              className={`mx-auto w-full ${modalWidthClass} px-5 flex flex-1 flex-col min-h-0`}
+            >
+              {modalContent}
             </div>
-          </DrawerContent>
-        </DrawerPortal>
+          </div>
+        </DrawerContent>
       </Drawer>
     );
   }

@@ -11,13 +11,7 @@ import HistoryTab from "./settings/HistoryTab";
 import ApiKeysTab from "./settings/ApiKeysTab";
 import UnifiedWallet from "@/features/wallet/components/UnifiedWallet";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerOverlay,
-  DrawerPortal,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 
 interface SettingsModalProps {
@@ -202,21 +196,14 @@ const SettingsModal = ({
           if (!open) onClose();
         }}
       >
-        <DrawerPortal>
-          <DrawerOverlay className="fixed inset-0 bg-black/40 z-60" />
-          <DrawerContent className="bg-card flex flex-col rounded-t-[10px] mt-24 h-[80%] lg:h-fit max-h-[96%] fixed bottom-0 left-0 right-0 outline-none z-60">
-            <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 overflow-y-auto">
-              <div
-                className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-muted-foreground/30 mb-4"
-                aria-hidden
-              />
-              <DrawerTitle className="sr-only">Settings</DrawerTitle>
-              <div className="max-w-2xl mx-auto flex flex-col h-full">
-                {contentBody}
-              </div>
+        <DrawerContent className="bg-card flex flex-col rounded-t-[10px] mt-24 h-[80%] lg:h-fit max-h-[96%] outline-none z-[60]">
+          <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 overflow-y-auto">
+            <DrawerTitle className="sr-only">Settings</DrawerTitle>
+            <div className="max-w-2xl mx-auto flex flex-col h-full">
+              {contentBody}
             </div>
-          </DrawerContent>
-        </DrawerPortal>
+          </div>
+        </DrawerContent>
       </Drawer>
     );
   }
