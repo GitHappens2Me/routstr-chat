@@ -7,6 +7,7 @@ import {
   Zap,
   ArrowRight,
   Info,
+  ClipboardPaste,
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import {
@@ -26,6 +27,7 @@ import { useInvoiceSync } from "@/hooks/useInvoiceSync";
 import { useInvoiceChecker } from "@/hooks/useInvoiceChecker";
 import { MintQuoteState } from "@cashu/cashu-ts";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 
 const BCButton = dynamic(
   () => import("@getalby/bitcoin-connect-react").then((m) => m.Button),
@@ -324,6 +326,14 @@ const DepositModal: React.FC<DepositModalProps> = ({
 
   const [tokenToImport, setTokenToImport] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const handlePasteTokenToImport = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setTokenToImport(text);
+    } catch {
+      toast.error("Failed to read from clipboard");
+    }
+  }, []);
 
   const handleReceiveToken = async () => {
     if (!tokenToImport) {
@@ -536,13 +546,24 @@ const DepositModal: React.FC<DepositModalProps> = ({
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-white/80">Via Cashu</h3>
             <div className="space-y-2">
-              <textarea
-                value={tokenToImport}
-                onChange={(e) => setTokenToImport(e.target.value)}
-                disabled={isLoading}
-                className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm text-white h-24 focus:border-white/30 focus:outline-none resize-none disabled:opacity-50"
-                placeholder="Paste your Cashu token here..."
-              />
+              <div className="relative">
+                <textarea
+                  value={tokenToImport}
+                  onChange={(e) => setTokenToImport(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-10 text-sm text-white h-24 focus:border-white/30 focus:outline-none resize-none disabled:opacity-50"
+                  placeholder="Paste your Cashu token here..."
+                />
+                <button
+                  onClick={handlePasteTokenToImport}
+                  className="absolute top-2 right-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
+                  type="button"
+                  title="Paste"
+                  disabled={isLoading}
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <button
                 onClick={handleReceiveToken}
                 disabled={isImporting || !tokenToImport.trim() || isLoading}

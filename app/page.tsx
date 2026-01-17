@@ -6,7 +6,6 @@ import { AuthProvider } from "@/context/AuthProvider";
 import { ChatProvider } from "@/context/ChatProvider";
 import ChatContainer from "@/components/chat/ChatContainer";
 import SettingsModal from "@/components/SettingsModal";
-import LoginModal from "@/components/LoginModal";
 import TopUpPromptModal from "@/components/TopUpPromptModal";
 import { QueryTimeoutModal } from "@/components/QueryTimeoutModal";
 import QRCodeModal from "@/components/QRCodeModal";
@@ -14,7 +13,6 @@ import { useAuth } from "@/context/AuthProvider";
 import { useChat } from "@/context/ChatProvider";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCashuWallet } from "@/features/wallet";
-import { hasSeenTopUpPrompt, markTopUpPromptSeen } from "@/utils/storageUtils";
 import { useAutoRefill } from "@/hooks/useAutoRefill";
 import {
   KeepAliveProvider,
@@ -118,22 +116,49 @@ function ChatPageContent() {
   useEffect(() => {
     let topUpTimer: NodeJS.Timeout | null = null;
 
-    if (!isBalanceLoading && balance === 0 && !isSettingsOpen) {
-      if (!hasSeenTopUpPrompt() && !topUpPromptDismissed) {
-        setIsTopUpPromptOpen(false);
-        topUpTimer = setTimeout(() => {
-          markTopUpPromptSeen();
-          setIsTopUpPromptOpen(true);
-        }, 500);
-      }
+    const shouldPrompt =
+      balance === 0 &&
+      !isSettingsOpen &&
+      !topUpPromptDismissed &&
+      (!isBalanceLoading || !isAuthenticated);
+
+    if (shouldPrompt && !isTopUpPromptOpen && !isLoginModalOpen) {
+      topUpTimer = setTimeout(() => {
+        setIsTopUpPromptOpen(true);
+      }, 500);
     }
 
     return () => {
       if (topUpTimer) clearTimeout(topUpTimer);
     };
-  }, [balance, isBalanceLoading, isSettingsOpen, topUpPromptDismissed]);
+  }, [
+    balance,
+    isBalanceLoading,
+    isSettingsOpen,
+    topUpPromptDismissed,
+    isAuthenticated,
+    isTopUpPromptOpen,
+    isLoginModalOpen,
+  ]);
 
-  const handleTopUp = (_amount?: number) => {};
+  useEffect(() => {
+    if (isTopUpPromptOpen && balance > 0) {
+      setIsTopUpPromptOpen(false);
+    }
+  }, [balance, isTopUpPromptOpen]);
+
+  const isAuthModalOpen = isLoginModalOpen || isTopUpPromptOpen;
+  const authModalDefaultPage = isLoginModalOpen ? "login" : "topup";
+
+  const handleAuthModalClose = () => {
+    if (isLoginModalOpen) {
+      setIsLoginModalOpen(false);
+    }
+    if (isTopUpPromptOpen) {
+      setIsTopUpPromptOpen(false);
+      setTopUpPromptDismissed(true);
+    }
+  };
 
   // Sync URL with activeConversationId
   // When activeConversationId is null (new chat), remove chatId from URL
@@ -260,28 +285,13 @@ function ChatPageContent() {
         />
       )}
 
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        onLogin={() => setIsLoginModalOpen(false)}
-        logout={logout}
-      />
-
-      {/* Top-up Prompt */}
-      {isTopUpPromptOpen && (
+      {isAuthModalOpen && (
         <TopUpPromptModal
-          isOpen={isTopUpPromptOpen}
-          onClose={() => {
-            setIsTopUpPromptOpen(false);
-            setTopUpPromptDismissed(true);
-          }}
-          onTopUp={handleTopUp}
-          onDontShowAgain={() => {
-            setTopUpPromptDismissed(true);
-            markTopUpPromptSeen();
-          }}
-          setIsLoginModalOpen={setIsLoginModalOpen}
+          isOpen={isAuthModalOpen}
+          onClose={handleAuthModalClose}
           cashuToken={cashuTokenFromUrl || undefined}
+          defaultPage={authModalDefaultPage}
+          onShowQRCode={setQrModalData}
         />
       )}
 

@@ -165,11 +165,11 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
         </div>
 
         {/* View Mode Tabs */}
-        <div className="flex gap-1 mb-3 p-1 bg-muted/50 rounded-md w-fit">
+        <div className="inline-flex items-center gap-1 mb-3 p-1 rounded-full border border-border bg-muted/40 text-[11px] leading-none">
           <button
             type="button"
             onClick={() => setViewMode("combined")}
-            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+            className={`min-w-[92px] px-3 py-1.5 font-medium rounded-full transition-colors ${
               viewMode === "combined"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -180,7 +180,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
           <button
             type="button"
             onClick={() => setViewMode("separate")}
-            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+            className={`min-w-[92px] px-3 py-1.5 font-medium rounded-full transition-colors ${
               viewMode === "separate"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

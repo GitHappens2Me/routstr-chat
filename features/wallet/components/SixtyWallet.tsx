@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AlertCircle,
   Copy,
@@ -10,6 +10,7 @@ import {
   Plus,
   Trash2,
   Eraser,
+  ClipboardPaste,
 } from "lucide-react";
 import {
   getEncodedTokenV4,
@@ -39,6 +40,7 @@ import {
   parseInvoiceAmount,
   createMeltQuote,
 } from "@/lib/cashuLightning";
+import { toast } from "sonner";
 import { useTransactionHistoryStore } from "@/features/wallet";
 import { PendingTransaction } from "../state/transactionHistoryStore";
 import { getBalanceFromStoredProofs } from "@/utils/cashuUtils";
@@ -354,6 +356,14 @@ const SixtyWallet: React.FC<{
   const [generatedToken, setGeneratedToken] = useState(""); // For send
   const [tokenToImport, setTokenToImport] = useState(""); // For receive
   const [sendAmount, setSendAmount] = useState(""); // For send
+  const handlePasteTokenToImport = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setTokenToImport(text);
+    } catch {
+      toast.error("Failed to read from clipboard");
+    }
+  }, []);
 
   useEffect(() => {
     if (createWalletError) {
@@ -1245,12 +1255,22 @@ const SixtyWallet: React.FC<{
                   Via Cashu
                 </h3>
                 <div className="space-y-2">
-                  <textarea
-                    value={tokenToImport}
-                    onChange={(e) => setTokenToImport(e.target.value)}
-                    className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground h-24 focus:border-ring focus:outline-none resize-none"
-                    placeholder="Paste your Cashu token here..."
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={tokenToImport}
+                      onChange={(e) => setTokenToImport(e.target.value)}
+                      className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 pr-10 text-sm text-foreground h-24 focus:border-ring focus:outline-none resize-none"
+                      placeholder="Paste your Cashu token here..."
+                    />
+                    <button
+                      onClick={handlePasteTokenToImport}
+                      className="absolute top-2 right-2 bg-muted/60 hover:bg-muted border border-border text-foreground p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
+                      type="button"
+                      title="Paste"
+                    >
+                      <ClipboardPaste className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <button
                     onClick={handleReceiveToken}
                     disabled={isImporting || !tokenToImport.trim()}

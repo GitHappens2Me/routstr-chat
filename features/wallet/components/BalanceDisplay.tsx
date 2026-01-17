@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Settings,
   ChevronDown,
+  ClipboardPaste,
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import {
@@ -58,6 +59,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
+import { toast } from "sonner";
 
 /**
  * User balance and authentication status component with comprehensive wallet popover
@@ -129,6 +131,14 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
   // Mint selector state
   const [isMintSelectorOpen, setIsMintSelectorOpen] = useState(false);
+  const handlePasteTokenToImport = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setTokenToImport(text);
+    } catch {
+      toast.error("Failed to read from clipboard");
+    }
+  }, []);
 
   // Common state
   const [error, setError] = useState("");
@@ -1083,7 +1093,7 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
     return (
       <button
         onClick={() => setIsLoginModalOpen(true)}
-        className="px-3 py-1.5 rounded-full bg-white text-black hover:bg-gray-200 transition-colors text-xs cursor-pointer"
+        className="flex items-center gap-2 text-foreground bg-muted/50 hover:bg-muted rounded-md py-2 px-3 sm:px-4 h-[36px] text-xs sm:text-sm transition-colors cursor-pointer border border-border justify-center"
       >
         Sign in
       </button>
@@ -1853,13 +1863,23 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
                     <label className="block text-muted-foreground text-xs font-medium mb-2">
                       Cashu Token
                     </label>
-                    <textarea
-                      value={tokenToImport}
-                      onChange={(e) => setTokenToImport(e.target.value)}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
-                      placeholder="Paste a Cashu token here..."
-                      autoFocus
-                    />
+                    <div className="relative">
+                      <textarea
+                        value={tokenToImport}
+                        onChange={(e) => setTokenToImport(e.target.value)}
+                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 pr-10 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
+                        placeholder="Paste a Cashu token here..."
+                        autoFocus
+                      />
+                      <button
+                        onClick={handlePasteTokenToImport}
+                        className="absolute top-2 right-2 bg-muted/60 hover:bg-muted border border-border text-foreground p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
+                        type="button"
+                        title="Paste"
+                      >
+                        <ClipboardPaste className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <button
