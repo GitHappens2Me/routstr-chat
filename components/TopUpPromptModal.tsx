@@ -16,7 +16,13 @@ import {
 import { nip19 } from "nostr-tools";
 import { QRCodeSVG } from "qrcode.react";
 import QRCode from "react-qr-code";
-import { Drawer } from "vaul";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerOverlay,
+  DrawerPortal,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
   useCashuWallet,
   useCashuStore,
@@ -1559,15 +1565,15 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
 
   if (isMobile) {
     return (
-      <Drawer.Root
+      <Drawer
         open={isOpen}
         onOpenChange={(open) => {
           if (!open) onClose();
         }}
       >
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/40 z-[60]" />
-          <Drawer.Content
+        <DrawerPortal>
+          <DrawerOverlay className="fixed inset-0 bg-black/40 z-[60]" />
+          <DrawerContent
             className={`bg-card flex flex-col rounded-t-[10px] mt-24 ${dialogHeightClass} fixed bottom-0 left-0 right-0 outline-none z-[60] overflow-hidden`}
           >
             <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 flex flex-col min-h-0">
@@ -1575,16 +1581,16 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
                 className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-muted-foreground/30 mb-8"
                 aria-hidden
               />
-              <Drawer.Title className="sr-only">{headerTitle}</Drawer.Title>
+              <DrawerTitle className="sr-only">{headerTitle}</DrawerTitle>
               <div
                 className={`mx-auto w-full ${modalWidthClass} px-5 flex flex-1 flex-col min-h-0`}
               >
                 {modalContent}
               </div>
             </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+          </DrawerContent>
+        </DrawerPortal>
+      </Drawer>
     );
   }
 
