@@ -72,19 +72,29 @@ export default function ChatInput({
     null
   );
   const [isCentered, setIsCentered] = useState(!hasMessages);
+  const [hasMounted, setHasMounted] = useState(false);
+  const [initialIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 768px)").matches;
+  });
   const [showRedButton, setShowRedButton] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
   const { uploadToBlossomAsync, blossomSyncEnabled } = useBlossomSync();
   const { pnsKeys } = usePnsKeys();
   const unifiedBgClass = "bg-background";
-  const maxTextareaHeight = isMobile ? 176 : 240;
+  const isMobileLayout = hasMounted ? isMobile : initialIsMobile;
+  const maxTextareaHeight = isMobileLayout ? 176 : 240;
 
   // State for layout mode
   const [isStackLayout, setIsStackLayout] = useState(false);
 
   const useIsomorphicLayoutEffect =
     typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -120,11 +130,7 @@ export default function ChatInput({
     }
     setIsStackLayout((prev) => (prev === shouldStack ? prev : shouldStack));
 
-    const measuredScrollHeight =
-      isStackLayout && textareaRef.current
-        ? textareaRef.current.scrollHeight
-        : scrollHeight;
-    const clampedHeight = Math.min(measuredScrollHeight, maxTextareaHeight);
+    const clampedHeight = Math.min(scrollHeight, maxTextareaHeight);
     const nextMinHeight = Math.max(clampedHeight, BASE_TEXTAREA_HEIGHT);
     const allowDecrease =
       inputMessage.length < prevInputLengthRef.current ||
@@ -603,7 +609,7 @@ export default function ChatInput({
       {isCentered && (
         <div
           className={`fixed z-20 flex flex-col items-center pointer-events-none ${
-            isMobile || !isAuthenticated
+            isMobileLayout || !isAuthenticated
               ? "inset-x-0"
               : isSidebarCollapsed
                 ? "inset-x-0"
@@ -611,7 +617,7 @@ export default function ChatInput({
           }`}
           style={{
             top: "50%",
-            transform: isMobile
+            transform: isMobileLayout
               ? "translateY(calc(-50% - 100px))"
               : "translateY(calc(-50% - 120px))",
           }}
@@ -626,8 +632,10 @@ export default function ChatInput({
       {/* Chat Input Container */}
       <div
         className={`${
-          isCentered && !isMobile
-            ? `fixed z-20 flex items-start justify-center transition-all duration-500 ease-out ${
+          isCentered && !isMobileLayout
+            ? `fixed z-20 flex items-start justify-center ${
+                hasMounted ? "transition-all duration-500 ease-out" : ""
+              } ${
                 !isAuthenticated
                   ? "inset-x-0"
                   : isSidebarCollapsed
@@ -635,9 +643,12 @@ export default function ChatInput({
                     : "left-72 right-0"
               }`
             : `${
-                isMobile
-                  ? `fixed z-20 left-0 right-0 w-screen ${unifiedBgClass} backdrop-blur-sm transition-all duration-300 ease-in-out px-0 pb-2 pt-0`
-                  : "fixed z-20 bg-background backdrop-blur-sm transition-all duration-300 ease-in-out " +
+                isMobileLayout
+                  ? `fixed z-20 left-0 right-0 w-screen ${unifiedBgClass} backdrop-blur-sm ${
+                      hasMounted ? "transition-all duration-300 ease-in-out" : ""
+                    } px-0 pb-2 pt-0`
+                  : "fixed z-20 bg-background backdrop-blur-sm " +
+                    (hasMounted ? "transition-all duration-300 ease-in-out " : "") +
                     (!isAuthenticated
                       ? "left-0 right-0 pb-4 pt-0"
                       : isSidebarCollapsed
@@ -646,15 +657,19 @@ export default function ChatInput({
               }`
         }`}
         style={{
-          top: isCentered && !isMobile ? "calc(50% - 56px)" : undefined,
+          top: isCentered && !isMobileLayout ? "calc(50% - 56px)" : undefined,
           bottom:
-            isMobile || !isCentered ? (isMobile ? "0px" : "16px") : undefined,
+            isMobileLayout || !isCentered
+              ? isMobileLayout
+                ? "0px"
+                : "16px"
+              : undefined,
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         <div
           className={`${
-            isMobile
+            isMobileLayout
               ? "w-full max-w-none px-4 pb-3"
               : "mx-auto w-full " +
                 (isCentered ? "max-w-152" : "max-w-176") +
@@ -691,7 +706,9 @@ export default function ChatInput({
               value={inputMessage}
               readOnly
               rows={1}
-              className="absolute top-0 left-0 -z-50 invisible bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] pl-14 pr-12 focus:outline-none resize-none overflow-hidden h-auto min-h-[48px]"
+              className={`absolute top-0 left-0 -z-50 invisible bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] focus:outline-none resize-none overflow-hidden h-auto min-h-[48px] ${
+                isStackLayout ? "" : "pl-14 pr-12"
+              }`}
               style={{
                 width: "100%",
                 fontSize: "16px",
@@ -739,7 +756,7 @@ export default function ChatInput({
                     <button
                       onClick={() => removeAttachment(attachment.id)}
                       className={`absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-opacity duration-150 ${
-                        isMobile
+                        isMobileLayout
                           ? "opacity-100"
                           : "opacity-0 group-hover:opacity-100"
                       }`}
@@ -785,7 +802,7 @@ export default function ChatInput({
                   if (
                     e.key === "Enter" &&
                     !e.shiftKey &&
-                    (!isMobile || e.metaKey || e.ctrlKey)
+                    (!isMobileLayout || e.metaKey || e.ctrlKey)
                   ) {
                     e.preventDefault();
                     // Prevent sending when models or wallet are still loading
@@ -874,7 +891,7 @@ export default function ChatInput({
         </div>
       </div>
       {/* Bottom spacer for visible padding below the input */}
-      {(!isCentered || isMobile) && (
+      {(!isCentered || isMobileLayout) && (
         <div
           className={`fixed bottom-0 z-20 pointer-events-none ${
             !isAuthenticated
@@ -882,7 +899,7 @@ export default function ChatInput({
               : isSidebarCollapsed
                 ? "left-0 right-0"
                 : "left-72 right-0"
-          } ${isMobile ? "h-3" : "h-4"} ${unifiedBgClass}`}
+          } ${isMobileLayout ? "h-3" : "h-4"} ${unifiedBgClass}`}
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         />
       )}

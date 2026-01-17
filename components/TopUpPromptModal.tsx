@@ -901,30 +901,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
                 invoice ? "bg-transparent" : "bg-muted/40"
               }`}
             >
-              <div
-                className={`flex items-center justify-center rounded-md ${
-                  invoice ? "cursor-pointer hover:bg-muted/60 transition-all p-2" : ""
-                }`}
-                onClick={
-                  invoice
-                    ? () => {
-                        if (onShowQRCode) {
-                          onShowQRCode({
-                            invoice,
-                            amount: pendingAmount
-                              ? pendingAmount.toString()
-                              : "",
-                            unit: "sat",
-                          });
-                        } else {
-                          void copyInvoiceToClipboard();
-                        }
-                      }
-                    : undefined
-                }
-                role={invoice ? ("button" as const) : undefined}
-                title={invoice ? "Click to view QR code" : undefined}
-              >
+              <div className="flex items-center justify-center rounded-md p-2">
                 {invoice ? (
                   <div className="bg-background p-2 rounded-md">
                     <QRCode
