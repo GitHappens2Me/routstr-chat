@@ -736,10 +736,11 @@ export default function ChatInput({
               }}
               className="relative flex w-full"
             >
-              <motion.textarea
-                layout
-                ref={textareaRef}
-                value={inputMessage}
+            <motion.textarea
+              layout
+              initial={false}
+              ref={textareaRef}
+              value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 animate={{
                   paddingLeft: isStackLayout ? 16 : 56, // px-4 (16px) vs pl-14 (56px)
