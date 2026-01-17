@@ -131,7 +131,6 @@ const MainChatArea: React.FC = () => {
         sendMessage={handleSendMessage}
         isLoading={isLoading}
         isAuthenticated={isAuthenticated}
-        textareaHeight={textareaHeight}
         setTextareaHeight={setTextareaHeight}
         isSidebarCollapsed={isSidebarCollapsed}
         isMobile={isMobile}

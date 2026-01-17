@@ -1,6 +1,12 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { ArrowRight, FileText, Loader2, Paperclip, X } from "lucide-react";
-import { useChat } from "@/context/ChatProvider";
+import { motion } from "motion/react";
 import { MessageAttachment } from "@/types/chat";
 import { extractTextFromPdf } from "@/utils/pdfUtils";
 import { saveFile } from "@/utils/indexedDb";
@@ -17,6 +23,10 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ];
+const BASE_TEXTAREA_HEIGHT = 48;
+const STACK_LAYOUT_SCROLL_THRESHOLD = 56;
+const ATTACHMENT_ROW_HEIGHT = 88;
+const TOOLBAR_ROW_HEIGHT = 40;
 
 interface ChatInputProps {
   inputMessage: string;
@@ -28,7 +38,6 @@ interface ChatInputProps {
   sendMessage: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
-  textareaHeight: number;
   setTextareaHeight: (height: number) => void;
   isSidebarCollapsed: boolean;
   isMobile: boolean;
@@ -45,7 +54,6 @@ export default function ChatInput({
   sendMessage,
   isLoading,
   isAuthenticated,
-  textareaHeight,
   setTextareaHeight,
   isSidebarCollapsed,
   isMobile,
@@ -55,11 +63,12 @@ export default function ChatInput({
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const shadowRef = useRef<HTMLTextAreaElement>(null);
+  const minTextareaHeightRef = useRef(BASE_TEXTAREA_HEIGHT);
   const [isCentered, setIsCentered] = useState(!hasMessages);
   const [showRedButton, setShowRedButton] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
-  const { isSidebarOpen } = useChat();
   const { uploadToBlossomAsync, blossomSyncEnabled } = useBlossomSync();
   const { pnsKeys } = usePnsKeys();
   const unifiedBgClass = "bg-background";
@@ -68,15 +77,59 @@ export default function ChatInput({
   // State for layout mode
   const [isStackLayout, setIsStackLayout] = useState(false);
 
+  const useIsomorphicLayoutEffect =
+    typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
   // Update layout mode based on content
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    const scrollHeight = textareaRef.current.scrollHeight;
-    const shouldStack = uploadedAttachments.length > 0 || scrollHeight > 56;
-    if (shouldStack !== isStackLayout) {
-      setIsStackLayout(shouldStack);
+  useIsomorphicLayoutEffect(() => {
+    // Use shadow ref for stable measurement to prevent jitter
+    if (!shadowRef.current) return;
+
+    // Reset height to auto to get correct scrollHeight
+    shadowRef.current.style.height = "auto";
+    const scrollHeight = shadowRef.current.scrollHeight;
+
+    const isMultiline = scrollHeight > STACK_LAYOUT_SCROLL_THRESHOLD;
+    minTextareaHeightRef.current = isMultiline
+      ? scrollHeight
+      : BASE_TEXTAREA_HEIGHT;
+    const shouldStack = uploadedAttachments.length > 0 || isMultiline;
+    setIsStackLayout((prev) => (prev === shouldStack ? prev : shouldStack));
+
+    if (isMobile && isStackLayout && textareaRef.current) {
+      const currentScrollHeight = textareaRef.current.scrollHeight;
+      const clampedHeight = Math.min(currentScrollHeight, maxTextareaHeight);
+      minTextareaHeightRef.current = Math.max(
+        clampedHeight,
+        BASE_TEXTAREA_HEIGHT
+      );
     }
-  }, [inputMessage, uploadedAttachments.length, isStackLayout]);
+  }, [
+    inputMessage,
+    uploadedAttachments.length,
+    isMobile,
+    isStackLayout,
+    maxTextareaHeight,
+  ]);
+
+  const getExtraHeight = useCallback(() => {
+    const attachmentHeight =
+      uploadedAttachments.length > 0 ? ATTACHMENT_ROW_HEIGHT : 0;
+    const toolbarHeight = isStackLayout ? TOOLBAR_ROW_HEIGHT : 0;
+    return attachmentHeight + toolbarHeight;
+  }, [uploadedAttachments.length, isStackLayout]);
+
+  const getTextareaOnlyHeight = useCallback(
+    (scrollHeight: number) => {
+      const clampedHeight = Math.min(scrollHeight, maxTextareaHeight);
+      const minHeight = Math.min(
+        minTextareaHeightRef.current,
+        maxTextareaHeight
+      );
+      return Math.max(clampedHeight, minHeight);
+    },
+    [maxTextareaHeight]
+  );
 
   /**
    * Helper to handle Blossom upload for an attachment
@@ -127,52 +180,38 @@ export default function ChatInput({
   // Handle centering when messages change from external updates
   useEffect(() => {
     // Center when no messages, bottom when messages exist (both mobile and desktop)
-    if (hasMessages && isCentered) {
-      setIsCentered(false);
-    } else if (!hasMessages && !isCentered) {
-      setIsCentered(true);
-    }
-  }, [hasMessages, isCentered]);
+    setIsCentered(!hasMessages);
+  }, [hasMessages]);
 
   // Keep textarea height in sync with content and clamp to max height
   // Also account for attachment preview height (if any)
   useEffect(() => {
     if (!textareaRef.current) return;
     const textarea = textareaRef.current;
-    let textareaOnlyHeight = 48;
+    let textareaOnlyHeight = BASE_TEXTAREA_HEIGHT;
 
     if (inputMessage === "") {
-      textarea.style.height = "48px";
-      textareaOnlyHeight = 48;
+      textarea.style.height = `${BASE_TEXTAREA_HEIGHT}px`;
+      textareaOnlyHeight = BASE_TEXTAREA_HEIGHT;
     } else {
       textarea.style.height = "auto";
-      textareaOnlyHeight = Math.min(textarea.scrollHeight, maxTextareaHeight);
-      textarea.style.height = textareaOnlyHeight + "px";
+      textareaOnlyHeight = getTextareaOnlyHeight(textarea.scrollHeight);
+      textarea.style.height = `${textareaOnlyHeight}px`;
     }
 
-    // Calculate total input container height including attachments
-    // Attachment row adds ~88px (64px height + 12px top padding + 8px bottom padding + 4px bottom margin)
-    const attachmentHeight = uploadedAttachments.length > 0 ? 88 : 0;
-    const totalHeight = textareaOnlyHeight + attachmentHeight;
-    setTextareaHeight(totalHeight);
+    setTextareaHeight(textareaOnlyHeight + getExtraHeight());
   }, [
     inputMessage,
-    maxTextareaHeight,
     setTextareaHeight,
-    uploadedAttachments.length,
+    getExtraHeight,
+    getTextareaOnlyHeight,
   ]);
 
   const handleSendMessage = () => {
     if (isLoading) {
       return;
     }
-
-    if (isCentered) {
-      // Don't trigger multiple animations - let the useEffect handle it
-      sendMessage();
-    } else {
-      sendMessage();
-    }
+    sendMessage();
   };
 
   const createAttachmentId = () => {
@@ -594,8 +633,10 @@ export default function ChatInput({
           }`}
         >
           {/* Unified Input Container with Attachment Preview Inside */}
-          <div
-            className={`relative flex flex-col w-full rounded-3xl transition-all duration-300 ease-out ${
+          <motion.div
+            layout
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className={`relative flex flex-col w-full rounded-3xl overflow-hidden ${
               isDragging
                 ? "bg-linear-to-br from-purple-500/20 via-purple-500/10 to-purple-500/5 border-2 border-dashed border-purple-400/70 shadow-[0_0_40px_-5px_rgba(168,85,247,0.5)] scale-[1.01]"
                 : "bg-muted/50 border border-border"
@@ -613,6 +654,20 @@ export default function ChatInput({
               multiple
               onChange={handleFileUpload}
               className="hidden"
+            />
+
+            {/* Shadow textarea for height calculation - strictly echoes single line padding */}
+            <textarea
+              ref={shadowRef}
+              value={inputMessage}
+              readOnly
+              rows={1}
+              className="absolute top-0 left-0 -z-50 invisible bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] pl-14 pr-12 focus:outline-none resize-none overflow-hidden h-auto min-h-[48px]"
+              style={{
+                width: "100%",
+                fontSize: "16px",
+              }}
+              aria-hidden="true"
             />
 
             {/* Attachment Preview - First Row */}
@@ -668,15 +723,33 @@ export default function ChatInput({
             )}
 
             {/* Textarea and Buttons - Second Row */}
-            <div
-              className={`relative flex w-full pb-1 ${
-                isStackLayout ? "flex-col items-start gap-2" : "items-end"
-              }`}
+            <motion.div
+              layout
+              initial={false}
+              animate={{
+                paddingBottom: isStackLayout ? 48 : 4, // pb-12 (48px) vs pb-1 (4px)
+              }}
+              transition={{
+                duration: 0.2,
+                ease: "easeInOut",
+                delay: isStackLayout ? 0 : 0.2, // Move buttons immediately on open, wait on close
+              }}
+              className="relative flex w-full"
             >
-              <textarea
+              <motion.textarea
+                layout
                 ref={textareaRef}
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
+                animate={{
+                  paddingLeft: isStackLayout ? 16 : 56, // px-4 (16px) vs pl-14 (56px)
+                  paddingRight: isStackLayout ? 16 : 48, // px-4 (16px) vs pr-12 (48px)
+                }}
+                transition={{
+                  duration: 0.2,
+                  ease: "easeInOut",
+                  delay: 0, // Move text with buttons for a smoother transition
+                }}
                 onPaste={handlePaste}
                 onKeyDown={(e) => {
                   if (
@@ -702,9 +775,7 @@ export default function ChatInput({
                       : `Ask anything...`
                     : `Sign in to start chatting...`
                 }
-                className={`bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] text-foreground placeholder:text-muted-foreground focus:outline-none resize-none min-h-[48px] overflow-y-auto ${
-                  isStackLayout ? "w-full" : "flex-1 pl-14 pr-12"
-                }`}
+                className="bg-transparent py-3 text-[16.5px] sm:text-[16.5px] text-foreground placeholder:text-muted-foreground focus:outline-none resize-none min-h-[48px] overflow-y-auto w-full"
                 autoComplete="off"
                 data-tutorial="chat-input"
                 rows={1}
@@ -717,46 +788,34 @@ export default function ChatInput({
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
                   target.style.height = "auto";
-                  const textareaOnlyHeight = Math.min(
-                    target.scrollHeight,
-                    maxTextareaHeight
+                  const textareaOnlyHeight = getTextareaOnlyHeight(
+                    target.scrollHeight
                   );
-                  target.style.height = textareaOnlyHeight + "px";
-                  // Include attachment height in total height
-                  const attachmentHeight =
-                    uploadedAttachments.length > 0 ? 88 : 0;
-                  // Include toolbar height if stack layout
-                  const layoutIsStack =
-                    uploadedAttachments.length > 0 || textareaOnlyHeight > 56;
-                  const toolbarHeight = layoutIsStack ? 40 : 0;
-                  setTextareaHeight(
-                    textareaOnlyHeight + attachmentHeight + toolbarHeight
-                  );
+                  target.style.height = `${textareaOnlyHeight}px`;
+                  setTextareaHeight(textareaOnlyHeight + getExtraHeight());
                 }}
               />
 
               {/* Toolbar or Absolute Buttons */}
-              <div
-                className={
-                  isStackLayout
-                    ? "flex w-full items-center justify-between px-2 pb-1"
-                    : "contents"
-                }
+              <motion.div
+                initial={false}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="absolute bottom-2 left-0 right-0 flex w-full items-center justify-between px-3 pointer-events-none"
               >
                 {/* Attachment upload button */}
-                <button
+                <motion.button
+                  layout
                   onClick={() => fileInputRef.current?.click()}
                   disabled={!isAuthenticated}
-                  className={`p-2 rounded-full bg-transparent hover:bg-muted disabled:opacity-50 disabled:bg-transparent transition-colors cursor-pointer ${
-                    isStackLayout ? "" : "absolute left-3 bottom-2"
-                  }`}
+                  className={`p-2 rounded-full bg-transparent hover:bg-muted disabled:opacity-50 disabled:bg-transparent transition-colors cursor-pointer pointer-events-auto`}
                   aria-label="Upload attachment"
                 >
                   <Paperclip className="h-5 w-5 text-foreground" />
-                </button>
+                </motion.button>
 
                 {/* Send button */}
-                <button
+                <motion.button
+                  layout
                   onClick={handleSendMessage}
                   disabled={
                     isLoading ||
@@ -770,9 +829,7 @@ export default function ChatInput({
                     showRedButton
                       ? "bg-red-500 hover:bg-red-600 text-white"
                       : "bg-transparent hover:bg-secondary disabled:hover:bg-transparent"
-                  } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                    isStackLayout ? "" : "absolute right-3 bottom-2"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer pointer-events-auto`}
                   aria-label="Send message"
                 >
                   {isLoading ? (
@@ -780,13 +837,13 @@ export default function ChatInput({
                   ) : (
                     <ArrowRight className="h-5 w-5" />
                   )}
-                </button>
-              </div>
-            </div>
-          </div>
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
-      );{/* Bottom spacer for visible padding below the input */}
+      {/* Bottom spacer for visible padding below the input */}
       {(!isCentered || isMobile) && (
         <div
           className={`fixed bottom-0 z-20 pointer-events-none ${
