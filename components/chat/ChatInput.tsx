@@ -27,6 +27,7 @@ const BASE_TEXTAREA_HEIGHT = 48;
 const STACK_LAYOUT_SCROLL_THRESHOLD = 56;
 const ATTACHMENT_ROW_HEIGHT = 88;
 const TOOLBAR_ROW_HEIGHT = 40;
+const LAYOUT_TRANSITION_MS = 200;
 
 interface ChatInputProps {
   inputMessage: string;
@@ -65,6 +66,11 @@ export default function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const shadowRef = useRef<HTMLTextAreaElement>(null);
   const minTextareaHeightRef = useRef(BASE_TEXTAREA_HEIGHT);
+  const prevInputLengthRef = useRef(inputMessage.length);
+  const layoutLockRef = useRef(false);
+  const layoutLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [isCentered, setIsCentered] = useState(!hasMessages);
   const [showRedButton, setShowRedButton] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -80,6 +86,24 @@ export default function ChatInput({
   const useIsomorphicLayoutEffect =
     typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
+  useEffect(() => {
+    return () => {
+      if (layoutLockTimeoutRef.current) {
+        clearTimeout(layoutLockTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const lockMinHeight = useCallback(() => {
+    layoutLockRef.current = true;
+    if (layoutLockTimeoutRef.current) {
+      clearTimeout(layoutLockTimeoutRef.current);
+    }
+    layoutLockTimeoutRef.current = setTimeout(() => {
+      layoutLockRef.current = false;
+    }, LAYOUT_TRANSITION_MS);
+  }, []);
+
   // Update layout mode based on content
   useIsomorphicLayoutEffect(() => {
     // Use shadow ref for stable measurement to prevent jitter
@@ -90,26 +114,31 @@ export default function ChatInput({
     const scrollHeight = shadowRef.current.scrollHeight;
 
     const isMultiline = scrollHeight > STACK_LAYOUT_SCROLL_THRESHOLD;
-    minTextareaHeightRef.current = isMultiline
-      ? scrollHeight
-      : BASE_TEXTAREA_HEIGHT;
     const shouldStack = uploadedAttachments.length > 0 || isMultiline;
+    if (shouldStack !== isStackLayout) {
+      lockMinHeight();
+    }
     setIsStackLayout((prev) => (prev === shouldStack ? prev : shouldStack));
 
-    if (isMobile && isStackLayout && textareaRef.current) {
-      const currentScrollHeight = textareaRef.current.scrollHeight;
-      const clampedHeight = Math.min(currentScrollHeight, maxTextareaHeight);
-      minTextareaHeightRef.current = Math.max(
-        clampedHeight,
-        BASE_TEXTAREA_HEIGHT
-      );
+    const measuredScrollHeight =
+      isStackLayout && textareaRef.current
+        ? textareaRef.current.scrollHeight
+        : scrollHeight;
+    const clampedHeight = Math.min(measuredScrollHeight, maxTextareaHeight);
+    const nextMinHeight = Math.max(clampedHeight, BASE_TEXTAREA_HEIGHT);
+    const allowDecrease =
+      inputMessage.length < prevInputLengthRef.current ||
+      (isStackLayout && !layoutLockRef.current);
+    if (allowDecrease || nextMinHeight > minTextareaHeightRef.current) {
+      minTextareaHeightRef.current = nextMinHeight;
     }
+    prevInputLengthRef.current = inputMessage.length;
   }, [
     inputMessage,
     uploadedAttachments.length,
-    isMobile,
     isStackLayout,
     maxTextareaHeight,
+    lockMinHeight,
   ]);
 
   const getExtraHeight = useCallback(() => {
