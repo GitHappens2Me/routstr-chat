@@ -7,7 +7,7 @@ import {
 import { useObservableState } from "applesauce-react/hooks";
 import { RelayPool } from "applesauce-relay";
 import { NostrConnectSigner } from "applesauce-signers";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { nip19 } from "nostr-tools";
 import {
@@ -144,6 +144,7 @@ export default function AppleSauceLogin({
   const [extensionError, setExtensionError] = useState<string | null>(null);
   const [isConnectingExtension, setIsConnectingExtension] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [hasExtension, setHasExtension] = useState(false);
   
   // More options state
   const [showMoreOptions, setShowMoreOptions] = useState(false);
@@ -202,6 +203,12 @@ export default function AppleSauceLogin({
 
   const generatedNsec = getGeneratedNsec();
 
+  useEffect(() => {
+    setHasExtension(
+      typeof window !== "undefined" && Boolean((window as any).nostr)
+    );
+  }, []);
+
   // Copy to clipboard
   const copyToClipboard = useCallback(async (text: string) => {
     try {
@@ -234,6 +241,7 @@ export default function AppleSauceLogin({
 
   // Extension login
   const handleExtensionLogin = useCallback(async () => {
+    if (!hasExtension) return;
     try {
       setExtensionError(null);
       setIsConnectingExtension(true);
@@ -251,7 +259,7 @@ export default function AppleSauceLogin({
     } finally {
       setIsConnectingExtension(false);
     }
-  }, [manager, onSave, onLogin, onClose]);
+  }, [hasExtension, manager, onSave, onLogin, onClose]);
 
   // Private key login
   const handleKeyLogin = useCallback(() => {
@@ -384,27 +392,32 @@ export default function AppleSauceLogin({
 
           <div className="space-y-3">
             {/* Extension Login */}
-            <button
-              onClick={handleExtensionLogin}
-              disabled={isConnectingExtension}
-              className="w-full py-2.5 bg-muted/50 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-muted/70 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-            >
-              {isConnectingExtension ? (
-                <div className="w-4 h-4 border-2 border-muted-foreground/40 border-t-foreground rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Shield className="w-4 h-4" />
-                  Browser Extension
-                </>
-              )}
-            </button>
+            {hasExtension && (
+              <>
+                <button
+                  onClick={handleExtensionLogin}
+                  disabled={isConnectingExtension}
+                  className="w-full py-2.5 bg-muted/50 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-muted/70 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                  type="button"
+                >
+                  {isConnectingExtension ? (
+                    <div className="w-4 h-4 border-2 border-muted-foreground/40 border-t-foreground rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4" />
+                      Browser Extension
+                    </>
+                  )}
+                </button>
 
-            {extensionError && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-2">
-                <p className="text-xs text-destructive text-center">
-                  {extensionError}
-                </p>
-              </div>
+                {extensionError && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-2">
+                    <p className="text-xs text-destructive text-center">
+                      {extensionError}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Private Key Login */}

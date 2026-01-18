@@ -116,6 +116,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const [loginNsec, setLoginNsec] = useState("");
   const [isConnectingExtension, setIsConnectingExtension] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [hasExtension, setHasExtension] = useState(false);
   const [activeLoginMethod, setActiveLoginMethod] = useState<
     "nsec" | "bunker" | "qr"
   >("nsec");
@@ -134,6 +135,11 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
 
   const { manager, manualSave } = useAccountManager();
 
+  useEffect(() => {
+    setHasExtension(
+      typeof window !== "undefined" && Boolean((window as any).nostr)
+    );
+  }, []);
 
   // Prevent hydration mismatch by waiting for client-side hydration
   useEffect(() => {
@@ -289,6 +295,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   }, [generatedAccount, manager, manualSave, onClose]);
 
   const handleExtensionLogin = useCallback(async () => {
+    if (!hasExtension) return;
     try {
       setIsConnectingExtension(true);
       const account = await ExtensionAccount.fromExtension();
@@ -304,7 +311,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
     } finally {
       setIsConnectingExtension(false);
     }
-  }, [manager, manualSave, onClose]);
+  }, [hasExtension, manager, manualSave, onClose]);
 
   const handleKeyLogin = useCallback(() => {
     if (!loginNsec.trim()) return;
@@ -1235,21 +1242,23 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
                 <KeyRound className="w-3 h-3" />
                 Private key
               </button>
-              <button
-                onClick={handleExtensionLogin}
-                disabled={isConnectingExtension}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border bg-muted/60 text-foreground text-[11px] font-medium hover:bg-muted/80 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-              >
-                {isConnectingExtension ? (
-                  <div className="w-4 h-4 border-2 border-muted-foreground/40 border-t-foreground rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <Shield className="w-3 h-3" />
-                    Extension
-                  </>
-                )}
-              </button>
+              {hasExtension && (
+                <button
+                  onClick={handleExtensionLogin}
+                  disabled={isConnectingExtension}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border bg-muted/60 text-foreground text-[11px] font-medium hover:bg-muted/80 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                >
+                  {isConnectingExtension ? (
+                    <div className="w-4 h-4 border-2 border-muted-foreground/40 border-t-foreground rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Shield className="w-3 h-3" />
+                      Extension
+                    </>
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => {
                   const nextMethod =
