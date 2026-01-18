@@ -11,7 +11,6 @@ import {
   QrCode,
   Shield,
   UserPlus,
-  X,
 } from "lucide-react";
 import { nip19 } from "nostr-tools";
 import { QRCodeSVG } from "qrcode.react";
@@ -29,7 +28,7 @@ import {
   useCashuToken,
 } from "@/features/wallet";
 import { useInvoiceSync } from "@/hooks/useInvoiceSync";
-import { PendingTransaction } from "@/features/wallet/state/transactionHistoryStore";
+import { createPendingTransaction } from "@/utils/transactionUtils";
 import {
   createLightningInvoice,
   mintTokensFromPaidInvoice,
@@ -48,6 +47,12 @@ import { markEphemeralNsecCreated } from "@/utils/storageUtils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { toast } from "sonner";
+import { ModalShell } from "@/components/ui/ModalShell";
+import CloseButton from "@/components/ui/CloseButton";
+import {
+  requestBitcoinConnectProvider,
+  useBitcoinConnectStatus,
+} from "@/hooks/useBitcoinConnect";
 
 const pool = new RelayPool();
 
@@ -91,10 +96,11 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   const transactionHistoryStore = useTransactionHistoryStore();
   const { receiveToken } = useCashuToken();
   const isMobile = useMediaQuery("(max-width: 640px)");
-  const [bcStatus, setBcStatus] = useState<
-    "disconnected" | "connecting" | "connected"
-  >("disconnected");
-  const [bcBalance, setBcBalance] = useState<number | null>(null);
+  const {
+    status: bcStatus,
+    balance: bcBalance,
+    connect: connectWallet,
+  } = useBitcoinConnectStatus();
   const [cashuToken, setCashuToken] = useState("");
   const [isReceivingToken, setIsReceivingToken] = useState(false);
   const [activeTab, setActiveTab] = useState<"lightning" | "token" | "wallet">(
@@ -128,79 +134,6 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
 
   const { manager, manualSave } = useAccountManager();
 
-  useEffect(() => {
-    let unsubConnect: undefined | (() => void);
-    let unsubDisconnect: undefined | (() => void);
-    let unsubConnecting: undefined | (() => void);
-
-    (async () => {
-      try {
-        const mod = await import("@getalby/bitcoin-connect-react");
-        const fetchBalance = async (provider: any): Promise<number | null> => {
-          try {
-            if (provider && typeof provider.getBalance === "function") {
-              const res = await provider.getBalance();
-              if (typeof res === "number") return res;
-              if (res && typeof res === "object") {
-                if (
-                  "balance" in res &&
-                  typeof (res as any).balance === "number"
-                ) {
-                  const unit = ((res as any).unit || "")
-                    .toString()
-                    .toLowerCase();
-                  const n = (res as any).balance as number;
-                  return unit.includes("msat") ? Math.floor(n / 1000) : n;
-                }
-                if (
-                  "balanceMsats" in res &&
-                  typeof (res as any).balanceMsats === "number"
-                ) {
-                  return Math.floor((res as any).balanceMsats / 1000);
-                }
-              }
-            }
-          } catch {}
-          return null;
-        };
-
-        unsubConnecting = mod.onConnecting?.(() => setBcStatus("connecting"));
-        unsubConnect = mod.onConnected?.(async (provider: any) => {
-          setBcStatus("connected");
-          const sats = await fetchBalance(provider);
-          if (sats !== null) setBcBalance(sats);
-        });
-        unsubDisconnect = mod.onDisconnected?.(() => {
-          setBcStatus("disconnected");
-          setBcBalance(null);
-        });
-
-        try {
-          const cfg = mod.getConnectorConfig?.();
-          if (cfg) {
-            setBcStatus("connected");
-            try {
-              const provider = await mod.requestProvider();
-              const sats = await fetchBalance(provider);
-              if (sats !== null) setBcBalance(sats);
-            } catch {}
-          }
-        } catch {}
-      } catch {}
-    })();
-
-    return () => {
-      try {
-        unsubConnect && unsubConnect();
-      } catch {}
-      try {
-        unsubDisconnect && unsubDisconnect();
-      } catch {}
-      try {
-        unsubConnecting && unsubConnecting();
-      } catch {}
-    };
-  }, []);
 
   // Prevent hydration mismatch by waiting for client-side hydration
   useEffect(() => {
@@ -605,26 +538,17 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         expiresAt: invoiceData.expiresAt,
       });
 
-      const pendingId = crypto.randomUUID();
-      const pendingTx: PendingTransaction = {
-        id: pendingId,
+      const pendingTx = createPendingTransaction({
         direction: "in",
-        amount: amt.toString(),
-        timestamp: Math.floor(Date.now() / 1000),
-        status: "pending",
+        amount: amt,
         mintUrl,
         quoteId: invoiceData.quoteId,
         paymentRequest: invoiceData.paymentRequest,
-      };
+      });
       transactionHistoryStore.addPendingTransaction(pendingTx);
-      setPendingTransactionId(pendingId);
+      setPendingTransactionId(pendingTx.id);
 
-      void checkPaymentStatus(
-        mintUrl,
-        invoiceData.quoteId,
-        amt,
-        pendingId
-      );
+      void checkPaymentStatus(mintUrl, invoiceData.quoteId, amt, pendingTx.id);
     } catch (e) {
       console.error("Error creating invoice:", e);
       toast.error("Failed to create invoice");
@@ -763,23 +687,18 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         expiresAt: invoiceData.expiresAt,
       });
 
-      const pendingId = crypto.randomUUID();
-      const pendingTx: PendingTransaction = {
-        id: pendingId,
+      const pendingTx = createPendingTransaction({
         direction: "in",
-        amount: amt.toString(),
-        timestamp: Math.floor(Date.now() / 1000),
-        status: "pending",
+        amount: amt,
         mintUrl,
         quoteId: qid,
         paymentRequest,
-      };
+      });
       transactionHistoryStore.addPendingTransaction(pendingTx);
 
       // Pay with connected wallet
       try {
-        const mod = await import("@getalby/bitcoin-connect-react");
-        const provider = await mod.requestProvider();
+        const provider = await requestBitcoinConnectProvider();
         const res = await provider.sendPayment(paymentRequest);
 
         // Check payment status and update proofs
@@ -799,7 +718,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
               state: MintQuoteState.PAID,
               paidAt: Date.now(),
             });
-            transactionHistoryStore.removePendingTransaction(pendingId);
+            transactionHistoryStore.removePendingTransaction(pendingTx.id);
             toast.success(`Received ${formatBalance(amt, "sats")}!`);
             setNwcCustomAmount("");
             setTimeout(() => {
@@ -807,16 +726,16 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
             }, 2000);
           } else {
             // Start polling if proofs not immediately available
-            void checkPaymentStatus(mintUrl, qid, amt, pendingId);
+            void checkPaymentStatus(mintUrl, qid, amt, pendingTx.id);
           }
         } else {
           // Start polling
-          void checkPaymentStatus(mintUrl, qid, amt, pendingId);
+          void checkPaymentStatus(mintUrl, qid, amt, pendingTx.id);
         }
       } catch (paymentError) {
         console.error("Error paying with NWC:", paymentError);
         toast.error("Payment failed. Please try again.");
-        void checkPaymentStatus(mintUrl, qid, amt, pendingId);
+        void checkPaymentStatus(mintUrl, qid, amt, pendingTx.id);
       }
     } catch (e) {
       console.error("Error creating invoice:", e);
@@ -844,54 +763,45 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
         <h2 className="text-lg font-semibold text-foreground">{headerTitle}</h2>
         <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
       </div>
-      <button
+      <CloseButton
         onClick={onClose}
         className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-        aria-label="Close"
-        type="button"
-      >
-        <X className="h-4 w-4" />
-      </button>
+        iconClassName="h-4 w-4"
+        ariaLabel="Close"
+      />
     </div>
   );
+
+  const topUpTabs = [
+    { key: "lightning" as const, label: "Lightning" },
+    { key: "token" as const, label: "Token" },
+    { key: "wallet" as const, label: "NWC" },
+  ];
+
+  const topUpTabButtonBase =
+    "flex-1 px-3 py-2 text-sm font-medium transition-colors";
 
   const topUpContent = (
     <div className="space-y-4">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
-        <button
-          onClick={() => setActiveTab("lightning")}
-          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-            activeTab === "lightning"
-              ? "text-foreground border-b-2 border-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          type="button"
-        >
-          Lightning
-        </button>
-        <button
-          onClick={() => setActiveTab("token")}
-          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-            activeTab === "token"
-              ? "text-foreground border-b-2 border-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          type="button"
-        >
-          Token
-        </button>
-        <button
-          onClick={() => setActiveTab("wallet")}
-          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-            activeTab === "wallet"
-              ? "text-foreground border-b-2 border-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          type="button"
-        >
-          NWC
-        </button>
+        {topUpTabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`${topUpTabButtonBase} ${
+                isActive
+                  ? "text-foreground border-b-2 border-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              type="button"
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab Content Container */}
@@ -1099,9 +1009,7 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
                     onClick={async () => {
                       try {
                         createNsecForLogin();
-                        const mod =
-                          await import("@getalby/bitcoin-connect-react");
-                        mod.launchModal();
+                        await connectWallet();
                       } catch {}
                     }}
                     className="px-4 py-2 text-sm bg-muted/50 hover:bg-muted border border-border rounded-lg text-foreground transition-all"
@@ -1586,20 +1494,15 @@ const TopUpPromptModal: React.FC<TopUpPromptModalProps> = ({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <ModalShell
+      open={isOpen && isHydrated}
+      onClose={onClose}
+      overlayClassName="bg-black/60 z-50 p-4"
+      contentClassName={`bg-card border border-border rounded-md p-5 w-full ${modalWidthClass} ${dialogHeightClass} transition-all duration-300 overflow-hidden flex flex-col min-h-0`}
+      closeOnOverlayClick
     >
-      <div
-        className={`bg-card border border-border rounded-md p-5 w-full ${modalWidthClass} ${dialogHeightClass} transition-all duration-300 overflow-hidden flex flex-col min-h-0`}
-      >
-        {modalContent}
-      </div>
-    </div>
+      {modalContent}
+    </ModalShell>
   );
 };
 

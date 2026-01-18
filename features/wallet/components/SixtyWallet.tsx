@@ -18,6 +18,8 @@ import {
   MeltQuoteResponse,
   MintQuoteResponse,
   getDecodedToken,
+  MintQuoteState,
+  MeltQuoteState,
 } from "@cashu/cashu-ts";
 import {
   useCashuWallet,
@@ -42,20 +44,20 @@ import {
 } from "@/lib/cashuLightning";
 import { toast } from "sonner";
 import { useTransactionHistoryStore } from "@/features/wallet";
-import { PendingTransaction } from "../state/transactionHistoryStore";
+import { createPendingTransaction } from "@/utils/transactionUtils";
 import { getBalanceFromStoredProofs } from "@/utils/cashuUtils";
 import { useInvoiceSync } from "@/hooks/useInvoiceSync";
 import { useInvoiceChecker } from "@/hooks/useInvoiceChecker";
-import { MintQuoteState, MeltQuoteState } from "@cashu/cashu-ts";
 import InvoiceHistory from "./InvoiceHistory";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
-import dynamic from "next/dynamic";
 import { useObservableState } from "applesauce-react/hooks";
 import { useAccountManager } from "@/components/ClientProviders";
-
-// Helper function to generate unique IDs
-const generateId = () => crypto.randomUUID();
+import {
+  requestBitcoinConnectProvider,
+  useBitcoinConnectStatus,
+} from "@/hooks/useBitcoinConnect";
+import BitcoinConnectStatusRow from "@/components/bitcoin-connect/BitcoinConnectStatusRow";
 
 const SixtyWallet: React.FC<{
   mintUrl: string;
@@ -101,10 +103,11 @@ const SixtyWallet: React.FC<{
   const [isRemovingMint, setIsRemovingMint] = useState(false);
   const [pendingAmount, setPendingAmount] = useState<number | null>(null);
   const [isPayingWithWallet, setIsPayingWithWallet] = useState(false);
-  const [bcStatus, setBcStatus] = useState<
-    "disconnected" | "connecting" | "connected"
-  >("disconnected");
-  const [bcBalance, setBcBalance] = useState<number | null>(null);
+  const {
+    status: bcStatus,
+    balance: bcBalance,
+    connect: connectWallet,
+  } = useBitcoinConnectStatus();
 
   // Migration state
   const [localWalletBalance, setLocalWalletBalance] = useState(0);
@@ -149,86 +152,12 @@ const SixtyWallet: React.FC<{
     }
   };
 
-  useEffect(() => {
-    let unsubConnect: undefined | (() => void);
-    let unsubDisconnect: undefined | (() => void);
-    let unsubConnecting: undefined | (() => void);
-
-    (async () => {
-      try {
-        const mod = await import("@getalby/bitcoin-connect-react");
-        const fetchBalance = async (provider: any): Promise<number | null> => {
-          try {
-            if (provider && typeof provider.getBalance === "function") {
-              const res = await provider.getBalance();
-              if (typeof res === "number") return res;
-              if (res && typeof res === "object") {
-                if (
-                  "balance" in res &&
-                  typeof (res as any).balance === "number"
-                ) {
-                  const unit = ((res as any).unit || "")
-                    .toString()
-                    .toLowerCase();
-                  const n = (res as any).balance as number;
-                  return unit.includes("msat") ? Math.floor(n / 1000) : n;
-                }
-                if (
-                  "balanceMsats" in res &&
-                  typeof (res as any).balanceMsats === "number"
-                ) {
-                  return Math.floor((res as any).balanceMsats / 1000);
-                }
-              }
-            }
-          } catch {}
-          return null;
-        };
-
-        unsubConnecting = mod.onConnecting?.(() => setBcStatus("connecting"));
-        unsubConnect = mod.onConnected?.(async (provider: any) => {
-          setBcStatus("connected");
-          const sats = await fetchBalance(provider);
-          if (sats !== null) setBcBalance(sats);
-        });
-        unsubDisconnect = mod.onDisconnected?.(() => {
-          setBcStatus("disconnected");
-          setBcBalance(null);
-        });
-
-        try {
-          const cfg = mod.getConnectorConfig?.();
-          if (cfg) {
-            setBcStatus("connected");
-            try {
-              const provider = await mod.requestProvider();
-              const sats = await fetchBalance(provider);
-              if (sats !== null) setBcBalance(sats);
-            } catch {}
-          }
-        } catch {}
-      } catch {}
-    })();
-
-    return () => {
-      try {
-        unsubConnect && unsubConnect();
-      } catch {}
-      try {
-        unsubDisconnect && unsubDisconnect();
-      } catch {}
-      try {
-        unsubConnecting && unsubConnecting();
-      } catch {}
-    };
-  }, []);
 
   const payWithConnectedWallet = async () => {
     if (!invoice) return;
     setIsPayingWithWallet(true);
     try {
-      const mod = await import("@getalby/bitcoin-connect-react");
-      const provider = await mod.requestProvider();
+      const provider = await requestBitcoinConnectProvider();
       try {
         const res = await provider.sendPayment(invoice);
         if (res && (res as any).preimage) {
@@ -293,22 +222,16 @@ const SixtyWallet: React.FC<{
         expiresAt: invoiceData.expiresAt,
       });
 
-      // Create pending transaction
-      const pendingTxId = generateId();
-      const pendingTransaction: PendingTransaction = {
-        id: pendingTxId,
+      const pendingTransaction = createPendingTransaction({
         direction: "in",
-        amount: amount.toString(),
-        timestamp: Math.floor(Date.now() / 1000),
-        status: "pending",
+        amount,
         mintUrl: cashuStore.activeMintUrl,
         quoteId: invoiceData.quoteId,
         paymentRequest: invoiceData.paymentRequest,
-      };
+      });
 
-      // Store the pending transaction
       transactionHistoryStore.addPendingTransaction(pendingTransaction);
-      setPendingTransactionId(pendingTxId);
+      setPendingTransactionId(pendingTransaction.id);
 
       // Invoice checker will handle payment status automatically
     } catch (error) {
@@ -1107,41 +1030,12 @@ const SixtyWallet: React.FC<{
                 </h3>
 
                 {/* Bitcoin Connect: Connect Wallet */}
-                <div className="bg-muted/50 border border-border rounded-md p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-muted-foreground">
-                      Wallet (NWC)
-                    </span>
-                    {bcStatus === "connected" ? (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-green-600 dark:text-green-400">
-                          Connected
-                        </span>
-                        {bcBalance !== null && (
-                          <span className="text-muted-foreground">
-                            • {bcBalance.toLocaleString()} sats
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const mod =
-                              await import("@getalby/bitcoin-connect-react");
-                            mod.launchModal();
-                          } catch {}
-                        }}
-                        className="px-3 py-1.5 text-xs bg-muted border border-border rounded-md text-foreground hover:bg-muted/80"
-                        type="button"
-                      >
-                        {bcStatus === "connecting"
-                          ? "Connecting…"
-                          : "Connect wallet"}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <BitcoinConnectStatusRow
+                  status={bcStatus}
+                  balance={bcBalance}
+                  onConnect={connectWallet}
+                  className="rounded-md p-3"
+                />
 
                 {/* Quick Mint Buttons */}
                 <div className="space-y-2">
@@ -1457,7 +1351,6 @@ const SixtyWallet: React.FC<{
         checkIntervalRef={{ current: null }}
         countdownIntervalRef={{ current: null }}
         setIsAutoChecking={() => {}}
-        checkMintQuote={() => Promise.resolve()}
         onPayWithWallet={async () => {
           await payWithConnectedWallet();
         }}

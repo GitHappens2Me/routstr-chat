@@ -467,7 +467,6 @@ const WalletTab: React.FC<WalletTabProps> = ({
         checkIntervalRef={checkIntervalRef}
         countdownIntervalRef={countdownIntervalRef}
         setIsAutoChecking={setIsAutoChecking}
-        checkMintQuote={checkMintQuote}
       />
     </div>
   );

@@ -31,6 +31,7 @@ import {
 } from "@/features/wallet";
 import { useCashuWithXYZ } from "@/hooks/useCashuWithXYZ";
 import SettingsDialog from "@/components/ui/SettingsDialog";
+import { ModalShell } from "@/components/ui/ModalShell";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { removeLocalCashuToken } from "@/utils/storageUtils";
 
@@ -1385,176 +1386,182 @@ const ApiKeysTab = ({
           </div>
         </SettingsDialog>
       )}
-      {showDeleteConfirmation && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full border border-border">
-            {refundFailed ? (
-              <>
-                <h4 className="text-lg font-semibold text-foreground mb-4">
-                  Refund Failed
-                </h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  ATTENTION! The REFUND operation FAILED. Do you still want to
-                  delete this API Key? Any remaining balance will be lost.
-                  {cloudSyncEnabled
-                    ? " This will also update your cloud-synced API keys."
-                    : ""}
-                </p>
-                <div className="flex justify-end space-x-2">
-                  <button
-                    className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
-                    onClick={confirmDeleteApiKey}
-                  >
-                    Delete Anyway
-                  </button>
-                  <button
-                    className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                    onClick={() => {
-                      setShowDeleteConfirmation(false);
-                      setKeyToDeleteConfirmation(null);
-                      setRefundFailed(false);
-                      setIsDeletingKey(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : isDeletingKey === keyToDeleteConfirmation ||
-              isSyncingApiKeys ? (
-              <>
-                <h4 className="text-lg font-semibold text-foreground mb-4">
-                  Deleting API Key...
-                </h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Please wait while the API key is being deleted and{" "}
-                  {cloudSyncEnabled
-                    ? "synced to the cloud and refunded"
-                    : "refunded"}
-                  .
-                </p>
-                <div className="flex justify-center">
-                  <svg
-                    className="animate-spin h-8 w-8 text-foreground"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                </div>
-              </>
-            ) : (
-              <>
-                <h4 className="text-lg font-semibold text-foreground mb-4">
-                  Confirm API Key Deletion
-                </h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Are you sure you want to delete this API Key? This action
-                  cannot be undone. Any remaining balance will be refunded.
-                  {cloudSyncEnabled
-                    ? " This will also update your cloud-synced API keys."
-                    : ""}
-                </p>
-                <div className="flex justify-end space-x-2">
-                  <button
-                    className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
-                    onClick={() => {
-                      setShowDeleteConfirmation(false);
-                      setKeyToDeleteConfirmation(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                    onClick={confirmDeleteApiKey}
-                  >
-                    Confirm Delete
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      {showTopUpModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full border border-border">
+      <ModalShell
+        open={showDeleteConfirmation}
+        overlayClassName="bg-black/70 z-50"
+        contentClassName="bg-card rounded-lg p-6 max-w-md w-full border border-border"
+      >
+        {refundFailed ? (
+          <>
             <h4 className="text-lg font-semibold text-foreground mb-4">
-              Top Up API Key
+              Refund Failed
             </h4>
             <p className="text-sm text-muted-foreground mb-4">
-              Top up "{keyToTopUp?.label || "Unnamed"}" API key with additional
-              sats.
+              ATTENTION! The REFUND operation FAILED. Do you still want to
+              delete this API Key? Any remaining balance will be lost.
+              {cloudSyncEnabled
+                ? " This will also update your cloud-synced API keys."
+                : ""}
             </p>
-            <div className="mb-4">
-              <label className="block text-sm text-muted-foreground mb-2">
-                Amount (sats):
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={topUpAmount}
-                  onChange={(e) => setTopUpAmount(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void confirmTopUp();
-                    }
-                  }}
-                  className="grow bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <button
-                  onClick={() => setTopUpAmount(localMintBalance.toString())}
-                  className="px-3 py-2 bg-muted/50 border border-border text-muted-foreground rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                >
-                  Max
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Available: {localMintBalance} sats
-              </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
+                onClick={confirmDeleteApiKey}
+                type="button"
+              >
+                Delete Anyway
+              </button>
+              <button
+                className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                onClick={() => {
+                  setShowDeleteConfirmation(false);
+                  setKeyToDeleteConfirmation(null);
+                  setRefundFailed(false);
+                  setIsDeletingKey(null);
+                }}
+                type="button"
+              >
+                Cancel
+              </button>
             </div>
+          </>
+        ) : isDeletingKey === keyToDeleteConfirmation || isSyncingApiKeys ? (
+          <>
+            <h4 className="text-lg font-semibold text-foreground mb-4">
+              Deleting API Key...
+            </h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please wait while the API key is being deleted and{" "}
+              {cloudSyncEnabled
+                ? "synced to the cloud and refunded"
+                : "refunded"}
+              .
+            </p>
+            <div className="flex justify-center">
+              <svg
+                className="animate-spin h-8 w-8 text-foreground"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            </div>
+          </>
+        ) : (
+          <>
+            <h4 className="text-lg font-semibold text-foreground mb-4">
+              Confirm API Key Deletion
+            </h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to delete this API Key? This action cannot
+              be undone. Any remaining balance will be refunded.
+              {cloudSyncEnabled
+                ? " This will also update your cloud-synced API keys."
+                : ""}
+            </p>
             <div className="flex justify-end space-x-2">
               <button
                 className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
                 onClick={() => {
-                  setShowTopUpModal(false);
-                  setTopUpAmount("");
-                  setKeyToTopUp(null);
+                  setShowDeleteConfirmation(false);
+                  setKeyToDeleteConfirmation(null);
                 }}
+                type="button"
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-muted border border-border text-foreground rounded-md text-sm hover:bg-muted/80 transition-colors disabled:opacity-50 cursor-pointer"
-                onClick={confirmTopUp}
-                disabled={
-                  !topUpAmount ||
-                  parseInt(topUpAmount) <= 0 ||
-                  parseInt(topUpAmount) > localMintBalance
-                }
+                className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                onClick={confirmDeleteApiKey}
+                type="button"
               >
-                Confirm Top Up
+                Confirm Delete
               </button>
             </div>
+          </>
+        )}
+      </ModalShell>
+      <ModalShell
+        open={showTopUpModal}
+        overlayClassName="bg-black/70 z-50"
+        contentClassName="bg-card rounded-lg p-6 max-w-md w-full border border-border"
+      >
+        <h4 className="text-lg font-semibold text-foreground mb-4">
+          Top Up API Key
+        </h4>
+        <p className="text-sm text-muted-foreground mb-4">
+          Top up "{keyToTopUp?.label || "Unnamed"}" API key with additional
+          sats.
+        </p>
+        <div className="mb-4">
+          <label className="block text-sm text-muted-foreground mb-2">
+            Amount (sats):
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="number"
+              placeholder="Enter amount"
+              value={topUpAmount}
+              onChange={(e) => setTopUpAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void confirmTopUp();
+                }
+              }}
+              className="grow bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <button
+              onClick={() => setTopUpAmount(localMintBalance.toString())}
+              className="px-3 py-2 bg-muted/50 border border-border text-muted-foreground rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              type="button"
+            >
+              Max
+            </button>
           </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Available: {localMintBalance} sats
+          </p>
         </div>
-      )}
+        <div className="flex justify-end space-x-2">
+          <button
+            className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
+            onClick={() => {
+              setShowTopUpModal(false);
+              setTopUpAmount("");
+              setKeyToTopUp(null);
+            }}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 bg-muted border border-border text-foreground rounded-md text-sm hover:bg-muted/80 transition-colors disabled:opacity-50 cursor-pointer"
+            onClick={confirmTopUp}
+            disabled={
+              !topUpAmount ||
+              parseInt(topUpAmount) <= 0 ||
+              parseInt(topUpAmount) > localMintBalance
+            }
+            type="button"
+          >
+            Confirm Top Up
+          </button>
+        </div>
+      </ModalShell>
       {/* Add API Key Modal */}
       {showAddApiKeyModal && (
         <SettingsDialog
