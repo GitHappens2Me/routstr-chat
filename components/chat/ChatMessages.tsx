@@ -1057,8 +1057,7 @@ export default function ChatMessages({
                             </button>
                             {message.satsSpent !== undefined &&
                               message.satsSpent > 0 && (
-                                <span className="flex items-center gap-1 text-xs text-amber-400/80 px-2 py-1">
-                                  -{" "}
+                                <span className="flex items-center gap-1 text-xs text-[#f7931a] px-2 py-1">
                                   {message.satsSpent.toFixed(
                                     message.satsSpent < 1 ? 3 : 0
                                   )}{" "}
