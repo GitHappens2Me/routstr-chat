@@ -99,6 +99,7 @@ function ChatPageContent() {
   // Only triggers when wallet is fully loaded to avoid false positives from initial zero balance
   useAutoRefill({ balance, isWalletLoaded: !isWalletLoading });
   const pendingUrlSyncRef = useRef(false);
+  const previousActiveConversationIdRef = useRef<string | null>(null);
   const searchParamsString = useMemo(
     () => searchParams.toString(),
     [searchParams]
@@ -170,11 +171,13 @@ function ChatPageContent() {
   // When activeConversationId is null (new chat), remove chatId from URL
   // When activeConversationId has a value, set chatId in URL
   useEffect(() => {
+    const previousActiveConversationId = previousActiveConversationIdRef.current;
+    previousActiveConversationIdRef.current = activeConversationId;
     const params = new URLSearchParams(searchParamsString);
 
     if (!activeConversationId) {
       // New chat state - remove chatId from URL if present
-      if (chatIdFromUrl) {
+      if (chatIdFromUrl && previousActiveConversationId) {
         pendingUrlSyncRef.current = true;
         params.delete("chatId");
         const queryString = params.toString();
