@@ -57,45 +57,44 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const { manager } = useAccountManager();
   const accounts = useObservableState(manager.accounts$) || [];
+  const activeAccount = useObservableState(manager.active$);
 
   // Update userPubkey$ and userSigner$ observables when user changes
   useEffect(() => {
-    // Handle applesauce accounts
-    if (accounts.length > 0) {
-      const activeAccount = manager.active$.value;
-      const accountToUse = activeAccount || accounts[0];
+    const accountToUse = activeAccount || accounts[0];
 
-      if (accountToUse) {
-        const pubkey = accountToUse.pubkey;
-        userPubkey$.next(pubkey);
+    if (!accountToUse) {
+      userPubkey$.next(null);
+      userSigner$.next(null);
+      return;
+    }
 
-        // Set the user signer for 1081 event decryption from applesauce account
-        const signer = accountToUse.signer;
-        console.log("signeringg", signer, pubkey, accountToUse);
-        if (signer?.nip44 && typeof signer.signEvent === "function") {
-          userSigner$.next({
-            signer: signer as {
-              nip44: {
-                encrypt: (pubkey: string, plaintext: string) => Promise<string>;
-                decrypt: (pubkey: string, content: string) => Promise<string>;
-              };
-              signEvent: (event: {
-                kind: number;
-                created_at: number;
-                tags: string[][];
-                content: string;
-              }) => Promise<NostrEvent>;
-            },
-            pubkey: pubkey,
-          });
-        } else {
-          userSigner$.next(null);
-        }
-      }
+    const pubkey = accountToUse.pubkey;
+    userPubkey$.next(pubkey);
+
+    // Set the user signer for 1081 event decryption from applesauce account
+    const signer = accountToUse.signer;
+    console.log("signeringg", signer, pubkey, accountToUse);
+    if (signer?.nip44 && typeof signer.signEvent === "function") {
+      userSigner$.next({
+        signer: signer as {
+          nip44: {
+            encrypt: (pubkey: string, plaintext: string) => Promise<string>;
+            decrypt: (pubkey: string, content: string) => Promise<string>;
+          };
+          signEvent: (event: {
+            kind: number;
+            created_at: number;
+            tags: string[][];
+            content: string;
+          }) => Promise<NostrEvent>;
+        },
+        pubkey: pubkey,
+      });
     } else {
       userSigner$.next(null);
     }
-  }, [accounts, manager]);
+  }, [accounts, activeAccount]);
 
   const conversationState = useConversationState();
   const cashuWithXYZ = useCashuWithXYZ();

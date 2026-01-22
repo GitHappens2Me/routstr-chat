@@ -16,18 +16,96 @@ import { usePnsKeys } from "@/hooks/usePnsKeys";
 // File upload constants
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const ACCEPTED_FILE_TYPES = ["application/pdf"];
-const ACCEPTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
 const BASE_TEXTAREA_HEIGHT = 48;
 const STACK_LAYOUT_SCROLL_THRESHOLD = 56;
 const ATTACHMENT_ROW_HEIGHT = 88;
 const TOOLBAR_ROW_HEIGHT = 40;
 const LAYOUT_TRANSITION_MS = 200;
+
+type FileKind = {
+  isImage: boolean;
+  isPdf: boolean;
+};
+
+type FileValidationOptions = {
+  allowImages: boolean;
+  allowPdf: boolean;
+  rejectSvg?: boolean;
+  onTypeError: (file: File) => void;
+  onSizeError: (file: File) => void;
+  onSvgError?: () => void;
+};
+
+type AttachmentWorkItem = {
+  attachment: MessageAttachment;
+  file: File;
+  shouldExtractPdfText: boolean;
+};
+
+type AttachmentBuildOptions = {
+  isImage: boolean;
+  isPdf: boolean;
+  nameOverride?: string;
+  storageLabel: "file" | "image";
+  logOnStorageError?: boolean;
+};
+
+const validateFile = (
+  file: File,
+  {
+    allowImages,
+    allowPdf,
+    rejectSvg,
+    onTypeError,
+    onSizeError,
+    onSvgError,
+  }: FileValidationOptions
+): FileKind | null => {
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+
+  if (rejectSvg && file.type === "image/svg+xml") {
+    onSvgError?.();
+    return null;
+  }
+
+  const isAllowed =
+    (isImage && allowImages) || (isPdf && allowPdf);
+  if (!isAllowed) {
+    onTypeError(file);
+    return null;
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    onSizeError(file);
+    return null;
+  }
+
+  return { isImage, isPdf };
+};
+
+const createAttachmentId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
+
+const convertFileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+
+const getAttachmentLabel = (mimeType: string) => {
+  if (mimeType === "application/pdf") return "PDF";
+  if (mimeType.startsWith("image/")) {
+    return mimeType.replace("image/", "").toUpperCase();
+  }
+  return mimeType.toUpperCase();
+};
 
 interface ChatInputProps {
   inputMessage: string;
@@ -166,6 +244,81 @@ export default function ChatInput({
     [maxTextareaHeight]
   );
 
+  const updateAttachment = useCallback(
+    (
+      attachmentId: string,
+      updater: (attachment: MessageAttachment) => MessageAttachment
+    ) => {
+      setUploadedAttachments((prev) =>
+        prev.map((item) =>
+          item.id === attachmentId ? updater(item) : item
+        )
+      );
+    },
+    [setUploadedAttachments]
+  );
+
+  const persistFile = useCallback(
+    async (
+      file: File,
+      label: "file" | "image",
+      logOnStorageError?: boolean
+    ): Promise<string | undefined> => {
+      try {
+        return await saveFile(file);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        if (errorMessage.includes("quota")) {
+          alert(
+            `Storage is full. Your ${label} will be available in this session but may not be saved in history.`
+          );
+        } else if (logOnStorageError) {
+          console.warn("Failed to save file to storage:", errorMessage);
+        }
+        return undefined;
+      }
+    },
+    []
+  );
+
+  const buildAttachmentWorkItem = useCallback(
+    async ({
+      file,
+      isImage,
+      isPdf,
+      nameOverride,
+      storageLabel,
+      logOnStorageError,
+    }: AttachmentBuildOptions & { file: File }): Promise<AttachmentWorkItem> => {
+      const dataUrl = await convertFileToBase64(file);
+      const storageId = await persistFile(
+        file,
+        storageLabel,
+        logOnStorageError
+      );
+      const attachmentId = createAttachmentId();
+      const attachment: MessageAttachment = {
+        id: attachmentId,
+        name: nameOverride || file.name,
+        mimeType: file.type,
+        size: file.size,
+        dataUrl,
+        type: isImage ? "image" : "file",
+        storageId,
+        blossomUploadStatus:
+          blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
+      };
+
+      return {
+        attachment,
+        file,
+        shouldExtractPdfText: isPdf,
+      };
+    },
+    [blossomSyncEnabled, pnsKeys, persistFile]
+  );
+
   /**
    * Helper to handle Blossom upload for an attachment
    * Updates the attachment state with hash/servers on success or failed status on error
@@ -177,39 +330,60 @@ export default function ChatInput({
       uploadToBlossomAsync(file, pnsKeys)
         .then((result) => {
           if (result) {
-            setUploadedAttachments((prev) =>
-              prev.map((item) =>
-                item.id === attachmentId
-                  ? {
-                      ...item,
-                      blossomHash: result.hash,
-                      blossomServers: result.servers,
-                      blossomUploadStatus: "success",
-                    }
-                  : item
-              )
-            );
+            updateAttachment(attachmentId, (item) => ({
+              ...item,
+              blossomHash: result.hash,
+              blossomServers: result.servers,
+              blossomUploadStatus: "success",
+            }));
           } else {
-            setUploadedAttachments((prev) =>
-              prev.map((item) =>
-                item.id === attachmentId
-                  ? { ...item, blossomUploadStatus: "failed" }
-                  : item
-              )
-            );
+            updateAttachment(attachmentId, (item) => ({
+              ...item,
+              blossomUploadStatus: "failed",
+            }));
           }
         })
         .catch(() => {
-          setUploadedAttachments((prev) =>
-            prev.map((item) =>
-              item.id === attachmentId
-                ? { ...item, blossomUploadStatus: "failed" }
-                : item
-            )
-          );
+          updateAttachment(attachmentId, (item) => ({
+            ...item,
+            blossomUploadStatus: "failed",
+          }));
         });
     },
-    [blossomSyncEnabled, pnsKeys, uploadToBlossomAsync]
+    [blossomSyncEnabled, pnsKeys, updateAttachment, uploadToBlossomAsync]
+  );
+
+  const addAttachmentsWithProcessing = useCallback(
+    (workItems: AttachmentWorkItem[]) => {
+      if (workItems.length === 0) return;
+
+      setUploadedAttachments((prev) => [
+        ...prev,
+        ...workItems.map((item) => item.attachment),
+      ]);
+
+      workItems.forEach(({ attachment, file, shouldExtractPdfText }) => {
+        if (shouldExtractPdfText) {
+          extractTextFromPdf(file)
+            .then((text) => {
+              if (!text.trim()) return;
+              updateAttachment(attachment.id, (item) => ({
+                ...item,
+                textContent: text,
+              }));
+            })
+            .catch((error) => {
+              console.warn(
+                "Failed to extract text from PDF attachment, continuing without text content.",
+                error
+              );
+            });
+        }
+
+        handleBlossomUpload(attachment.id, file);
+      });
+    },
+    [handleBlossomUpload, setUploadedAttachments, updateAttachment]
   );
 
   // Handle centering when messages change from external updates
@@ -249,138 +423,49 @@ export default function ChatInput({
     sendMessage();
   };
 
-  const createAttachmentId = () => {
-    if (
-      typeof crypto !== "undefined" &&
-      typeof crypto.randomUUID === "function"
-    ) {
-      return crypto.randomUUID();
-    }
-    return `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  };
-
-  const getAttachmentLabel = (mimeType: string) => {
-    if (mimeType === "application/pdf") return "PDF";
-    if (mimeType.startsWith("image/")) {
-      return mimeType.replace("image/", "").toUpperCase();
-    }
-    return mimeType.toUpperCase();
-  };
-
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = event.target.files;
     if (!files) return;
 
-    const attachmentsToAdd: { attachment: MessageAttachment; file: File }[] =
-      [];
+    const workItems: AttachmentWorkItem[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const isImage = file.type.startsWith("image/");
-      const isAcceptedFile = ACCEPTED_FILE_TYPES.includes(file.type);
+      const validation = validateFile(file, {
+        allowImages: true,
+        allowPdf: true,
+        onTypeError: () =>
+          alert(
+            `File type "${file.type}" is not supported. Please upload images or PDF files.`
+          ),
+        onSizeError: () =>
+          alert(
+            `File "${file.name}" is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+          ),
+      });
 
-      // Validate file type
-      if (!isImage && !isAcceptedFile) {
-        alert(
-          `File type "${file.type}" is not supported. Please upload images or PDF files.`
-        );
-        continue;
-      }
-
-      // Validate file size
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        alert(
-          `File "${file.name}" is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
-        );
-        continue;
-      }
+      if (!validation) continue;
 
       try {
-        const dataUrl = await convertFileToBase64(file);
-
-        // Save to IndexedDB
-        let storageId: string | undefined;
-        try {
-          storageId = await saveFile(file);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
-          if (errorMessage.includes("quota")) {
-            alert(
-              "Storage is full. Your file will be available in this session but may not be saved in history."
-            );
-          } else {
-            console.warn("Failed to save file to storage:", errorMessage);
-          }
-          // Continue without storageId (will rely on base64 in memory)
-        }
-
-        const attachmentId = createAttachmentId();
-        const attachment: MessageAttachment = {
-          id: attachmentId,
-          name: file.name,
-          mimeType: file.type,
-          size: file.size,
-          dataUrl,
-          type: isImage ? "image" : "file",
-          storageId,
-          blossomUploadStatus:
-            blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
-        };
-
-        attachmentsToAdd.push({ attachment, file });
+        const workItem = await buildAttachmentWorkItem({
+          file,
+          ...validation,
+          storageLabel: "file",
+          logOnStorageError: true,
+        });
+        workItems.push(workItem);
       } catch (error) {
         console.error("Error converting file to base64:", error);
       }
     }
 
-    if (attachmentsToAdd.length > 0) {
-      setUploadedAttachments((prev) => [
-        ...prev,
-        ...attachmentsToAdd.map((item) => item.attachment),
-      ]);
-
-      attachmentsToAdd.forEach(({ attachment, file }) => {
-        // Extract text from PDFs
-        if (attachment.mimeType === "application/pdf") {
-          extractTextFromPdf(file)
-            .then((text) => {
-              if (!text.trim()) return;
-              setUploadedAttachments((prev) =>
-                prev.map((item) =>
-                  item.id === attachment.id
-                    ? { ...item, textContent: text }
-                    : item
-                )
-              );
-            })
-            .catch((error) => {
-              console.warn(
-                "Failed to extract text from PDF attachment, continuing without text content.",
-                error
-              );
-            });
-        }
-
-        // Upload to Blossom for cross-device sync (async, non-blocking)
-        handleBlossomUpload(attachment.id, file);
-      });
-    }
+    addAttachmentsWithProcessing(workItems);
 
     if (event.target) {
       event.target.value = "";
     }
-  };
-
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
   };
 
   const removeAttachment = (id: string) => {
@@ -407,71 +492,41 @@ export default function ChatInput({
     // Prevent default paste behavior for images
     event.preventDefault();
 
-    const attachmentsToAdd: { attachment: MessageAttachment; file: File }[] =
-      [];
+    const workItems: AttachmentWorkItem[] = [];
 
     for (const item of imageItems) {
       const file = item.getAsFile();
       if (!file) continue;
 
-      // Validate file size
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        alert(
-          `Pasted image is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
-        );
-        continue;
-      }
+      const validation = validateFile(file, {
+        allowImages: true,
+        allowPdf: false,
+        onTypeError: () => {},
+        onSizeError: () =>
+          alert(
+            `Pasted image is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+          ),
+      });
+
+      if (!validation) continue;
 
       try {
-        const dataUrl = await convertFileToBase64(file);
-
-        // Save to IndexedDB
-        let storageId: string | undefined;
-        try {
-          storageId = await saveFile(file);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
-          if (errorMessage.includes("quota")) {
-            alert(
-              "Storage is full. Your image will be available in this session but may not be saved in history."
-            );
-          }
-          // Continue without storageId
-        }
-
-        const attachmentId = createAttachmentId();
-        const attachment: MessageAttachment = {
-          id: attachmentId,
-          name:
-            file.name ||
-            `pasted-image-${Date.now()}.${file.type.split("/")[1]}`,
-          mimeType: file.type,
-          size: file.size,
-          dataUrl,
-          type: "image",
-          storageId,
-          blossomUploadStatus:
-            blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
-        };
-
-        attachmentsToAdd.push({ attachment, file });
+        const nameOverride =
+          file.name ||
+          `pasted-image-${Date.now()}.${file.type.split("/")[1]}`;
+        const workItem = await buildAttachmentWorkItem({
+          file,
+          ...validation,
+          nameOverride,
+          storageLabel: "image",
+        });
+        workItems.push(workItem);
       } catch (error) {
         console.error("Error converting pasted image to base64:", error);
       }
     }
 
-    if (attachmentsToAdd.length > 0) {
-      setUploadedAttachments((prev) => [
-        ...prev,
-        ...attachmentsToAdd.map((item) => item.attachment),
-      ]);
-
-      // Upload to Blossom for cross-device sync (async, non-blocking)
-      attachmentsToAdd.forEach(({ attachment, file }) => {
-        handleBlossomUpload(attachment.id, file);
-      });
-    }
+    addAttachmentsWithProcessing(workItems);
   };
 
   // Drag and Drop Handlers
@@ -504,85 +559,28 @@ export default function ChatInput({
   };
 
   const processImageFile = async (file: File) => {
-    // Validate file type - accept images and PDFs
-    const isImage = file.type.startsWith("image/");
-    const isPdf = file.type === "application/pdf";
+    const validation = validateFile(file, {
+      allowImages: true,
+      allowPdf: true,
+      rejectSvg: true,
+      onSvgError: () =>
+        alert("SVG files are not supported. Please use PNG, JPG, or WebP"),
+      onTypeError: () => alert("Please select an image or PDF file"),
+      onSizeError: () =>
+        alert(
+          `File "${file.name}" is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
+        ),
+    });
 
-    if (!isImage && !isPdf) {
-      alert("Please select an image or PDF file");
-      return;
-    }
-
-    // Reject SVG files
-    if (file.type === "image/svg+xml") {
-      alert("SVG files are not supported. Please use PNG, JPG, or WebP");
-      return;
-    }
-
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      alert(
-        `File "${file.name}" is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`
-      );
-      return;
-    }
+    if (!validation) return;
 
     try {
-      const dataUrl = await convertFileToBase64(file);
-
-      // Save to IndexedDB
-      let storageId: string | undefined;
-      try {
-        storageId = await saveFile(file);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        if (errorMessage.includes("quota")) {
-          alert(
-            "Storage is full. Your file will be available in this session but may not be saved in history."
-          );
-        }
-        // Continue without storageId
-      }
-
-      const attachmentId = createAttachmentId();
-      const attachment: MessageAttachment = {
-        id: attachmentId,
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        dataUrl,
-        type: isImage ? "image" : "file",
-        storageId,
-        blossomUploadStatus:
-          blossomSyncEnabled && pnsKeys ? "uploading" : undefined,
-      };
-
-      setUploadedAttachments((prev) => [...prev, attachment]);
-
-      // Extract text from PDF if applicable
-      if (isPdf) {
-        extractTextFromPdf(file)
-          .then((text) => {
-            if (!text.trim()) return;
-            setUploadedAttachments((prev) =>
-              prev.map((item) =>
-                item.id === attachment.id
-                  ? { ...item, textContent: text }
-                  : item
-              )
-            );
-          })
-          .catch((error) => {
-            console.warn(
-              "Failed to extract text from PDF attachment, continuing without text content.",
-              error
-            );
-          });
-      }
-
-      // Upload to Blossom for cross-device sync (async, non-blocking)
-      handleBlossomUpload(attachment.id, file);
+      const workItem = await buildAttachmentWorkItem({
+        file,
+        ...validation,
+        storageLabel: "file",
+      });
+      addAttachmentsWithProcessing([workItem]);
     } catch (error) {
       console.error("Error processing file:", error);
     }

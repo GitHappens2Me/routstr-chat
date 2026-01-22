@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Model } from "@/types/models";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { TransactionHistory } from "@/types/chat";
@@ -79,6 +79,12 @@ const SettingsModal = ({
   const isMobile = propIsMobile ?? mediaQueryIsMobile;
   const baseUrls = baseUrl ? [baseUrl] : [];
 
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialActiveTab || "settings");
+    }
+  }, [initialActiveTab, isOpen]);
+
   if (!isOpen) return null;
 
   const tabButtonBase =
@@ -103,7 +109,6 @@ const SettingsModal = ({
       case "history":
         return (
           <HistoryTab
-            transactionHistory={transactionHistory}
             setTransactionHistory={setTransactionHistory}
             clearConversations={clearConversations}
             onClose={onClose}

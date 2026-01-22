@@ -188,10 +188,10 @@ const SixtyWallet: React.FC<{
 
     const amount =
       quickMintAmount !== undefined ? quickMintAmount : parseInt(receiveAmount);
+    console.log("rdlogs: ", receiveAmount);
+    console.log("rdlogs: ", isNaN(parseInt(receiveAmount)));
 
     if (isNaN(amount) || amount <= 0) {
-      console.log("rdlogs: ", receiveAmount);
-      console.log("rdlogs: ", isNaN(parseInt(receiveAmount)));
       setError("Please enter a valid amount");
       return;
     }
@@ -290,8 +290,8 @@ const SixtyWallet: React.FC<{
 
   useEffect(() => {
     if (createWalletError) {
-      setError(createWalletError.message);
       console.log(createWalletError.message);
+      setError(createWalletError.message);
     }
   }, [createWalletError]);
 
@@ -366,10 +366,10 @@ const SixtyWallet: React.FC<{
 
   const handleRemoveMint = async (mintUrl: string) => {
     try {
+      console.log(mintUrl);
       setIsRemovingMint(true);
       setError(null);
       setSuccessMessage(null);
-      console.log(mintUrl);
 
       await removeMint(mintUrl);
       setSuccessMessage(
@@ -469,7 +469,6 @@ const SixtyWallet: React.FC<{
 
   // Handle lightning send invoice input
   const handleInvoiceInput = async (value: string) => {
-    console.log("rdlogs:gm", processingInvoiceRef.current, currentMeltQuoteId);
     if (!cashuStore.activeMintUrl) {
       setError(
         "No active mint selected. Please select a mint in your wallet settings."
@@ -484,6 +483,7 @@ const SixtyWallet: React.FC<{
 
     setSendInvoice(value);
     processingInvoiceRef.current = value;
+    console.log("rdlogs:gm", processingInvoiceRef.current, currentMeltQuoteId);
 
     // Create melt quote
     const mintUrl = cashuStore.activeMintUrl;

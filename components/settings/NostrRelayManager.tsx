@@ -173,7 +173,7 @@ const NostrRelayManager: React.FC = () => {
       console.log("Testing relay connections with query...");
 
       // This will attempt to connect to all configured relays
-      const events = nostr.query([testFilter]);
+      nostr.query([testFilter]);
 
       // Give it a moment to attempt connections
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -212,12 +212,12 @@ const NostrRelayManager: React.FC = () => {
         </p>
         <div className="max-h-48 overflow-y-auto space-y-2 mb-4">
           {nostrRelays.length > 0 ? (
-            nostrRelays.map((relay, index) => {
+            nostrRelays.map((relay) => {
               const relayStatus = getRelayStatus(relay);
               return (
                 <div
                   className="flex items-center justify-between bg-muted/50 rounded-md p-2"
-                  key={index}
+                  key={relay}
                 >
                   <div className="flex items-center gap-2 flex-grow min-w-0">
                     {getStatusIcon(relayStatus.status)}

@@ -78,6 +78,39 @@ function processAnnotations(
   return result;
 }
 
+function getImageDedupKey(
+  item: ChatMessageContent,
+  index: number
+): string {
+  const url = item.image_url?.url;
+  const storageId = item.image_url?.storageId;
+  const blossomHash = item.image_url?.blossomHash;
+
+  if (url) return `url:${url}`;
+  if (storageId) return `storage:${storageId}`;
+  if (blossomHash) return `blossom:${blossomHash}`;
+  return `index:${index}`;
+}
+
+function dedupeImageContent(
+  items: ChatMessageContent[]
+): ChatMessageContent[] {
+  const seen = new Set<string>();
+  const deduped: ChatMessageContent[] = [];
+  let imageIndex = 0;
+
+  for (const item of items) {
+    if (item.type !== "image_url") continue;
+    const key = getImageDedupKey(item, imageIndex);
+    imageIndex += 1;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
 export default function MessageContentRenderer({
   content,
   citations,
@@ -236,7 +269,7 @@ export default function MessageContentRenderer({
     return mimeType.toUpperCase();
   };
 
-  const imageContent = content.filter((item) => item.type === "image_url");
+  const imageContent = dedupeImageContent(content);
 
   // Separate text, image, and file content
   const textContent = content.filter(

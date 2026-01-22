@@ -80,8 +80,11 @@ const BalanceOverviewTab: React.FC<BalanceOverviewTabProps> = ({
           {transactionHistory
             .slice(-3)
             .reverse()
-            .map((tx, index) => (
-              <div key={index} className="flex items-center justify-between">
+            .map((tx) => (
+              <div
+                key={`${tx.timestamp}-${tx.type}-${tx.amount}`}
+                className="flex items-center justify-between"
+              >
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-1.5 h-1.5 rounded-full ${

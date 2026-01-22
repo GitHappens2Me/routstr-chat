@@ -44,9 +44,9 @@ const BalanceActivityTab: React.FC<BalanceActivityTabProps> = ({
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {[...transactionHistory].reverse().map((tx, index) => (
+            {[...transactionHistory].reverse().map((tx) => (
               <div
-                key={index}
+                key={`${tx.timestamp}-${tx.type}-${tx.amount}`}
                 className="p-3 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">

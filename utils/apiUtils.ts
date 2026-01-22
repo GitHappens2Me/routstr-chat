@@ -861,15 +861,45 @@ function mergeImages(
   newImages: ImageData[]
 ): void {
   newImages.forEach((img) => {
-    const existingIndex = accumulatedImages.findIndex(
-      (existing) => existing.index === img.index
-    );
+    const newUrl = img.image_url?.url;
+    const existingIndex = accumulatedImages.findIndex((existing) => {
+      const existingUrl = existing.image_url?.url;
+      if (newUrl && existingUrl) {
+        return existingUrl === newUrl;
+      }
+      if (img.index !== undefined && existing.index !== undefined) {
+        return existing.index === img.index;
+      }
+      return false;
+    });
     if (existingIndex === -1) {
       accumulatedImages.push(img);
     } else {
       accumulatedImages[existingIndex] = img;
     }
   });
+}
+
+function dedupeImages(images: ImageData[]): ImageData[] {
+  const seen = new Set<string>();
+  const deduped: ImageData[] = [];
+
+  for (const img of images) {
+    const key = img.image_url?.url
+      ? `url:${img.image_url.url}`
+      : img.index !== undefined
+        ? `index:${img.index}`
+        : null;
+
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+
+    deduped.push(img);
+  }
+
+  return deduped;
 }
 
 /**
@@ -903,7 +933,10 @@ async function createAssistantMessage(
     file: File
   ) => Promise<{ hash: string; servers: string[] } | null>
 ): Promise<Message> {
-  const hasImages = streamingResult.images && streamingResult.images.length > 0;
+  const uniqueImages = streamingResult.images
+    ? dedupeImages(streamingResult.images)
+    : undefined;
+  const hasImages = uniqueImages && uniqueImages.length > 0;
   const hasThinking = streamingResult.thinking !== undefined;
   const hasCitations =
     streamingResult.citations && streamingResult.citations.length > 0;
@@ -935,9 +968,9 @@ async function createAssistantMessage(
     }
 
     // Process images and save to IndexedDB
-    if (streamingResult.images) {
-      for (let i = 0; i < streamingResult.images.length; i++) {
-        const img = streamingResult.images[i];
+    if (uniqueImages) {
+      for (let i = 0; i < uniqueImages.length; i++) {
+        const img = uniqueImages[i];
         let storageId: string | undefined;
         let blossomHash: string | undefined;
         let blossomServers: string[] | undefined;

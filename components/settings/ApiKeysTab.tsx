@@ -1031,14 +1031,14 @@ const ApiKeysTab = ({
               ? "Cloud Synced API Keys"
               : "Locally Stored API Keys"}
           </h4>
-          {storedApiKeys.map((keyData, index) => {
+          {storedApiKeys.map((keyData) => {
             const isExpanded = expandedKeys.has(keyData.key);
             const displayUrl = keyData.baseUrl
               ? keyData.baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
               : "No URL";
             return (
               <div
-                key={index}
+                key={keyData.key}
                 className="bg-muted/50 rounded-md border border-border overflow-hidden"
               >
                 {/* Single Line Compact Header */}
@@ -1343,27 +1343,30 @@ const ApiKeysTab = ({
                       Select Base URL for this API Key:
                     </p>
                     <div className="max-h-32 overflow-y-auto space-y-2">
-                      {availableBaseUrls.map((url: string, index: number) => (
-                        <div className="flex items-center gap-2" key={index}>
-                          <input
-                            type="radio"
-                            id={`newApiKeyBaseUrl-${index}`}
-                            name="newApiKeyBaseUrl"
-                            className="accent-gray-500"
-                            checked={selectedNewApiKeyBaseUrl === url}
-                            onChange={() => setSelectedNewApiKeyBaseUrl(url)}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <label
-                              htmlFor={`newApiKeyBaseUrl-${index}`}
-                              className="text-sm text-foreground truncate block"
-                              title={url}
-                            >
-                              {url}
-                            </label>
+                      {availableBaseUrls.map((url: string) => {
+                        const baseUrlId = encodeURIComponent(url);
+                        return (
+                          <div className="flex items-center gap-2" key={url}>
+                            <input
+                              type="radio"
+                              id={`newApiKeyBaseUrl-${baseUrlId}`}
+                              name="newApiKeyBaseUrl"
+                              className="accent-gray-500"
+                              checked={selectedNewApiKeyBaseUrl === url}
+                              onChange={() => setSelectedNewApiKeyBaseUrl(url)}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <label
+                                htmlFor={`newApiKeyBaseUrl-${baseUrlId}`}
+                                className="text-sm text-foreground truncate block"
+                                title={url}
+                              >
+                                {url}
+                              </label>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1665,29 +1668,32 @@ const ApiKeysTab = ({
                         Base URL
                       </label>
                       <div className="max-h-32 overflow-y-auto space-y-2 bg-muted/50 rounded-md p-2 border border-border">
-                        {availableBaseUrls.map((url: string, index: number) => (
-                          <div className="flex items-center gap-2" key={index}>
-                            <input
-                              type="radio"
-                              id={`manualApiKeyBaseUrl-${index}`}
-                              name="manualApiKeyBaseUrl"
-                              className="accent-gray-500"
-                              checked={selectedManualApiKeyBaseUrl === url}
-                              onChange={() =>
-                                setSelectedManualApiKeyBaseUrl(url)
-                              }
-                            />
-                            <div className="min-w-0 flex-1">
-                              <label
-                                htmlFor={`manualApiKeyBaseUrl-${index}`}
-                                className="text-sm text-foreground truncate block"
-                                title={url}
-                              >
-                                {url}
-                              </label>
+                        {availableBaseUrls.map((url: string) => {
+                          const baseUrlId = encodeURIComponent(url);
+                          return (
+                            <div className="flex items-center gap-2" key={url}>
+                              <input
+                                type="radio"
+                                id={`manualApiKeyBaseUrl-${baseUrlId}`}
+                                name="manualApiKeyBaseUrl"
+                                className="accent-gray-500"
+                                checked={selectedManualApiKeyBaseUrl === url}
+                                onChange={() =>
+                                  setSelectedManualApiKeyBaseUrl(url)
+                                }
+                              />
+                              <div className="min-w-0 flex-1">
+                                <label
+                                  htmlFor={`manualApiKeyBaseUrl-${baseUrlId}`}
+                                  className="text-sm text-foreground truncate block"
+                                  title={url}
+                                >
+                                  {url}
+                                </label>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

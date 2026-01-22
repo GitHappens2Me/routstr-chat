@@ -91,7 +91,10 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       }
     }
   }, []);
-  saveRelays(relayUrls);
+
+  useEffect(() => {
+    saveRelays(relayUrls);
+  }, [relayUrls]);
 
   // Account persistence
   useEffect(() => {

@@ -19,6 +19,12 @@ import {
   useKeepAliveContext,
 } from "@/components/pwa/KeepAliveProvider";
 
+const FullPageLoader = () => (
+  <div className="flex items-center justify-center h-dvh w-full bg-background">
+    <Loader2 className="h-8 w-8 text-white/50 animate-spin" />
+  </div>
+);
+
 function ChatPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -247,11 +253,7 @@ function ChatPageContent() {
   }, [chatIdFromUrl, activeConversationId]);
 
   if (!authChecked) {
-    return (
-      <div className="flex items-center justify-center h-dvh w-full bg-background">
-        <Loader2 className="h-8 w-8 text-white/50 animate-spin" />
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   return (
@@ -325,9 +327,7 @@ export default function ChatPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-dvh w-full bg-background">
-          <Loader2 className="h-8 w-8 text-white/50 animate-spin" />
-        </div>
+        <FullPageLoader />
       }
     >
       <AuthProvider>
