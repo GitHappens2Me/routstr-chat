@@ -1,12 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import {
-  Copy,
-  Check,
-  Zap,
-  ClipboardPaste,
-} from "lucide-react";
+import { Copy, Check, Zap, ClipboardPaste, AlertCircle } from "lucide-react";
 import {
   getDecodedToken,
   MeltQuoteState,
@@ -24,6 +19,7 @@ import {
 import {
   useWalletOperations,
   useCashuWallet,
+  useCreateCashuWallet,
   useCashuToken,
   useCashuStore,
   formatBalance,
@@ -164,6 +160,11 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
 
   // NIP-60 wallet hooks
   const { wallet, isLoading: isNip60Loading, updateProofs } = useCashuWallet();
+  const {
+    mutate: handleCreateWallet,
+    isPending: isCreatingWallet,
+    error: createWalletError,
+  } = useCreateCashuWallet();
   const {
     cleanSpentProofs,
     cleanupPendingProofs,
@@ -1112,510 +1113,558 @@ const BalanceDisplay: React.FC<BalanceDisplayProps> = ({
               : "opacity-100 translate-x-0"
           }`}
         >
-          {/* Overview Tab */}
-          {activeTab === "overview" && (
-          <BalanceOverviewTab
-            usingNip60={usingNip60}
-            mintSelector={mintSelector}
-            truncatedNpub={truncatedNpub}
-            displayBalance={displayBalance}
-            transactionHistory={transactionHistory}
-            onNavigate={(tab) => navigateToTab(tab)}
-          />
-        )}
-
-          {/* Send Tab Content */}
-          {activeTab === "send" && (
-            <div className="p-4 space-y-3">
-              {/* Sub-tabs for Token/Lightning */}
-              {/* Note about msats if using msat unit */}
-              {msatNote}
-              <div className="flex bg-muted/50 rounded-lg p-1">
-                <button
-                  onClick={() => setSendTab("token")}
-                  className={getSubTabClass(sendTab === "token")}
-                  type="button"
-                >
-                  eCash Token
-                </button>
-                <button
-                  onClick={() => setSendTab("lightning")}
-                  className={getSubTabClass(
-                    sendTab === "lightning",
-                    "flex items-center justify-center gap-1"
-                  )}
-                  type="button"
-                >
-                  <Zap className="h-3 w-3" />
-                  Lightning
-                </button>
-              </div>
-
-              {sendTab === "token" && (
-                <div className="space-y-3">
-                  {/* Balance context */}
-                  <div className="bg-muted/50 rounded-lg p-2 text-center">
-                    <div className="text-muted-foreground text-xs">
-                      Available Balance
-                    </div>
-                    <div className="text-foreground text-lg font-bold">
-                      {usingNip60 ? (
-                        <>
-                          {currentMintUnit === "msat"
-                            ? utilGetCurrentMintBalance(
-                                cashuStore.activeMintUrl,
-                                mintBalances
-                              )
-                            : utilGetCurrentMintBalance(
-                                cashuStore.activeMintUrl,
-                                mintBalances
-                              )}{" "}
-                          {currentMintUnit === "msat" ? "msats" : "sats"}
-                        </>
-                      ) : (
-                        <>
-                          {currentMintUnit === "msat"
-                            ? balance * 1000
-                            : balance}{" "}
-                          {currentMintUnit === "msat" ? "msats" : "sats"}
-                        </>
-                      )}
-                    </div>
-                    {usingNip60 && !isCurrentMintValid && (
-                      <div className="text-red-600 dark:text-red-400 text-xs mt-1">
-                        Invalid mint selected
+          {/* No Wallet - Create Wallet Prompt */}
+          {usingNip60 && !wallet && !isNip60Loading && !isCreatingWallet ? (
+            <div className="p-4">
+              <div className="bg-muted/50 border border-border rounded-md p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">
+                    You don&apos;t have a Cashu wallet yet
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <button
+                    onClick={() => handleCreateWallet()}
+                    disabled={!activeAccount}
+                    className="bg-muted border border-border text-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 cursor-pointer"
+                    type="button"
+                  >
+                    Create Wallet
+                  </button>
+                  {!activeAccount && (
+                    <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-300 p-3 rounded-md text-sm mt-4">
+                      <div className="flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        <span>You need to log in to create a wallet</span>
                       </div>
-                    )}
-                    {usingNip60 &&
-                      isCurrentMintValid &&
-                      utilGetCurrentMintBalance(
-                        cashuStore.activeMintUrl,
-                        mintBalances
-                      ) === 0 && (
-                        <div className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
-                          No balance available in selected mint
-                        </div>
-                      )}
-                  </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : usingNip60 && (isNip60Loading || isCreatingWallet) ? (
+            <div className="p-4">
+              <div className="bg-muted/50 border border-border rounded-md p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">
+                    Loading wallet...
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Overview Tab */}
+              {activeTab === "overview" && (
+                <BalanceOverviewTab
+                  usingNip60={usingNip60}
+                  mintSelector={mintSelector}
+                  truncatedNpub={truncatedNpub}
+                  displayBalance={displayBalance}
+                  transactionHistory={transactionHistory}
+                  onNavigate={(tab) => navigateToTab(tab)}
+                />
+              )}
 
-                  <div>
-                    <label className="block text-muted-foreground text-xs font-medium mb-2">
-                      Amount ({currentMintUnit}s)
-                    </label>
-                    <input
-                      type="text"
-                      value={sendAmount}
-                      onChange={(e) => handleAmountChange(e, "send")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void generateSendToken();
-                        }
-                      }}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-lg font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
-                      placeholder="0"
-                      autoFocus
-                    />
-                    {sendAmount &&
-                      parseInt(sendAmount) >
-                        (usingNip60
-                          ? utilGetCurrentMintBalance(
-                              cashuStore.activeMintUrl,
-                              mintBalances
-                            )
-                          : currentMintUnit === "msat"
-                            ? balance * 1000
-                            : balance) && (
-                        <p className="text-red-600 dark:text-red-400 text-xs mt-1">
-                          Amount exceeds available balance
-                        </p>
-                      )}
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-1">
-                    {[100, 500, 1000].map((amount) => (
-                      <button
-                        key={amount}
-                        onClick={() => setSendAmount(amount.toString())}
-                        disabled={
-                          amount >
-                          (usingNip60
-                            ? utilGetCurrentMintBalance(
-                                cashuStore.activeMintUrl,
-                                mintBalances
-                              )
-                            : currentMintUnit === "msat"
-                              ? balance * 1000
-                              : balance)
-                        }
-                        className="py-1.5 px-2 bg-muted/50 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
-                      >
-                        {amount}
-                      </button>
-                    ))}
+              {/* Send Tab Content */}
+              {activeTab === "send" && (
+                <div className="p-4 space-y-3">
+                  {/* Sub-tabs for Token/Lightning */}
+                  {/* Note about msats if using msat unit */}
+                  {msatNote}
+                  <div className="flex bg-muted/50 rounded-lg p-1">
                     <button
-                      onClick={() =>
-                        setSendAmount(
-                          (usingNip60
-                            ? utilGetCurrentMintBalance(
-                                cashuStore.activeMintUrl,
-                                mintBalances
-                              )
-                            : currentMintUnit === "msat"
-                              ? balance * 1000
-                              : balance
-                          ).toString()
-                        )
-                      }
-                      disabled={
-                        usingNip60
-                          ? utilGetCurrentMintBalance(
-                              cashuStore.activeMintUrl,
-                              mintBalances
-                            ) === 0
-                          : balance === 0
-                      }
-                      className="py-1.5 px-2 bg-muted/50 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
+                      onClick={() => setSendTab("token")}
+                      className={getSubTabClass(sendTab === "token")}
+                      type="button"
                     >
-                      Max
+                      eCash Token
+                    </button>
+                    <button
+                      onClick={() => setSendTab("lightning")}
+                      className={getSubTabClass(
+                        sendTab === "lightning",
+                        "flex items-center justify-center gap-1"
+                      )}
+                      type="button"
+                    >
+                      <Zap className="h-3 w-3" />
+                      Lightning
                     </button>
                   </div>
 
-                  <button
-                    onClick={generateSendToken}
-                    disabled={
-                      !isValidSendAmount ||
-                      isGeneratingSendToken ||
-                      (usingNip60 && (!hasMints || !isCurrentMintValid))
-                    }
-                    className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isGeneratingSendToken ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
-                        Generating...
-                      </>
-                    ) : (
-                      "Generate Token"
-                    )}
-                  </button>
-
-                  {generatedToken && (
-                    <div className="space-y-2">
-                      <div className="text-muted-foreground text-xs font-medium">
-                        Generated Token:
-                      </div>
-                      <div className="bg-muted/50 border border-border rounded-lg p-2">
-                        <div className="font-mono text-xs text-muted-foreground break-all mb-2 max-h-20 overflow-y-auto">
-                          {generatedToken}
+                  {sendTab === "token" && (
+                    <div className="space-y-3">
+                      {/* Balance context */}
+                      <div className="bg-muted/50 rounded-lg p-2 text-center">
+                        <div className="text-muted-foreground text-xs">
+                          Available Balance
                         </div>
-                        <button
-                          onClick={() =>
-                            copyToClipboard(generatedToken, "Token")
-                          }
-                          className="w-full bg-muted hover:bg-muted/80 border border-border text-foreground py-1.5 px-3 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          {copySuccess ? (
+                        <div className="text-foreground text-lg font-bold">
+                          {usingNip60 ? (
                             <>
-                              <Check className="h-3 w-3" />
-                              Copied!
+                              {currentMintUnit === "msat"
+                                ? utilGetCurrentMintBalance(
+                                    cashuStore.activeMintUrl,
+                                    mintBalances
+                                  )
+                                : utilGetCurrentMintBalance(
+                                    cashuStore.activeMintUrl,
+                                    mintBalances
+                                  )}{" "}
+                              {currentMintUnit === "msat" ? "msats" : "sats"}
                             </>
                           ) : (
                             <>
-                              <Copy className="h-3 w-3" />
-                              Copy Token
+                              {currentMintUnit === "msat"
+                                ? balance * 1000
+                                : balance}{" "}
+                              {currentMintUnit === "msat" ? "msats" : "sats"}
+                            </>
+                          )}
+                        </div>
+                        {usingNip60 && !isCurrentMintValid && (
+                          <div className="text-red-600 dark:text-red-400 text-xs mt-1">
+                            Invalid mint selected
+                          </div>
+                        )}
+                        {usingNip60 &&
+                          isCurrentMintValid &&
+                          utilGetCurrentMintBalance(
+                            cashuStore.activeMintUrl,
+                            mintBalances
+                          ) === 0 && (
+                            <div className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
+                              No balance available in selected mint
+                            </div>
+                          )}
+                      </div>
+
+                      <div>
+                        <label className="block text-muted-foreground text-xs font-medium mb-2">
+                          Amount ({currentMintUnit}s)
+                        </label>
+                        <input
+                          type="text"
+                          value={sendAmount}
+                          onChange={(e) => handleAmountChange(e, "send")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void generateSendToken();
+                            }
+                          }}
+                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-lg font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+                          placeholder="0"
+                          autoFocus
+                        />
+                        {sendAmount &&
+                          parseInt(sendAmount) >
+                            (usingNip60
+                              ? utilGetCurrentMintBalance(
+                                  cashuStore.activeMintUrl,
+                                  mintBalances
+                                )
+                              : currentMintUnit === "msat"
+                                ? balance * 1000
+                                : balance) && (
+                            <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                              Amount exceeds available balance
+                            </p>
+                          )}
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1">
+                        {[100, 500, 1000].map((amount) => (
+                          <button
+                            key={amount}
+                            onClick={() => setSendAmount(amount.toString())}
+                            disabled={
+                              amount >
+                              (usingNip60
+                                ? utilGetCurrentMintBalance(
+                                    cashuStore.activeMintUrl,
+                                    mintBalances
+                                  )
+                                : currentMintUnit === "msat"
+                                  ? balance * 1000
+                                  : balance)
+                            }
+                            className="py-1.5 px-2 bg-muted/50 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
+                          >
+                            {amount}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() =>
+                            setSendAmount(
+                              (usingNip60
+                                ? utilGetCurrentMintBalance(
+                                    cashuStore.activeMintUrl,
+                                    mintBalances
+                                  )
+                                : currentMintUnit === "msat"
+                                  ? balance * 1000
+                                  : balance
+                              ).toString()
+                            )
+                          }
+                          disabled={
+                            usingNip60
+                              ? utilGetCurrentMintBalance(
+                                  cashuStore.activeMintUrl,
+                                  mintBalances
+                                ) === 0
+                              : balance === 0
+                          }
+                          className="py-1.5 px-2 bg-muted/50 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
+                        >
+                          Max
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={generateSendToken}
+                        disabled={
+                          !isValidSendAmount ||
+                          isGeneratingSendToken ||
+                          (usingNip60 && (!hasMints || !isCurrentMintValid))
+                        }
+                        className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {isGeneratingSendToken ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
+                            Generating...
+                          </>
+                        ) : (
+                          "Generate Token"
+                        )}
+                      </button>
+
+                      {generatedToken && (
+                        <div className="space-y-2">
+                          <div className="text-muted-foreground text-xs font-medium">
+                            Generated Token:
+                          </div>
+                          <div className="bg-muted/50 border border-border rounded-lg p-2">
+                            <div className="font-mono text-xs text-muted-foreground break-all mb-2 max-h-20 overflow-y-auto">
+                              {generatedToken}
+                            </div>
+                            <button
+                              onClick={() =>
+                                copyToClipboard(generatedToken, "Token")
+                              }
+                              className="w-full bg-muted hover:bg-muted/80 border border-border text-foreground py-1.5 px-3 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              {copySuccess ? (
+                                <>
+                                  <Check className="h-3 w-3" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" />
+                                  Copy Token
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <div className="text-muted-foreground text-xs text-center">
+                            Share this token to send {sendAmount}{" "}
+                            {currentMintUnit}s
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {sendTab === "lightning" && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-muted-foreground text-xs font-medium mb-2">
+                          Lightning Invoice
+                        </label>
+                        <textarea
+                          value={
+                            usingNip60 ? nip60SendInvoice : lightningInvoice
+                          }
+                          onChange={(e) =>
+                            usingNip60
+                              ? handleNip60InvoiceInput(e.target.value)
+                              : setLightningInvoice(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              void handlePayLightningInvoice();
+                            }
+                          }}
+                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
+                          placeholder="Paste lightning invoice here..."
+                          autoFocus
+                        />
+                      </div>
+
+                      {invoiceAmount && (
+                        <div className="bg-muted/50 border border-border rounded-lg p-3">
+                          <div className="text-muted-foreground text-xs mb-1">
+                            Invoice Amount
+                          </div>
+                          <div className="text-foreground text-lg font-bold">
+                            {invoiceAmount} {currentMintUnit}s
+                            {invoiceFeeReserve !== 0 && (
+                              <span className="text-xs font-normal text-muted-foreground ml-2">
+                                + max {invoiceFeeReserve} fee
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handlePayLightningInvoice}
+                          disabled={
+                            !(usingNip60
+                              ? nip60SendInvoice.trim()
+                              : lightningInvoice.trim()) ||
+                            (usingNip60
+                              ? isNip60Processing || isNip60LoadingInvoice
+                              : isPayingInvoice)
+                          }
+                          className="flex-1 bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {(
+                            usingNip60 ? isNip60Processing : isPayingInvoice
+                          ) ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
+                              Paying...
+                            </>
+                          ) : usingNip60 && isNip60LoadingInvoice ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="h-4 w-4" />
+                              Pay Invoice
                             </>
                           )}
                         </button>
+
+                        {/* Cancel button - only show when there's an invoice being processed */}
+                        {usingNip60 &&
+                          (nip60SendInvoice.trim() || nip60MeltQuoteId) && (
+                            <button
+                              onClick={handleNip60PaymentCancel}
+                              disabled={isNip60Processing}
+                              className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-red-500/30 text-red-600 dark:text-red-200 rounded-lg font-medium transition-colors cursor-pointer"
+                              title="Cancel and clear invoice"
+                            >
+                              ✕
+                            </button>
+                          )}
                       </div>
+
                       <div className="text-muted-foreground text-xs text-center">
-                        Share this token to send {sendAmount} {currentMintUnit}s
+                        Paste a lightning invoice to pay it instantly
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {sendTab === "lightning" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-muted-foreground text-xs font-medium mb-2">
-                      Lightning Invoice
-                    </label>
-                    <textarea
-                      value={usingNip60 ? nip60SendInvoice : lightningInvoice}
-                      onChange={(e) =>
-                        usingNip60
-                          ? handleNip60InvoiceInput(e.target.value)
-                          : setLightningInvoice(e.target.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void handlePayLightningInvoice();
-                        }
-                      }}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
-                      placeholder="Paste lightning invoice here..."
-                      autoFocus
-                    />
-                  </div>
+              {/* Receive Tab Content */}
+              {activeTab === "receive" && (
+                <div className="p-4 space-y-3">
+                  {/* Note about msats if using msat unit */}
+                  {msatNote}
 
-                  {invoiceAmount && (
-                    <div className="bg-muted/50 border border-border rounded-lg p-3">
-                      <div className="text-muted-foreground text-xs mb-1">
-                        Invoice Amount
-                      </div>
-                      <div className="text-foreground text-lg font-bold">
-                        {invoiceAmount} {currentMintUnit}s
-                        {invoiceFeeReserve !== 0 && (
-                          <span className="text-xs font-normal text-muted-foreground ml-2">
-                            + max {invoiceFeeReserve} fee
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
+                  {/* Sub-tabs for Lightning/Token */}
+                  <div className="flex bg-muted/50 rounded-lg p-1">
                     <button
-                      onClick={handlePayLightningInvoice}
-                      disabled={
-                        !(usingNip60
-                          ? nip60SendInvoice.trim()
-                          : lightningInvoice.trim()) ||
-                        (usingNip60
-                          ? isNip60Processing || isNip60LoadingInvoice
-                          : isPayingInvoice)
-                      }
-                      className="flex-1 bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={() => setReceiveTab("lightning")}
+                      className={getSubTabClass(
+                        receiveTab === "lightning",
+                        "flex items-center justify-center gap-2"
+                      )}
+                      type="button"
                     >
-                      {(usingNip60 ? isNip60Processing : isPayingInvoice) ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
-                          Paying...
-                        </>
-                      ) : usingNip60 && isNip60LoadingInvoice ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-4 w-4" />
-                          Pay Invoice
-                        </>
-                      )}
+                      <Zap className="h-3 w-3" />
+                      Lightning
                     </button>
-
-                    {/* Cancel button - only show when there's an invoice being processed */}
-                    {usingNip60 &&
-                      (nip60SendInvoice.trim() || nip60MeltQuoteId) && (
-                        <button
-                          onClick={handleNip60PaymentCancel}
-                          disabled={isNip60Processing}
-                          className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-red-500/30 text-red-600 dark:text-red-200 rounded-lg font-medium transition-colors cursor-pointer"
-                          title="Cancel and clear invoice"
-                        >
-                          ✕
-                        </button>
-                      )}
+                    <button
+                      onClick={() => setReceiveTab("token")}
+                      className={getSubTabClass(receiveTab === "token")}
+                      type="button"
+                    >
+                      Token
+                    </button>
                   </div>
 
-                  <div className="text-muted-foreground text-xs text-center">
-                    Paste a lightning invoice to pay it instantly
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Receive Tab Content */}
-          {activeTab === "receive" && (
-            <div className="p-4 space-y-3">
-              {/* Note about msats if using msat unit */}
-              {msatNote}
-
-              {/* Sub-tabs for Lightning/Token */}
-              <div className="flex bg-muted/50 rounded-lg p-1">
-                <button
-                  onClick={() => setReceiveTab("lightning")}
-                  className={getSubTabClass(
-                    receiveTab === "lightning",
-                    "flex items-center justify-center gap-2"
-                  )}
-                  type="button"
-                >
-                  <Zap className="h-3 w-3" />
-                  Lightning
-                </button>
-                <button
-                  onClick={() => setReceiveTab("token")}
-                  className={getSubTabClass(receiveTab === "token")}
-                  type="button"
-                >
-                  Token
-                </button>
-              </div>
-
-              {receiveTab === "lightning" && (
-                <div className="space-y-3">
-                  {/* NWC Wallet row */}
-                  <BitcoinConnectStatusRow
-                    status={bcStatus}
-                    balance={bcBalance}
-                    onConnect={connectWallet}
-                  />
-                  <div>
-                    <label className="block text-muted-foreground text-xs font-medium mb-2">
-                      Amount ({currentMintUnit}s)
-                    </label>
-                    <input
-                      type="text"
-                      value={mintAmount}
-                      onChange={(e) => handleAmountChange(e, "receive")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void handleCreateMintQuote();
-                        }
-                      }}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-lg font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
-                      placeholder="0"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-1">
-                    {[100, 500, 1000, 5000].map((amount) => (
-                      <button
-                        key={amount}
-                        onClick={() => setMintAmount(amount.toString())}
-                        className="py-1.5 px-2 bg-muted/50 hover:bg-muted border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
-                      >
-                        {amount}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleCreateMintQuote}
-                    disabled={
-                      !isValidReceiveAmount ||
-                      (usingNip60 ? isNip60Processing : isMinting)
-                    }
-                    className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {(usingNip60 ? isNip60Processing : isMinting) ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4" />
-                        Create Invoice
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {receiveTab === "token" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-muted-foreground text-xs font-medium mb-2">
-                      Cashu Token
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        value={tokenToImport}
-                        onChange={(e) => setTokenToImport(e.target.value)}
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 pr-10 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
-                        placeholder="Paste a Cashu token here..."
-                        autoFocus
+                  {receiveTab === "lightning" && (
+                    <div className="space-y-3">
+                      {/* NWC Wallet row */}
+                      <BitcoinConnectStatusRow
+                        status={bcStatus}
+                        balance={bcBalance}
+                        onConnect={connectWallet}
                       />
+                      <div>
+                        <label className="block text-muted-foreground text-xs font-medium mb-2">
+                          Amount ({currentMintUnit}s)
+                        </label>
+                        <input
+                          type="text"
+                          value={mintAmount}
+                          onChange={(e) => handleAmountChange(e, "receive")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleCreateMintQuote();
+                            }
+                          }}
+                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground text-lg font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+                          placeholder="0"
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1">
+                        {[100, 500, 1000, 5000].map((amount) => (
+                          <button
+                            key={amount}
+                            onClick={() => setMintAmount(amount.toString())}
+                            className="py-1.5 px-2 bg-muted/50 hover:bg-muted border border-border rounded-md text-muted-foreground text-xs transition-colors cursor-pointer"
+                          >
+                            {amount}
+                          </button>
+                        ))}
+                      </div>
+
                       <button
-                        onClick={handlePasteTokenToImport}
-                        className="absolute top-2 right-2 bg-muted/60 hover:bg-muted border border-border text-foreground p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
-                        type="button"
-                        title="Paste"
+                        onClick={handleCreateMintQuote}
+                        disabled={
+                          !isValidReceiveAmount ||
+                          (usingNip60 ? isNip60Processing : isMinting)
+                        }
+                        className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        <ClipboardPaste className="h-3.5 w-3.5" />
+                        {(usingNip60 ? isNip60Processing : isMinting) ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4" />
+                            Create Invoice
+                          </>
+                        )}
                       </button>
                     </div>
-                  </div>
+                  )}
 
-                  <button
-                    onClick={handleImportToken}
-                    disabled={!tokenToImport.trim() || isImporting}
-                    className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isImporting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
-                        Importing...
-                      </>
-                    ) : (
-                      "Import Token"
+                  {receiveTab === "token" && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-muted-foreground text-xs font-medium mb-2">
+                          Cashu Token
+                        </label>
+                        <div className="relative">
+                          <textarea
+                            value={tokenToImport}
+                            onChange={(e) => setTokenToImport(e.target.value)}
+                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 pr-10 text-foreground text-xs font-mono focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 min-h-[80px] resize-y"
+                            placeholder="Paste a Cashu token here..."
+                            autoFocus
+                          />
+                          <button
+                            onClick={handlePasteTokenToImport}
+                            className="absolute top-2 right-2 bg-muted/60 hover:bg-muted border border-border text-foreground p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
+                            type="button"
+                            title="Paste"
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleImportToken}
+                        disabled={!tokenToImport.trim() || isImporting}
+                        className="w-full bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground py-2 px-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {isImporting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground/30 border-t-foreground" />
+                            Importing...
+                          </>
+                        ) : (
+                          "Import Token"
+                        )}
+                      </button>
+
+                      <div className="text-muted-foreground text-xs text-center">
+                        Import a Cashu token to add sats to your wallet
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Activity Tab Content */}
+              {activeTab === "activity" && (
+                <BalanceActivityTab
+                  transactionHistory={transactionHistory}
+                  onClearHistory={handleClearHistory}
+                  onOpenSettings={() => openWalletSettings("wallet")}
+                />
+              )}
+
+              {/* Invoice Tab Content */}
+              {activeTab === "invoice" && (
+                <BalanceInvoiceTab
+                  onBack={() => navigateToTab("receive")}
+                  bcStatus={bcStatus}
+                  bcBalance={bcBalance}
+                  onConnectWallet={connectWallet}
+                  usingNip60={usingNip60}
+                  nip60Invoice={nip60Invoice}
+                  mintInvoice={mintInvoice}
+                  mintAmount={mintAmount}
+                  currentMintUnit={currentMintUnit}
+                  onShowQRCode={onShowQRCode}
+                  onPayWithWallet={() => void handlePayWithBitcoinConnect()}
+                  isPayingWithWallet={isBcPaying}
+                  copyToClipboard={copyToClipboard}
+                  copySuccess={copySuccess}
+                />
+              )}
+
+              {/* Error/Success Messages */}
+              {(error || successMessage) && (
+                <div className="p-4 pt-0">
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-200 p-2 rounded-lg text-xs">
+                      {error}
+                    </div>
+                  )}
+
+                  {successMessage &&
+                    !successMessage.includes("Invoice generated") &&
+                    successMessage !==
+                      "Payment received! Tokens minted successfully." && (
+                      <div className="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-200 p-2 rounded-lg text-xs">
+                        {successMessage}
+                      </div>
                     )}
-                  </button>
-
-                  <div className="text-muted-foreground text-xs text-center">
-                    Import a Cashu token to add sats to your wallet
-                  </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Activity Tab Content */}
-          {activeTab === "activity" && (
-            <BalanceActivityTab
-              transactionHistory={transactionHistory}
-              onClearHistory={handleClearHistory}
-              onOpenSettings={() => openWalletSettings("wallet")}
-            />
-          )}
-
-          {/* Invoice Tab Content */}
-          {activeTab === "invoice" && (
-            <BalanceInvoiceTab
-              onBack={() => navigateToTab("receive")}
-              bcStatus={bcStatus}
-              bcBalance={bcBalance}
-              onConnectWallet={connectWallet}
-              usingNip60={usingNip60}
-              nip60Invoice={nip60Invoice}
-              mintInvoice={mintInvoice}
-              mintAmount={mintAmount}
-              currentMintUnit={currentMintUnit}
-              onShowQRCode={onShowQRCode}
-              onPayWithWallet={() => void handlePayWithBitcoinConnect()}
-              isPayingWithWallet={isBcPaying}
-              copyToClipboard={copyToClipboard}
-              copySuccess={copySuccess}
-            />
-          )}
-
-          {/* Error/Success Messages */}
-          {(error || successMessage) && (
-            <div className="p-4 pt-0">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-200 p-2 rounded-lg text-xs">
-                  {error}
-                </div>
-              )}
-
-              {successMessage &&
-                !successMessage.includes("Invoice generated") &&
-                successMessage !==
-                  "Payment received! Tokens minted successfully." && (
-                  <div className="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-200 p-2 rounded-lg text-xs">
-                    {successMessage}
-                  </div>
-                )}
-            </div>
+            </>
           )}
         </div>
       </PopoverContent>
