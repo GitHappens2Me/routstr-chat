@@ -1108,14 +1108,17 @@ export default function ChatMessages({
             })
           )}
 
-          {isPaymentProcessing && !streamingContent && !thinkingContent && (
-            <div className="flex flex-col items-start mb-6">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-                <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                Processing payment...
+          {isPaymentProcessing &&
+            !streamingContent &&
+            !thinkingContent &&
+            messages.length > 0 && (
+              <div className="flex flex-col items-start mb-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                  <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  Processing payment...
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {thinkingContent && (
             <ThinkingSection
