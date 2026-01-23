@@ -183,7 +183,7 @@ const SettingsModal = ({
           if (!open) onClose();
         }}
       >
-        <DrawerContent className="bg-card flex flex-col rounded-t-[10px] mt-24 h-[80%] lg:h-fit max-h-[96%] outline-none z-[60]">
+        <DrawerContent className="bg-card flex flex-col rounded-t-[10px] mt-24 h-[80%] lg:h-fit max-h-[96%] outline-none z-60">
           <div className="pt-4 pb-4 bg-card rounded-t-[10px] flex-1 overflow-y-auto">
             <DrawerTitle className="sr-only">Settings</DrawerTitle>
             <div className="max-w-2xl mx-auto flex flex-col h-full">
