@@ -25,6 +25,7 @@ import { SpendCashuResult } from "@/hooks/useCashuWithXYZ";
 import { Model } from "@/types/models";
 import { getModelForBase, getRequiredSatsForModel } from "./modelUtils";
 import { saveFile } from "@/utils/indexedDb";
+import { isOnionUrl, isTorContext } from "@/utils/torUtils";
 
 export interface FetchAIResponseParams {
   messageHistory: Message[];
@@ -75,6 +76,7 @@ function findNextBestProvider(
   failedProviders: Set<string>
 ): string | null {
   try {
+    const torMode = isTorContext();
     // Load all cached provider models from storage
     const modelsFromAllProviders = getStorageItem<Record<string, Model[]>>(
       "modelsFromAllProviders",
@@ -95,7 +97,8 @@ function findNextBestProvider(
       if (
         baseUrl === currentBaseUrl ||
         failedProviders.has(baseUrl) ||
-        disabledProviders.has(baseUrl)
+        disabledProviders.has(baseUrl) ||
+        (!torMode && isOnionUrl(baseUrl))
       ) {
         continue;
       }

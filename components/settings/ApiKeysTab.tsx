@@ -34,6 +34,12 @@ import SettingsDialog from "@/components/ui/SettingsDialog";
 import { ModalShell } from "@/components/ui/ModalShell";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { removeLocalCashuToken } from "@/utils/storageUtils";
+import {
+  getProviderEndpoints,
+  isOnionUrl,
+  isTorContext,
+  normalizeProviderUrl,
+} from "@/utils/torUtils";
 
 export interface StoredApiKey {
   key: string;
@@ -59,11 +65,13 @@ const ApiKeysTab = ({
   // Available provider base URLs (aggregated from providers API + current baseUrl)
   const [availableBaseUrls, setAvailableBaseUrls] = useState<string[]>([]);
   const [isLoadingBaseUrls, setIsLoadingBaseUrls] = useState<boolean>(false);
+  const torMode = isTorContext();
 
   const normalizeBaseUrl = (url: string): string => {
-    if (!url) return "";
-    const withProto = url.startsWith("http") ? url : `https://${url}`;
-    return withProto.endsWith("/") ? withProto : `${withProto}/`;
+    const normalized = normalizeProviderUrl(url, torMode);
+    if (!normalized) return "";
+    if (!torMode && isOnionUrl(normalized)) return "";
+    return normalized;
   };
 
   // Fetch providers to populate all known base URLs
@@ -74,7 +82,8 @@ const ApiKeysTab = ({
         const resp = await fetch("https://api.routstr.com/v1/providers/");
         const urls = new Set<string>();
         // Always include currently selected baseUrl if present
-        if (baseUrl) urls.add(normalizeBaseUrl(baseUrl));
+        const normalizedCurrentBase = normalizeBaseUrl(baseUrl);
+        if (normalizedCurrentBase) urls.add(normalizedCurrentBase);
         if (resp.ok) {
           const data = await resp.json();
           const providers: any[] = Array.isArray(data?.providers)
@@ -86,14 +95,8 @@ const ApiKeysTab = ({
             });
           }
           providers.forEach((p: any) => {
-            const primary = p?.endpoint_url;
-            const alternates: string[] = Array.isArray(p?.endpoint_urls)
-              ? p.endpoint_urls
-              : [];
-            if (primary) urls.add(normalizeBaseUrl(primary));
-            alternates.forEach((u) => {
-              if (u) urls.add(normalizeBaseUrl(u));
-            });
+            const endpoints = getProviderEndpoints(p, torMode);
+            endpoints.forEach((endpoint) => urls.add(endpoint));
           });
         }
         // Filter out staging providers on production
@@ -114,14 +117,15 @@ const ApiKeysTab = ({
         setAvailableBaseUrls(list);
         // Initialize selections if not already set
         setSelectedNewApiKeyBaseUrl(
-          (prev) => prev || list[0] || normalizeBaseUrl(baseUrl)
+          (prev) => prev || list[0] || normalizedCurrentBase
         );
         setSelectedManualApiKeyBaseUrl(
-          (prev) => prev || list[0] || normalizeBaseUrl(baseUrl)
+          (prev) => prev || list[0] || normalizedCurrentBase
         );
       } catch {
         // On error, fall back to current baseUrl if any
-        const only = baseUrl ? [normalizeBaseUrl(baseUrl)] : [];
+        const fallbackBaseUrl = normalizeBaseUrl(baseUrl);
+        const only = fallbackBaseUrl ? [fallbackBaseUrl] : [];
         setAvailableBaseUrls(only);
         setSelectedNewApiKeyBaseUrl((prev) => prev || only[0] || "");
         setSelectedManualApiKeyBaseUrl((prev) => prev || only[0] || "");
