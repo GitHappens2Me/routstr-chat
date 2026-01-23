@@ -17,10 +17,12 @@ import { usePnsKeys } from "@/hooks/usePnsKeys";
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const BASE_TEXTAREA_HEIGHT = 48;
-const STACK_LAYOUT_SCROLL_THRESHOLD = 56;
 const ATTACHMENT_ROW_HEIGHT = 88;
 const TOOLBAR_ROW_HEIGHT = 40;
 const LAYOUT_TRANSITION_MS = 200;
+// Character count thresholds for layout switching - provides hysteresis
+const ENTER_STACK_CHAR_COUNT = 65; // Switch to stack when exceeding this
+const EXIT_STACK_CHAR_COUNT = 50; // Only exit stack below this (hysteresis gap)
 
 type FileKind = {
   isImage: boolean;
@@ -144,7 +146,6 @@ export default function ChatInput({
 }: ChatInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const shadowRef = useRef<HTMLTextAreaElement>(null);
   const minTextareaHeightRef = useRef(BASE_TEXTAREA_HEIGHT);
   const prevInputLengthRef = useRef(inputMessage.length);
   const layoutLockRef = useRef(false);
@@ -194,27 +195,54 @@ export default function ChatInput({
     }, LAYOUT_TRANSITION_MS);
   }, []);
 
-  // Update layout mode based on content
+  // Ref to track previous stack layout for comparison without causing re-renders
+  const prevIsStackLayoutRef = useRef(isStackLayout);
+
+  // Update layout mode based on content - uses character count for stability
   useIsomorphicLayoutEffect(() => {
-    // Use shadow ref for stable measurement to prevent jitter
-    if (!shadowRef.current) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
 
-    // Reset height to auto to get correct scrollHeight
-    shadowRef.current.style.height = "auto";
-    const scrollHeight = shadowRef.current.scrollHeight;
+    // Check for explicit line breaks
+    const hasLineBreak = inputMessage.includes("\n");
 
-    const isMultiline = scrollHeight > STACK_LAYOUT_SCROLL_THRESHOLD;
-    const shouldStack = uploadedAttachments.length > 0 || isMultiline;
-    if (shouldStack !== isStackLayout) {
-      lockMinHeight();
+    // Use character count with hysteresis to prevent jitter
+    // The different thresholds create a "dead zone" where layout doesn't change
+    const currentlyStacked = prevIsStackLayoutRef.current;
+    let shouldStack: boolean;
+
+    if (currentlyStacked) {
+      // When in stack mode, only exit if BELOW the exit threshold AND no line breaks
+      shouldStack =
+        inputMessage.length > EXIT_STACK_CHAR_COUNT ||
+        hasLineBreak ||
+        uploadedAttachments.length > 0;
+    } else {
+      // When in single-line mode, enter stack if ABOVE the enter threshold OR has line breaks
+      shouldStack =
+        inputMessage.length > ENTER_STACK_CHAR_COUNT ||
+        hasLineBreak ||
+        uploadedAttachments.length > 0;
     }
-    setIsStackLayout((prev) => (prev === shouldStack ? prev : shouldStack));
+
+    // Only update if the state is actually changing
+    if (shouldStack !== prevIsStackLayoutRef.current) {
+      lockMinHeight();
+      prevIsStackLayoutRef.current = shouldStack;
+      setIsStackLayout(shouldStack);
+    }
+
+    // Still need to measure for height calculation (but not for layout decision)
+    const originalHeight = textarea.style.height;
+    textarea.style.height = "auto";
+    const scrollHeight = textarea.scrollHeight;
+    textarea.style.height = originalHeight;
 
     const clampedHeight = Math.min(scrollHeight, maxTextareaHeight);
     const nextMinHeight = Math.max(clampedHeight, BASE_TEXTAREA_HEIGHT);
     const allowDecrease =
       inputMessage.length < prevInputLengthRef.current ||
-      (isStackLayout && !layoutLockRef.current);
+      (prevIsStackLayoutRef.current && !layoutLockRef.current);
     if (allowDecrease || nextMinHeight > minTextareaHeightRef.current) {
       minTextareaHeightRef.current = nextMinHeight;
     }
@@ -222,7 +250,6 @@ export default function ChatInput({
   }, [
     inputMessage,
     uploadedAttachments.length,
-    isStackLayout,
     maxTextareaHeight,
     lockMinHeight,
   ]);
@@ -685,22 +712,6 @@ export default function ChatInput({
               multiple
               onChange={handleFileUpload}
               className="hidden"
-            />
-
-            {/* Shadow textarea for height calculation - strictly echoes single line padding */}
-            <textarea
-              ref={shadowRef}
-              value={inputMessage}
-              readOnly
-              rows={1}
-              className={`absolute top-0 left-0 -z-50 invisible bg-transparent px-4 py-3 text-[16.5px] sm:text-[16.5px] focus:outline-none resize-none overflow-hidden h-auto min-h-[48px] ${
-                isStackLayout ? "" : "pl-14 pr-12"
-              }`}
-              style={{
-                width: "100%",
-                fontSize: "16px",
-              }}
-              aria-hidden="true"
             />
 
             {/* Attachment Preview - First Row */}
