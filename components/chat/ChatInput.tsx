@@ -69,8 +69,7 @@ const validateFile = (
     return null;
   }
 
-  const isAllowed =
-    (isImage && allowImages) || (isPdf && allowPdf);
+  const isAllowed = (isImage && allowImages) || (isPdf && allowPdf);
   if (!isAllowed) {
     onTypeError(file);
     return null;
@@ -85,7 +84,10 @@ const validateFile = (
 };
 
 const createAttachmentId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -250,9 +252,7 @@ export default function ChatInput({
       updater: (attachment: MessageAttachment) => MessageAttachment
     ) => {
       setUploadedAttachments((prev) =>
-        prev.map((item) =>
-          item.id === attachmentId ? updater(item) : item
-        )
+        prev.map((item) => (item.id === attachmentId ? updater(item) : item))
       );
     },
     [setUploadedAttachments]
@@ -290,7 +290,9 @@ export default function ChatInput({
       nameOverride,
       storageLabel,
       logOnStorageError,
-    }: AttachmentBuildOptions & { file: File }): Promise<AttachmentWorkItem> => {
+    }: AttachmentBuildOptions & {
+      file: File;
+    }): Promise<AttachmentWorkItem> => {
       const dataUrl = await convertFileToBase64(file);
       const storageId = await persistFile(
         file,
@@ -409,12 +411,7 @@ export default function ChatInput({
     }
 
     setTextareaHeight(textareaOnlyHeight + getExtraHeight());
-  }, [
-    inputMessage,
-    setTextareaHeight,
-    getExtraHeight,
-    getTextareaOnlyHeight,
-  ]);
+  }, [inputMessage, setTextareaHeight, getExtraHeight, getTextareaOnlyHeight]);
 
   const handleSendMessage = () => {
     if (isLoading) {
@@ -512,8 +509,7 @@ export default function ChatInput({
 
       try {
         const nameOverride =
-          file.name ||
-          `pasted-image-${Date.now()}.${file.type.split("/")[1]}`;
+          file.name || `pasted-image-${Date.now()}.${file.type.split("/")[1]}`;
         const workItem = await buildAttachmentWorkItem({
           file,
           ...validation,
@@ -632,8 +628,6 @@ export default function ChatInput({
         className={`${
           isCentered && !isMobileLayout
             ? `fixed z-20 flex items-start justify-center ${
-                hasMounted ? "transition-all duration-500 ease-out" : ""
-              } ${
                 !isAuthenticated
                   ? "inset-x-0"
                   : isSidebarCollapsed
@@ -642,11 +636,8 @@ export default function ChatInput({
               }`
             : `${
                 isMobileLayout
-                  ? `fixed z-20 left-0 right-0 w-screen ${unifiedBgClass} backdrop-blur-sm ${
-                      hasMounted ? "transition-all duration-300 ease-in-out" : ""
-                    } px-0 pb-2 pt-0`
+                  ? `fixed z-20 left-0 right-0 w-screen ${unifiedBgClass} backdrop-blur-sm px-0 pb-2 pt-0`
                   : "fixed z-20 bg-background backdrop-blur-sm " +
-                    (hasMounted ? "transition-all duration-300 ease-in-out " : "") +
                     (!isAuthenticated
                       ? "left-0 right-0 pb-4 pt-0"
                       : isSidebarCollapsed
@@ -675,9 +666,7 @@ export default function ChatInput({
           }`}
         >
           {/* Unified Input Container with Attachment Preview Inside */}
-          <motion.div
-            layout
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+          <div
             className={`relative flex flex-col w-full rounded-3xl overflow-hidden ${
               isDragging
                 ? "bg-linear-to-br from-purple-500/20 via-purple-500/10 to-purple-500/5 border-2 border-dashed border-purple-400/70 shadow-[0_0_40px_-5px_rgba(168,85,247,0.5)] scale-[1.01]"
@@ -767,34 +756,17 @@ export default function ChatInput({
             )}
 
             {/* Textarea and Buttons - Second Row */}
-            <motion.div
-              layout
-              initial={false}
-              animate={{
-                paddingBottom: isStackLayout ? 48 : 4, // pb-12 (48px) vs pb-1 (4px)
-              }}
-              transition={{
-                duration: 0.2,
-                ease: "easeInOut",
-                delay: isStackLayout ? 0 : 0.2, // Move buttons immediately on open, wait on close
-              }}
+            <div
               className="relative flex w-full"
+              style={{
+                paddingBottom: isStackLayout ? 48 : 4,
+                transition: "padding-bottom 0.2s ease-in-out",
+              }}
             >
-            <motion.textarea
-              layout
-              initial={false}
-              ref={textareaRef}
-              value={inputMessage}
+              <textarea
+                ref={textareaRef}
+                value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                animate={{
-                  paddingLeft: isStackLayout ? 16 : 56, // px-4 (16px) vs pl-14 (56px)
-                  paddingRight: isStackLayout ? 16 : 48, // px-4 (16px) vs pr-12 (48px)
-                }}
-                transition={{
-                  duration: 0.2,
-                  ease: "easeInOut",
-                  delay: 0, // Move text with buttons for a smoother transition
-                }}
                 onPaste={handlePaste}
                 onKeyDown={(e) => {
                   if (
@@ -829,6 +801,9 @@ export default function ChatInput({
                   minHeight: "48px",
                   maxHeight: maxTextareaHeight,
                   fontSize: "16px",
+                  paddingLeft: isStackLayout ? 16 : 56,
+                  paddingRight: isStackLayout ? 16 : 48,
+                  transition: "padding 0.2s ease-in-out",
                 }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
@@ -842,25 +817,19 @@ export default function ChatInput({
               />
 
               {/* Toolbar or Absolute Buttons */}
-              <motion.div
-                initial={false}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="absolute bottom-2 left-0 right-0 flex w-full items-center justify-between px-3 pointer-events-none"
-              >
+              <div className="absolute bottom-2 left-0 right-0 flex w-full items-center justify-between px-3 pointer-events-none">
                 {/* Attachment upload button */}
-                <motion.button
-                  layout
+                <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={!isAuthenticated}
                   className={`p-2 rounded-full bg-transparent hover:bg-muted disabled:opacity-50 disabled:bg-transparent transition-colors cursor-pointer pointer-events-auto`}
                   aria-label="Upload attachment"
                 >
                   <Paperclip className="h-5 w-5 text-foreground" />
-                </motion.button>
+                </button>
 
                 {/* Send button */}
-                <motion.button
-                  layout
+                <button
                   onClick={handleSendMessage}
                   disabled={
                     isLoading ||
@@ -882,10 +851,10 @@ export default function ChatInput({
                   ) : (
                     <ArrowRight className="h-5 w-5" />
                   )}
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       {/* Bottom spacer for visible padding below the input */}
