@@ -27,7 +27,7 @@ export const useAuthState = (): UseAuthStateReturn => {
     const activeAccount = manager.active$.value;
     if (activeAccount) {
       // @ts-ignore
-      manager.setActive(null);
+      manager.removeAccount(activeAccount);
     }
     // Optionally remove all accounts if that's what logout should do
     // For now, just clearing active account and storage seems consistent with existing logic
