@@ -876,44 +876,6 @@ const ApiKeysTab = ({
       {" "}
       {/* Added relative positioning back */}
       <h3 className="text-sm font-medium text-foreground/80">API Keys</h3>
-      {
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md border border-border">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground/80">
-              Sync with Cloud (Nostr)
-            </span>
-            <div
-              className="relative inline-block"
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-            >
-              <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer" />
-              <div
-                className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 p-3 bg-card text-foreground text-xs rounded-md shadow-lg transition-opacity duration-300 w-64 border border-border whitespace-normal z-50 ${
-                  showTooltip
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-              >
-                <p>
-                  API keys are synced with Nostr using{" "}
-                  <span className="font-semibold">NIP-78</span> (Kind 30078) for
-                  addressable replaceable events.
-                </p>
-                <p className="mt-1">
-                  Data is encrypted using{" "}
-                  <span className="font-semibold">NIP-44</span> for enhanced
-                  security and privacy.
-                </p>
-              </div>
-            </div>
-          </div>
-          <Switch
-            checked={cloudSyncEnabled}
-            onCheckedChange={setCloudSyncEnabled}
-          />
-        </div>
-      }
       <div className="bg-muted/50 border border-border rounded-md p-4">
         <div className="flex items-center justify-between">
           <div>
