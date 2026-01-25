@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNostrLogin } from "@nostrify/react/login";
 import { clearAllStorage } from "@/utils/storageUtils";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
