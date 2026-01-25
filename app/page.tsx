@@ -37,6 +37,7 @@ function ChatPageContent() {
     isLoginModalOpen,
     setIsLoginModalOpen,
     initialSettingsTab,
+    setInitialSettingsTab,
 
     // API State
     baseUrl,
@@ -112,6 +113,29 @@ function ChatPageContent() {
     () => searchParams.get("cashu"),
     [searchParams]
   );
+  const tabFromUrl = useMemo(() => searchParams.get("tab"), [searchParams]);
+
+  useEffect(() => {
+    if (tabFromUrl === "apikeys" && isAuthenticated) {
+      setIsSettingsOpen(true);
+      setInitialSettingsTab("api-keys");
+
+      const params = new URLSearchParams(searchParamsString);
+      params.delete("tab");
+      const queryString = params.toString();
+      router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`, {
+        scroll: false,
+      });
+    }
+  }, [
+    tabFromUrl,
+    isAuthenticated,
+    setIsSettingsOpen,
+    setInitialSettingsTab,
+    router,
+    pathname,
+    searchParamsString,
+  ]);
 
   // QR Code Modal State
   const [qrModalData, setQrModalData] = useState<{
@@ -171,7 +195,8 @@ function ChatPageContent() {
   // When activeConversationId is null (new chat), remove chatId from URL
   // When activeConversationId has a value, set chatId in URL
   useEffect(() => {
-    const previousActiveConversationId = previousActiveConversationIdRef.current;
+    const previousActiveConversationId =
+      previousActiveConversationIdRef.current;
     previousActiveConversationIdRef.current = activeConversationId;
     const params = new URLSearchParams(searchParamsString);
 
@@ -328,11 +353,7 @@ function ChatPageContent() {
 
 export default function ChatPage() {
   return (
-    <Suspense
-      fallback={
-        <FullPageLoader />
-      }
-    >
+    <Suspense fallback={<FullPageLoader />}>
       <AuthProvider>
         <ChatProvider>
           <KeepAliveProvider>
