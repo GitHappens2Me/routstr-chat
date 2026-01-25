@@ -43,11 +43,75 @@ import {
 
 export interface StoredApiKey {
   key: string;
-  balance: number | null; // Changed to accept null for invalid keys
-  label?: string; // Added optional label field
-  baseUrl?: string; // Added optional baseUrl field
-  isInvalid?: boolean; // New field to mark invalid keys
+  balance: number | null;
+  label?: string;
+  baseUrl?: string;
+  isInvalid?: boolean;
 }
+
+interface ProviderSelectorProps {
+  availableBaseUrls: string[];
+  selectedBaseUrl: string;
+  onBaseUrlChange: (url: string) => void;
+  showRecommendedLabels: boolean;
+  name: string;
+  recommendedProviders: Array<{
+    url: string;
+    label: string;
+    order: number;
+  }>;
+}
+
+const ProviderSelector: React.FC<ProviderSelectorProps> = ({
+  availableBaseUrls,
+  selectedBaseUrl,
+  onBaseUrlChange,
+  showRecommendedLabels,
+  name,
+  recommendedProviders,
+}) => {
+  return (
+    <div className="mb-4">
+      <p className="text-sm text-muted-foreground mb-2">
+        Select Base URL for this API Key:
+      </p>
+      <div className="max-h-32 overflow-y-auto space-y-2">
+        {availableBaseUrls.map((url: string) => {
+          const baseUrlId = encodeURIComponent(url);
+          const recommendedProvider = recommendedProviders.find((rp) =>
+            url.includes(rp.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))
+          );
+          return (
+            <div className="flex items-center gap-2" key={url}>
+              <input
+                type="radio"
+                id={`${name}-${baseUrlId}`}
+                name={name}
+                className="accent-gray-500"
+                checked={selectedBaseUrl === url}
+                onChange={() => onBaseUrlChange(url)}
+              />
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor={`${name}-${baseUrlId}`}
+                  className="text-sm text-foreground truncate block"
+                  title={url}
+                >
+                  {url}
+                  {showRecommendedLabels && recommendedProvider && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({recommendedProvider.label})
+                    </span>
+                  )}
+                </label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface ApiKeysTabProps {
   baseUrl: string;
@@ -82,8 +146,7 @@ const ApiKeysTab = ({
   }> = [
     { url: "https://api.nonkycai.com/", label: "recommended", order: 1 },
     { url: "https://api.routstr.com/", label: "recommended", order: 2 },
-    { url: "https://ai.redsh1ft.com/", label: "recommended", order: 3 },
-    { url: "https://privateprovider.xyz/", label: "recommended", order: 4 },
+    { url: "https://privateprovider.xyz/", label: "recommended", order: 3 },
   ];
 
   // Fetch providers to populate all known base URLs
@@ -1084,50 +1147,14 @@ const ApiKeysTab = ({
                 Max
               </button>
             </div>
-            {availableBaseUrls.length >= 1 && (
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Select Base URL for this API Key:
-                </p>
-                <div className="max-h-32 overflow-y-auto space-y-2">
-                  {availableBaseUrls.map((url: string) => {
-                    const baseUrlId = encodeURIComponent(url);
-                    const recommendedProvider = recommendedProviders.find(
-                      (rp) =>
-                        url.includes(
-                          rp.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
-                        )
-                    );
-                    return (
-                      <div className="flex items-center gap-2" key={url}>
-                        <input
-                          type="radio"
-                          id={`inlineApiKeyBaseUrl-${baseUrlId}`}
-                          name="inlineApiKeyBaseUrl"
-                          className="accent-gray-500"
-                          checked={selectedNewApiKeyBaseUrl === url}
-                          onChange={() => setSelectedNewApiKeyBaseUrl(url)}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <label
-                            htmlFor={`inlineApiKeyBaseUrl-${baseUrlId}`}
-                            className="text-sm text-foreground truncate block"
-                            title={url}
-                          >
-                            {url}
-                            {recommendedProvider && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                ({recommendedProvider.label})
-                              </span>
-                            )}
-                          </label>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <ProviderSelector
+              availableBaseUrls={availableBaseUrls}
+              selectedBaseUrl={selectedNewApiKeyBaseUrl}
+              onBaseUrlChange={setSelectedNewApiKeyBaseUrl}
+              showRecommendedLabels={true}
+              name="inlineApiKeyBaseUrl"
+              recommendedProviders={recommendedProviders}
+            />
             <div className="flex justify-end space-x-2">
               <button
                 className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
@@ -1459,52 +1486,14 @@ const ApiKeysTab = ({
                     Max
                   </button>
                 </div>
-                {availableBaseUrls.length >= 1 && (
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Select Base URL for this API Key:
-                    </p>
-                    <div className="max-h-32 overflow-y-auto space-y-2">
-                      {availableBaseUrls.map((url: string) => {
-                        const baseUrlId = encodeURIComponent(url);
-                        const recommendedProvider = recommendedProviders.find(
-                          (rp) =>
-                            url.includes(
-                              rp.url
-                                .replace(/^https?:\/\//, "")
-                                .replace(/\/$/, "")
-                            )
-                        );
-                        return (
-                          <div className="flex items-center gap-2" key={url}>
-                            <input
-                              type="radio"
-                              id={`newApiKeyBaseUrl-${baseUrlId}`}
-                              name="newApiKeyBaseUrl"
-                              className="accent-gray-500"
-                              checked={selectedNewApiKeyBaseUrl === url}
-                              onChange={() => setSelectedNewApiKeyBaseUrl(url)}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <label
-                                htmlFor={`newApiKeyBaseUrl-${baseUrlId}`}
-                                className="text-sm text-foreground truncate block"
-                                title={url}
-                              >
-                                {url}
-                                {recommendedProvider && (
-                                  <span className="ml-2 text-xs text-muted-foreground">
-                                    ({recommendedProvider.label})
-                                  </span>
-                                )}
-                              </label>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <ProviderSelector
+                  availableBaseUrls={availableBaseUrls}
+                  selectedBaseUrl={selectedNewApiKeyBaseUrl}
+                  onBaseUrlChange={setSelectedNewApiKeyBaseUrl}
+                  showRecommendedLabels={true}
+                  name="newApiKeyBaseUrl"
+                  recommendedProviders={recommendedProviders}
+                />
                 <div className="flex justify-end space-x-2 mt-auto">
                   <button
                     className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
@@ -1797,54 +1786,14 @@ const ApiKeysTab = ({
                     />
                   </div>
 
-                  {availableBaseUrls.length >= 1 && (
-                    <div>
-                      <label className="block text-sm text-muted-foreground mb-2">
-                        Base URL
-                      </label>
-                      <div className="max-h-32 overflow-y-auto space-y-2 bg-muted/50 rounded-md p-2 border border-border">
-                        {availableBaseUrls.map((url: string) => {
-                          const baseUrlId = encodeURIComponent(url);
-                          const recommendedProvider = recommendedProviders.find(
-                            (rp) =>
-                              url.includes(
-                                rp.url
-                                  .replace(/^https?:\/\//, "")
-                                  .replace(/\/$/, "")
-                              )
-                          );
-                          return (
-                            <div className="flex items-center gap-2" key={url}>
-                              <input
-                                type="radio"
-                                id={`manualApiKeyBaseUrl-${baseUrlId}`}
-                                name="manualApiKeyBaseUrl"
-                                className="accent-gray-500"
-                                checked={selectedManualApiKeyBaseUrl === url}
-                                onChange={() =>
-                                  setSelectedManualApiKeyBaseUrl(url)
-                                }
-                              />
-                              <div className="min-w-0 flex-1">
-                                <label
-                                  htmlFor={`manualApiKeyBaseUrl-${baseUrlId}`}
-                                  className="text-sm text-foreground truncate block"
-                                  title={url}
-                                >
-                                  {url}
-                                  {recommendedProvider && (
-                                    <span className="ml-2 text-xs text-muted-foreground">
-                                      ({recommendedProvider.label})
-                                    </span>
-                                  )}
-                                </label>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <ProviderSelector
+                    availableBaseUrls={availableBaseUrls}
+                    selectedBaseUrl={selectedManualApiKeyBaseUrl}
+                    onBaseUrlChange={setSelectedManualApiKeyBaseUrl}
+                    showRecommendedLabels={false}
+                    name="manualApiKeyBaseUrl"
+                    recommendedProviders={recommendedProviders}
+                  />
                 </div>
 
                 <div className="flex justify-end space-x-2 mt-6">
