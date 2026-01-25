@@ -74,6 +74,18 @@ const ApiKeysTab = ({
     return normalized;
   };
 
+  // Hardcoded recommended providers with custom ordering
+  const recommendedProviders: Array<{
+    url: string;
+    label: string;
+    order: number;
+  }> = [
+    { url: "https://api.nonkycai.com/", label: "recommended", order: 1 },
+    { url: "https://api.routstr.com/", label: "recommended", order: 2 },
+    { url: "https://ai.redsh1ft.com/", label: "recommended", order: 3 },
+    { url: "https://privateprovider.xyz/", label: "recommended", order: 4 },
+  ];
+
   // Fetch providers to populate all known base URLs
   useEffect(() => {
     const fetchProviders = async () => {
@@ -107,13 +119,25 @@ const ApiKeysTab = ({
           if (isProduction && url.includes("staging")) return false;
           return true;
         });
-        // Prioritize api.routstr.com first
-        const preferred = "api.routstr.com";
+
+        // Sort providers: recommended ones first in custom order, then rest alphabetically
         list.sort((a, b) => {
-          const ap = a.includes(preferred) ? 0 : 1;
-          const bp = b.includes(preferred) ? 0 : 1;
-          return ap - bp || a.localeCompare(b);
+          const aRecommended = recommendedProviders.find((rp) =>
+            a.includes(rp.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))
+          );
+          const bRecommended = recommendedProviders.find((rp) =>
+            b.includes(rp.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))
+          );
+
+          const aOrder = aRecommended?.order ?? 999;
+          const bOrder = bRecommended?.order ?? 999;
+
+          if (aOrder !== bOrder) {
+            return aOrder - bOrder;
+          }
+          return a.localeCompare(b);
         });
+
         setAvailableBaseUrls(list);
         // Initialize selections if not already set
         setSelectedNewApiKeyBaseUrl(
@@ -240,6 +264,7 @@ const ApiKeysTab = ({
   const [isRefreshingKey, setIsRefreshingKey] = useState<string | null>(null); // Loading state for per-key refresh
   const [editingLabelKey, setEditingLabelKey] = useState<string | null>(null); // Key currently being renamed
   const [editingLabelValue, setEditingLabelValue] = useState(""); // Temp label value for editing
+  const [showInlineCreateForm, setShowInlineCreateForm] = useState(false); // Show create API key inline when no keys exist
 
   // Ref to track previous syncedApiKeys for deep comparison
   const prevSyncedApiKeysRef = useRef<StoredApiKey[]>([]);
@@ -290,6 +315,17 @@ const ApiKeysTab = ({
       if (!areApiKeysEqual(prevSyncedApiKeysRef.current, syncedApiKeys)) {
         setStoredApiKeys(syncedApiKeys);
         prevSyncedApiKeysRef.current = syncedApiKeys;
+      }
+
+      // Auto-open inline create form if no keys exist after sync
+      if (
+        !isLoadingApiKeys &&
+        !isSyncingApiKeys &&
+        syncedApiKeys.length === 0
+      ) {
+        setShowInlineCreateForm(true);
+      } else {
+        setShowInlineCreateForm(false);
       }
 
       // Migrate local keys to cloud if any exist and cloud is empty
@@ -362,6 +398,17 @@ const ApiKeysTab = ({
     }
   }, [cloudSyncEnabled, syncedApiKeys, baseUrl, hasActiveAccount]); // Added hasActiveAccount dependency
 
+  // Separate effect to auto-open inline create form when no keys exist
+  useEffect(() => {
+    if (!isLoadingApiKeys && !isSyncingApiKeys) {
+      if (storedApiKeys.length === 0) {
+        setShowInlineCreateForm(true);
+      } else {
+        setShowInlineCreateForm(false);
+      }
+    }
+  }, [isLoadingApiKeys, isSyncingApiKeys, storedApiKeys.length]);
+
   const handleCopyClick = async (keyToCopy: string) => {
     if (keyToCopy) {
       try {
@@ -376,7 +423,11 @@ const ApiKeysTab = ({
   };
 
   const createApiKey = async () => {
-    setShowConfirmation(true);
+    if (storedApiKeys.length > 0) {
+      setShowConfirmation(true);
+    } else {
+      setShowInlineCreateForm(true);
+    }
   };
 
   const confirmCreateApiKey = async () => {
@@ -385,7 +436,7 @@ const ApiKeysTab = ({
       let token: string | null | { hasTokens: false } | undefined;
 
       if (!apiKeyAmount || parseInt(apiKeyAmount) <= 0) {
-        alert("Please enter a valid amount for the API key.");
+        toast.error("Please enter a valid amount for the API key.");
         return;
       }
 
@@ -456,6 +507,7 @@ const ApiKeysTab = ({
     } finally {
       setIsLoading(false); // Set loading to false
       setShowConfirmation(false); // Close confirmation modal after loading is complete
+      setShowInlineCreateForm(false); // Close inline form after loading is complete
     }
   };
 
@@ -990,6 +1042,110 @@ const ApiKeysTab = ({
           ))}
         </div>
       )}
+      {showInlineCreateForm && storedApiKeys.length === 0 && (
+        <div className="space-y-3 mt-6">
+          <h4 className="text-sm font-medium text-muted-foreground">
+            Create Your First API Key
+          </h4>
+          <div className="bg-muted/50 border border-border rounded-md p-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Note: Your API keys will be stored{" "}
+              {cloudSyncEnabled
+                ? "in the cloud (Nostr) and also cached locally."
+                : "only locally. If you clear your local storage, your keys and thus the BALANCE attached to them will be LOST."}
+            </p>
+            <div className="flex items-center space-x-2 mb-2">
+              <input
+                type="text"
+                placeholder="API Key Label (optional)"
+                value={newApiKeyLabel}
+                onChange={(e) => setNewApiKeyLabel(e.target.value)}
+                className="grow bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="flex items-center space-x-2 mb-2">
+              <input
+                type="number"
+                placeholder="Amount"
+                value={apiKeyAmount}
+                onChange={(e) => setApiKeyAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void confirmCreateApiKey();
+                  }
+                }}
+                className="grow bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <button
+                onClick={() => setApiKeyAmount(localMintBalance.toString())}
+                className="px-3 py-2 bg-muted/50 border border-border text-muted-foreground rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              >
+                Max
+              </button>
+            </div>
+            {availableBaseUrls.length >= 1 && (
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Select Base URL for this API Key:
+                </p>
+                <div className="max-h-32 overflow-y-auto space-y-2">
+                  {availableBaseUrls.map((url: string) => {
+                    const baseUrlId = encodeURIComponent(url);
+                    const recommendedProvider = recommendedProviders.find(
+                      (rp) =>
+                        url.includes(
+                          rp.url.replace(/^https?:\/\//, "").replace(/\/$/, "")
+                        )
+                    );
+                    return (
+                      <div className="flex items-center gap-2" key={url}>
+                        <input
+                          type="radio"
+                          id={`inlineApiKeyBaseUrl-${baseUrlId}`}
+                          name="inlineApiKeyBaseUrl"
+                          className="accent-gray-500"
+                          checked={selectedNewApiKeyBaseUrl === url}
+                          onChange={() => setSelectedNewApiKeyBaseUrl(url)}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <label
+                            htmlFor={`inlineApiKeyBaseUrl-${baseUrlId}`}
+                            className="text-sm text-foreground truncate block"
+                            title={url}
+                          >
+                            {url}
+                            {recommendedProvider && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                ({recommendedProvider.label})
+                              </span>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 bg-transparent text-muted-foreground hover:text-foreground rounded-md text-sm transition-colors cursor-pointer"
+                onClick={() => setShowInlineCreateForm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                onClick={confirmCreateApiKey}
+                disabled={isLoading || isSyncingApiKeys}
+              >
+                {isLoading ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {storedApiKeys.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-sm font-medium text-muted-foreground mt-6">
@@ -1225,7 +1381,7 @@ const ApiKeysTab = ({
         </div>
       )}
       <div className="pb-20"></div>
-      {showConfirmation && (
+      {showConfirmation && !showInlineCreateForm && (
         <SettingsDialog
           open={showConfirmation}
           onOpenChange={(open) => {
@@ -1311,6 +1467,14 @@ const ApiKeysTab = ({
                     <div className="max-h-32 overflow-y-auto space-y-2">
                       {availableBaseUrls.map((url: string) => {
                         const baseUrlId = encodeURIComponent(url);
+                        const recommendedProvider = recommendedProviders.find(
+                          (rp) =>
+                            url.includes(
+                              rp.url
+                                .replace(/^https?:\/\//, "")
+                                .replace(/\/$/, "")
+                            )
+                        );
                         return (
                           <div className="flex items-center gap-2" key={url}>
                             <input
@@ -1328,6 +1492,11 @@ const ApiKeysTab = ({
                                 title={url}
                               >
                                 {url}
+                                {recommendedProvider && (
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({recommendedProvider.label})
+                                  </span>
+                                )}
                               </label>
                             </div>
                           </div>
@@ -1636,6 +1805,14 @@ const ApiKeysTab = ({
                       <div className="max-h-32 overflow-y-auto space-y-2 bg-muted/50 rounded-md p-2 border border-border">
                         {availableBaseUrls.map((url: string) => {
                           const baseUrlId = encodeURIComponent(url);
+                          const recommendedProvider = recommendedProviders.find(
+                            (rp) =>
+                              url.includes(
+                                rp.url
+                                  .replace(/^https?:\/\//, "")
+                                  .replace(/\/$/, "")
+                              )
+                          );
                           return (
                             <div className="flex items-center gap-2" key={url}>
                               <input
@@ -1655,6 +1832,11 @@ const ApiKeysTab = ({
                                   title={url}
                                 >
                                   {url}
+                                  {recommendedProvider && (
+                                    <span className="ml-2 text-xs text-muted-foreground">
+                                      ({recommendedProvider.label})
+                                    </span>
+                                  )}
                                 </label>
                               </div>
                             </div>
