@@ -8,6 +8,7 @@ import GeneralTab from "./settings/GeneralTab";
 import ModelsTab from "@/components/settings/ModelsTab";
 import HistoryTab from "./settings/HistoryTab";
 import ApiKeysTab from "./settings/ApiKeysTab";
+import DevConsoleTab from "./settings/DevConsoleTab";
 import UnifiedWallet from "@/features/wallet/components/UnifiedWallet";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -15,7 +16,13 @@ import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { ModalShell } from "@/components/ui/ModalShell";
 import CloseButton from "@/components/ui/CloseButton";
 
-type SettingsTab = "settings" | "wallet" | "history" | "api-keys" | "models";
+type SettingsTab =
+  | "settings"
+  | "wallet"
+  | "history"
+  | "api-keys"
+  | "models"
+  | "dev-console";
 
 const SETTINGS_TABS: { key: SettingsTab; label: string }[] = [
   { key: "settings", label: "General" },
@@ -23,6 +30,7 @@ const SETTINGS_TABS: { key: SettingsTab; label: string }[] = [
   { key: "wallet", label: "Wallet" },
   { key: "history", label: "History" },
   { key: "api-keys", label: "API Keys" },
+  { key: "dev-console", label: "Dev Console" },
 ];
 
 interface SettingsModalProps {
@@ -134,6 +142,8 @@ const SettingsModal = ({
             setTransactionHistory={setTransactionHistory}
           />
         );
+      case "dev-console":
+        return <DevConsoleTab />;
       default:
         return null;
     }
