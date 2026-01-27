@@ -54,7 +54,6 @@ async function initiateMints(
       try {
         const lastUpdate = cashuStore.getLastUpdate(mint);
         if (lastUpdate && lastUpdate > Date.now() - 60 * 60 * 1000) {
-          console.log("mint already activated", mint);
           return;
         } else {
           const { mintInfo, keysets, keys } =
@@ -426,7 +425,6 @@ export function useCashuWallet() {
         const filteredEvents = nip60TokenEvents.filter(
           (event) => !deletedEventIds.has(event.id)
         );
-        console.log("FILTER S ASJFKOSDGFMEVENTS", filteredEvents);
 
         // Add proofs to store only for non-deleted events
         filteredEvents.forEach((event) => {

@@ -1,5 +1,8 @@
 "use client";
 
+// Initialize logger early to intercept all console calls
+import "@/lib/logger";
+
 import {
   ReactNode,
   useEffect,

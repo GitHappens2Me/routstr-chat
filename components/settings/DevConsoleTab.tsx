@@ -1,35 +1,21 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useCashuStore } from "@/features/wallet/state/cashuStore";
-
-// Placeholder logs - will be hooked up later
-const placeholderLogs = [
-  "[2024-01-26 16:30:01] INFO: Application initialized",
-  "[2024-01-26 16:30:02] DEBUG: Loading user preferences",
-  "[2024-01-26 16:30:03] INFO: Connected to relay wss://relay.example.com",
-  "[2024-01-26 16:30:05] WARN: Slow network response detected",
-  "[2024-01-26 16:30:10] DEBUG: Fetching models from API",
-  "[2024-01-26 16:30:12] INFO: Successfully loaded 15 models",
-  "[2024-01-26 16:30:15] ERROR: Failed to sync wallet state",
-  "[2024-01-26 16:30:20] INFO: Retry attempt 1/3 for wallet sync",
-  "[2024-01-26 16:30:25] INFO: Wallet sync successful",
-  "[2024-01-26 16:30:30] DEBUG: User action: opened settings modal",
-];
+import { useLogs } from "@/hooks/useLogs";
+import { logger } from "@/lib/logger";
 
 type TabType = "console" | "wallet" | "chat";
-
-interface DevConsoleTabProps {
-  logs?: string[];
-}
 
 // Console Tab Content
 const ConsoleContent = ({
   logs,
   textAreaRef,
+  onClear,
 }: {
   logs: string[];
   textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onClear: () => void;
 }) => {
   const [copied, setCopied] = useState(false);
   const logsText = logs.join("\n");
@@ -50,18 +36,13 @@ const ConsoleContent = ({
     }
   };
 
-  const handleClear = () => {
-    // Placeholder - will be hooked up later
-    console.log("Clear logs clicked");
-  };
-
   return (
     <>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-foreground">Console Logs</h3>
         <div className="flex gap-2">
           <button
-            onClick={handleClear}
+            onClick={onClear}
             className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-muted transition-colors"
             type="button"
           >
@@ -336,9 +317,15 @@ const ChatContent = () => {
   );
 };
 
-const DevConsoleTab = ({ logs = placeholderLogs }: DevConsoleTabProps) => {
+const DevConsoleTab = () => {
   const [activeTab, setActiveTab] = useState<TabType>("console");
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const { logs, clearLogs } = useLogs();
+
+  // Log when DevConsoleTab is opened
+  useEffect(() => {
+    logger.info("DevConsoleTab opened");
+  }, []);
 
   const tabs: { id: TabType; label: string }[] = [
     { id: "console", label: "Console" },
@@ -371,7 +358,11 @@ const DevConsoleTab = ({ logs = placeholderLogs }: DevConsoleTabProps) => {
 
       {/* Tab Content */}
       {activeTab === "console" && (
-        <ConsoleContent logs={logs} textAreaRef={textAreaRef} />
+        <ConsoleContent
+          logs={logs}
+          textAreaRef={textAreaRef}
+          onClear={clearLogs}
+        />
       )}
       {activeTab === "wallet" && <WalletContent />}
       {activeTab === "chat" && <ChatContent />}
