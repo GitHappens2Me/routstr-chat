@@ -24,14 +24,27 @@ type SettingsTab =
   | "models"
   | "dev-console";
 
-const SETTINGS_TABS: { key: SettingsTab; label: string }[] = [
-  { key: "settings", label: "General" },
-  { key: "models", label: "Models" },
-  { key: "wallet", label: "Wallet" },
-  { key: "history", label: "History" },
-  { key: "api-keys", label: "API Keys" },
-  { key: "dev-console", label: "Dev Console" },
-];
+const getSettingsTabs = (): { key: SettingsTab; label: string }[] => {
+  const isDev = process.env.NODE_ENV === "development";
+  const isBeta =
+    typeof window !== "undefined" &&
+    window.location.origin === "https://beta.chat.routstr.com";
+
+  const tabs: { key: SettingsTab; label: string }[] = [
+    { key: "settings", label: "General" },
+    { key: "models", label: "Models" },
+    { key: "wallet", label: "Wallet" },
+    { key: "history", label: "History" },
+    { key: "api-keys", label: "API Keys" },
+  ];
+
+  // Only show Dev Console in development or beta environments
+  if (isDev || isBeta) {
+    tabs.push({ key: "dev-console", label: "Dev Console" });
+  }
+
+  return tabs;
+};
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -162,7 +175,7 @@ const SettingsModal = ({
 
       {/* Tabs */}
       <div className="flex border-b border-border shrink-0 overflow-x-auto">
-        {SETTINGS_TABS.map((tab) => {
+        {getSettingsTabs().map((tab) => {
           const isActive = activeTab === tab.key;
           return (
             <button

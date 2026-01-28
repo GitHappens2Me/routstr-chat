@@ -434,7 +434,7 @@ export const fetchAIResponse = async (
 
     onPaymentProcessing?.(true);
     const result = await spendCashu(mintUrl, tokenAmount, baseUrl, true);
-    
+
     if (result.status === "failed" || !result.token) {
       const errorMessage =
         result.error ||
@@ -472,7 +472,7 @@ export const fetchAIResponse = async (
         });
 
         const data = await response.json();
-        tokenBalance = data.balance;
+        tokenBalance = data.balance / 1000; // msats to sats
       } catch (error) {
         tokenBalance = tokenAmount;
       }
@@ -604,9 +604,11 @@ export const fetchAIResponse = async (
       window.location.origin === "https://beta.chat.routstr.com";
 
     if (error instanceof Error) {
-      const modifiedErrorMsg = error.message.includes("Error in input stream")
-        ? "AI stream was cut off, please try again"
-        : error.message;
+      const modifiedErrorMsg =
+        error.message.includes("Error in input stream") ||
+        error.message.includes("Load failed")
+          ? "AI stream was cut off, turn on Keep Active or please try again"
+          : error.message;
 
       const errorMsg =
         "Uncaught Error: " +
