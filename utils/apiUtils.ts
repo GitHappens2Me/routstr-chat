@@ -428,6 +428,7 @@ export const fetchAIResponse = async (
 
   const tokenAmount = getRequiredSatsForModel(selectedModel, apiMessages);
   let tokenBalance = 0;
+  let tokenBalanceUnit: "sat" | "msat" = "sat";
 
   try {
     const storedToken = getLocalCashuToken(baseUrl);
@@ -473,11 +474,14 @@ export const fetchAIResponse = async (
 
         const data = await response.json();
         tokenBalance = data.balance;
+        tokenBalanceUnit = "msat"; // wallet/info returns msats
       } catch (error) {
         tokenBalance = tokenAmount;
+        tokenBalanceUnit = "sat";
       }
     } else {
       tokenBalance = tokenAmount;
+      tokenBalanceUnit = "sat";
     }
 
     onTokenCreated(getPendingCashuTokenAmount());
@@ -505,6 +509,7 @@ export const fetchAIResponse = async (
 
     if (response instanceof Response && (response as any).tokenBalance) {
       tokenBalance = (response as any).tokenBalance; // if a new token was created and we had set a stored token balance beforehand.
+      tokenBalanceUnit = "sat";
     }
 
     if (!response.body) {
@@ -577,6 +582,7 @@ export const fetchAIResponse = async (
         usingNip60,
         storeCashu,
         tokenBalance,
+        tokenBalanceUnit,
         initialBalance,
         selectedModel,
         onBalanceUpdate,
@@ -1351,6 +1357,7 @@ async function handlePostResponseRefund(params: {
   usingNip60: boolean;
   storeCashu: (token: string) => Promise<any[]>;
   tokenBalance: number;
+  tokenBalanceUnit: "sat" | "msat";
   initialBalance: number;
   selectedModel: any;
   onBalanceUpdate: (balance: number) => void;
@@ -1366,6 +1373,7 @@ async function handlePostResponseRefund(params: {
     usingNip60,
     storeCashu,
     tokenBalance,
+    tokenBalanceUnit,
     initialBalance,
     selectedModel,
     onBalanceUpdate,
@@ -1377,6 +1385,16 @@ async function handlePostResponseRefund(params: {
   } = params;
 
   let satsSpent: number;
+  const tokenBalanceInSats =
+    tokenBalanceUnit === "msat" ? tokenBalance / 1000 : tokenBalance;
+  const computeSpent = (refundedAmount?: number) => {
+    const spendBasis =
+      unit === "msat" ? tokenBalanceInSats : Math.ceil(tokenBalanceInSats);
+    if (refundedAmount === undefined) return spendBasis;
+    const refundedInSats =
+      unit === "msat" ? refundedAmount / 1000 : refundedAmount;
+    return spendBasis - refundedInSats;
+  };
 
   const refundStatus = await unifiedRefund(
     mintUrl,
@@ -1391,13 +1409,11 @@ async function handlePostResponseRefund(params: {
     ) {
       satsSpent = 0;
     } else if (refundStatus.refundedAmount === undefined) {
-      satsSpent = tokenBalance;
+      satsSpent = computeSpent();
     } else {
       if (usingNip60) {
         // For msats, keep decimal precision; for sats, use Math.ceil
-        satsSpent =
-          (unit === "msat" ? tokenBalance : Math.ceil(tokenBalance)) -
-          refundStatus.refundedAmount;
+        satsSpent = computeSpent(refundStatus.refundedAmount);
         onBalanceUpdate(initialBalance - satsSpent);
       } else {
         const { apiBalance, proofsBalance } = await fetchBalances(
@@ -1443,7 +1459,7 @@ async function handlePostResponseRefund(params: {
       await logApiErrorForRefund(refundStatus, baseUrl, onMessageAppend);
     }
     // For msats, keep decimal precision; for sats, use Math.ceil
-    satsSpent = unit === "msat" ? tokenBalance : Math.ceil(tokenBalance);
+    satsSpent = computeSpent();
   }
   console.log("spent: ", satsSpent);
   const netCosts = satsSpent - estimatedCosts;
