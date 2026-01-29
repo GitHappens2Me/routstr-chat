@@ -28,7 +28,8 @@ const getSettingsTabs = (): { key: SettingsTab; label: string }[] => {
   const isDev = process.env.NODE_ENV === "development";
   const isBeta =
     typeof window !== "undefined" &&
-    window.location.origin === "https://beta.chat.routstr.com";
+    (window.location.origin === "https://beta.chat.routstr.com" ||
+      window.location.origin === "https://alpha.chat.routstr.com");
 
   const tabs: { key: SettingsTab; label: string }[] = [
     { key: "settings", label: "General" },

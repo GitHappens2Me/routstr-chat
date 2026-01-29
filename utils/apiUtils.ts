@@ -607,7 +607,8 @@ export const fetchAIResponse = async (
     const isDev = process.env.NODE_ENV === "development";
     const isBeta =
       typeof window !== "undefined" &&
-      window.location.origin === "https://beta.chat.routstr.com";
+      (window.location.origin === "https://beta.chat.routstr.com" ||
+        window.location.origin === "https://alpha.chat.routstr.com");
 
     if (error instanceof Error) {
       const modifiedErrorMsg =
@@ -1478,7 +1479,8 @@ async function handlePostResponseRefund(params: {
     const isDev = process.env.NODE_ENV === "development";
     const isBeta =
       typeof window !== "undefined" &&
-      window.location.origin === "https://beta.chat.routstr.com";
+      (window.location.origin === "https://beta.chat.routstr.com" ||
+        window.location.origin === "https://alpha.chat.routstr.com");
     if (isBeta || isDev)
       // Hiding these for now. We'll enable them again once its more stable.
       logApiError(
