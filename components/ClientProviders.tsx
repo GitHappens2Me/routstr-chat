@@ -22,6 +22,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AppProvider } from "./AppProvider";
 import { AppConfig } from "@/context/AppContext";
+import NostrProvider from "./NostrProvider";
 
 export interface AccountMetadata {
   name: string;
@@ -158,9 +159,11 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
           defaultConfig={defaultConfig}
           presetRelays={presetRelays}
         >
-          <QueryClientProvider client={queryClient}>
-            <InvoiceRecoveryProvider>{children}</InvoiceRecoveryProvider>
-          </QueryClientProvider>
+          <NostrProvider>
+            <QueryClientProvider client={queryClient}>
+              <InvoiceRecoveryProvider>{children}</InvoiceRecoveryProvider>
+            </QueryClientProvider>
+          </NostrProvider>
         </AppProvider>
       </ThemeProvider>
     </AccountContext.Provider>
