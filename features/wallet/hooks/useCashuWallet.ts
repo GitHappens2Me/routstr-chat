@@ -17,7 +17,6 @@ import {
   type CashuStore,
 } from "../state/cashuStore";
 import { Proof } from "@cashu/cashu-ts";
-import { NSchema as n } from "@nostrify/nostrify";
 import { z } from "zod";
 import { useNutzaps } from "./useNutzaps";
 import { hexToBytes } from "@noble/hashes/utils";
@@ -166,7 +165,7 @@ export function useCashuWallet() {
           activeAccount.pubkey,
           event.content
         );
-        const data = n.json().pipe(z.string().array().array()).parse(decrypted);
+        const data = z.string().array().array().parse(JSON.parse(decrypted));
 
         const privkey = data.find(([key]) => key === "privkey")?.[1];
 
