@@ -9,6 +9,7 @@ import { getFile, saveFile } from "@/utils/indexedDb";
 import SourcesDropdown from "./SourcesDropdown";
 import { useBlossomSync } from "@/hooks/useBlossomSync";
 import { usePnsKeys } from "@/hooks/usePnsKeys";
+import { storeStorageIdMapping } from "@/utils/storageUtils";
 
 interface MessageContentProps {
   content: string | ChatMessageContent[];
@@ -222,7 +223,8 @@ export default function MessageContentRenderer({
                   const file = new File([blob], "recovered-image", {
                     type: result.mimeType,
                   });
-                  await saveFile(file);
+                  const newStorageId = await saveFile(file);
+                  storeStorageIdMapping(storageId, newStorageId);
                 } catch {
                   // Ignore save errors - we already have the image displayed
                 }
