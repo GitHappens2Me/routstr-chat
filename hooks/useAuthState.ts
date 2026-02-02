@@ -17,7 +17,7 @@ export interface UseAuthStateReturn {
 export const useAuthState = (): UseAuthStateReturn => {
   const { manager } = useAccountManager();
   const accounts = useObservableState(manager.accounts$) || [];
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authChecked, setAuthChecked] = useState(true);
 
   const isAuthenticated = accounts.length > 0;
 
