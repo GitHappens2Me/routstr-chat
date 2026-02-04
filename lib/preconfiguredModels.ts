@@ -6,6 +6,7 @@ export const recommendedModels = [
   "sonar-pro-search",
   "glm-4.7",
   "kimi-k2-thinking",
+  "kimi-k2.5",
   "gpt-5.1-codex",
   "claude-sonnet-4.5",
   "gemini-3-flash-preview",
