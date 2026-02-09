@@ -41,18 +41,18 @@ export function useWalletAdapter(): WalletAdapter {
        */
       getMintUnits(): Record<string, string> {
         const units: Record<string, string> = {};
-        const proofs = cashuStore.proofs || [];
 
-        for (const proof of proofs) {
-          if (proof.mintUrl && proof.unit) {
-            units[proof.mintUrl] = proof.unit;
-          }
-        }
-
-        // Also check mints from store
+        // Derive units from mint keysets
         for (const mint of cashuStore.mints) {
-          if (mint.url && mint.unit) {
-            units[mint.url] = mint.unit;
+          if (mint.url && mint.keysets) {
+            // Find active keyset and use its unit
+            const activeKeyset = mint.keysets.find((k) => k.active);
+            if (activeKeyset?.unit) {
+              units[mint.url] = activeKeyset.unit;
+            } else {
+              // Default to "sat" if no active keyset found
+              units[mint.url] = "sat";
+            }
           }
         }
 
