@@ -32,29 +32,22 @@ async function main(): Promise<void> {
   await modelManager.fetchModels(providers);
   logStep("Fetched models for providers.");
 
-  logStep("Reading cached models...");
-  const allModels = adapter.getCachedModels();
-  logStep(
-    `Loaded cached models for ${Object.keys(allModels).length} providers.`
-  );
-  const matches = new Set<string>();
+  logStep("Ranking providers by pricing...");
+  const ranking = modelManager.getProviderPriceRankingForModel(modelId);
+  logStep(`Ranked ${ranking.length} matching providers.`);
 
-  logStep("Filtering providers by model...");
-  for (const [baseUrl, models] of Object.entries(allModels)) {
-    if (models.some((model) => normalizeModelId(model.id) === modelId)) {
-      matches.add(baseUrl);
-    }
-  }
-  logStep(`Filtered to ${matches.size} matching providers.`);
-
-  const list = Array.from(matches).sort();
-  if (list.length === 0) {
+  if (ranking.length === 0) {
     console.log(`No providers found for model: ${modelId}`);
     return;
   }
 
-  for (const url of list) {
-    console.log(url);
+  for (const entry of ranking) {
+    const prompt = entry.promptPerMillion.toFixed(2);
+    const completion = entry.completionPerMillion.toFixed(2);
+    const total = entry.totalPerMillion.toFixed(2);
+    console.log(
+      `${entry.baseUrl} prompt=${prompt} sats/M completion=${completion} sats/M total=${total} sats/M`
+    );
   }
 }
 
