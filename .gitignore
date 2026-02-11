@@ -63,3 +63,4 @@ scripts/clean-sw.js
 public/dev-cleanup.js
 
 routstr.sqlite
+*.sqlite

@@ -2,17 +2,13 @@ import { ModelManager } from "@/sdk";
 import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
 import { createDiscoveryAdapterFromStore } from "@/sdk/storage/store";
 
-const normalizeModelId = (modelId: string): string =>
-  modelId.includes("/") ? modelId.split("/").pop() || modelId : modelId;
-
 async function main(): Promise<void> {
-  const rawModelId = process.argv[2]?.trim();
-  if (!rawModelId) {
+  const modelId = process.argv[2]?.trim();
+  if (!modelId) {
     console.error("Usage: npx tsx scripts/find-model-providers.ts <model-id>");
     process.exit(1);
   }
 
-  const modelId = normalizeModelId(rawModelId);
   const start = Date.now();
   const logStep = (label: string): void => {
     const elapsedSeconds = ((Date.now() - start) / 1000).toFixed(2);
