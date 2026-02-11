@@ -18,15 +18,10 @@ async function main(): Promise<void> {
   logStep(`Starting lookup for model: ${modelId}`);
   const store = createSdkStore({ driver: createSqliteDriver() });
   const adapter = createDiscoveryAdapterFromStore(store);
-  const modelManager = new ModelManager(adapter);
 
-  logStep("Bootstrapping providers...");
-  const providers = await modelManager.bootstrapProviders(false);
-  logStep(`Bootstrapped ${providers.length} providers.`);
-
-  logStep("Fetching models for providers...");
-  await modelManager.fetchModels(providers);
-  logStep("Fetched models for providers.");
+  logStep("Bootstrapping providers and fetching models...");
+  const modelManager = await ModelManager.init(adapter);
+  logStep("Bootstrapped providers and fetched models.");
 
   logStep("Ranking providers by pricing...");
   const ranking = modelManager.getProviderPriceRankingForModel(modelId);
