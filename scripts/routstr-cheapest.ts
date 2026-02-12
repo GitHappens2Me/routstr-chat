@@ -127,7 +127,9 @@ async function main(): Promise<void> {
   const providerRegistry = createProviderRegistryFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);
 
-  const modelManager = new ModelManager(discoveryAdapter);
+  const modelManager = new ModelManager(discoveryAdapter, {
+    includeProviderUrls: forcedProvider ? [forcedProvider] : [],
+  });
   const providers = await modelManager.bootstrapProviders(false);
   await modelManager.fetchModels(providers);
 
