@@ -1,14 +1,12 @@
 import type { Message } from "@/types/chat";
 import { ModelManager, MintDiscovery, RoutstrClient } from "@/sdk";
-import { createSdkStore, createMemoryDriver } from "@/sdk/storage";
+import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
 import {
   createDiscoveryAdapterFromStore,
   createProviderRegistryFromStore,
   createStorageAdapterFromStore,
 } from "@/sdk/storage/store";
 import { spawn } from "child_process";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 
 function parseArgs(argv: string[]): {
   modelId: string | null;
@@ -45,21 +43,11 @@ const resolvedModelId = modelId || "";
 const resolvedText = text;
 const forcedProvider = provider;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const walletCliPath = join(
-  __dirname,
-  "..",
-  "sdk",
-  "cashu-skill",
-  "cli",
-  "wallet.mjs"
-);
 const mintToAdd = "https://mint.cubabitcoin.org";
 
 async function runWalletCommand(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [walletCliPath, ...args], {
+    const child = spawn("cocod", args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -88,11 +76,16 @@ function parseMints(output: string): Array<{ url: string; trusted: boolean }> {
   return output
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.startsWith("http"))
     .map((line) => {
-      const match = line.match(/^(\S+)\s+\(trusted:\s*(true|false)\)/i);
-      if (!match) return null;
-      return { url: match[1], trusted: match[2] === "true" };
+      const urlMatch = line.match(/https?:\/\/\S+/i);
+      if (!urlMatch) return null;
+      const trustedMatch = line.match(/trusted:\s*(true|false)/i);
+      return {
+        url: urlMatch[0],
+        trusted: trustedMatch
+          ? trustedMatch[1].toLowerCase() === "true"
+          : false,
+      };
     })
     .filter((entry): entry is { url: string; trusted: boolean } =>
       Boolean(entry)
@@ -100,8 +93,33 @@ function parseMints(output: string): Array<{ url: string; trusted: boolean }> {
 }
 
 function parseBalances(output: string): Record<string, number> {
+  const trimmed = output.trim();
+  if (!trimmed) return {};
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<
+      string,
+      { sats?: number } | number
+    >;
+    if (parsed && typeof parsed === "object") {
+      return Object.fromEntries(
+        Object.entries(parsed).map(([mintUrl, value]) => {
+          if (typeof value === "number") {
+            return [mintUrl, value];
+          }
+          if (value && typeof value === "object" && "sats" in value) {
+            return [mintUrl, Number(value.sats ?? 0)];
+          }
+          return [mintUrl, 0];
+        })
+      );
+    }
+  } catch {
+    // Fall back to line parsing.
+  }
+
   const balances: Record<string, number> = {};
-  output
+  trimmed
     .split("\n")
     .map((line) => line.trim())
     .forEach((line) => {
@@ -122,7 +140,7 @@ function pickTokenLine(output: string): string {
 }
 
 async function main(): Promise<void> {
-  const store = createSdkStore({ driver: createMemoryDriver() });
+  const store = createSdkStore({ driver: createSqliteDriver() });
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);
@@ -206,7 +224,13 @@ async function main(): Promise<void> {
       return activeMintUrl;
     },
     async sendToken(mintUrl: string, amount: number): Promise<string> {
-      const output = await runWalletCommand(["send", String(amount), mintUrl]);
+      const output = await runWalletCommand([
+        "send",
+        "cashu",
+        String(amount),
+        "--mint-url",
+        mintUrl,
+      ]);
       const token = pickTokenLine(output);
       if (!token) {
         throw new Error("Wallet CLI did not return a token.");
@@ -214,7 +238,7 @@ async function main(): Promise<void> {
       return token;
     },
     async receiveToken(token: string): Promise<any[]> {
-      await runWalletCommand(["receive", token]);
+      await runWalletCommand(["receive", "cashu", token]);
       return [];
     },
     isUsingNip60(): boolean {
@@ -222,11 +246,11 @@ async function main(): Promise<void> {
     },
   };
 
-  const mintsOutput = await runWalletCommand(["mints"]);
+  const mintsOutput = await runWalletCommand(["mints", "list"]);
   const mints = parseMints(mintsOutput);
   const hasMint = mints.some((mint) => mint.url === mintToAdd);
   if (!hasMint) {
-    await runWalletCommand(["add-mint", mintToAdd]);
+    await runWalletCommand(["mints", "add", mintToAdd]);
   }
   activeMintUrl =
     mints.find((mint) => mint.trusted)?.url || mints[0]?.url || null;
