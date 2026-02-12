@@ -10,13 +10,40 @@ import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-const modelId = process.argv[2]?.trim();
-const text = process.argv.slice(3).join(" ").trim();
+function parseArgs(argv: string[]): {
+  modelId: string | null;
+  text: string;
+  provider: string | null;
+} {
+  const providerFlagIndex = argv.findIndex(
+    (arg) => arg === "--provider" || arg === "-p"
+  );
+  let provider: string | null = null;
+  const cleanedArgs = [...argv];
+
+  if (providerFlagIndex !== -1) {
+    provider = argv[providerFlagIndex + 1]?.trim() || null;
+    cleanedArgs.splice(providerFlagIndex, 2);
+  }
+
+  const modelId = cleanedArgs[2]?.trim() || null;
+  const text = cleanedArgs.slice(3).join(" ").trim();
+
+  return { modelId, text, provider };
+}
+
+const { modelId, text, provider } = parseArgs(process.argv);
 
 if (!modelId || !text) {
-  console.error("Usage: npx tsx scripts/routstr-cheapest.ts <model-id> <text>");
+  console.error(
+    "Usage: npx tsx scripts/routstr-cheapest.ts <model-id> <text> [--provider <base-url>]"
+  );
   process.exit(1);
 }
+
+const resolvedModelId = modelId || "";
+const resolvedText = text;
+const forcedProvider = provider;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -107,20 +134,53 @@ async function main(): Promise<void> {
   const mintDiscovery = new MintDiscovery(discoveryAdapter);
   await mintDiscovery.discoverMints(providers);
 
-  const ranking = modelManager.getProviderPriceRankingForModel(modelId);
-  if (ranking.length === 0) {
-    console.error(`No providers found for model: ${modelId}`);
-    process.exit(1);
+  let baseUrl = "";
+  let selectedModel = null as
+    | (typeof modelManager extends { getProviderPriceRankingForModel: any }
+        ? ReturnType<
+            typeof modelManager.getProviderPriceRankingForModel
+          >[number]["model"]
+        : any)
+    | null;
+
+  if (forcedProvider) {
+    const normalizedProvider = forcedProvider.endsWith("/")
+      ? forcedProvider
+      : `${forcedProvider}/`;
+    const cachedModels = modelManager.getAllCachedModels();
+    const models = cachedModels[normalizedProvider] || [];
+    const match = models.find((model) => model.id === resolvedModelId);
+    if (!match) {
+      console.error(
+        `Provider ${normalizedProvider} does not offer model: ${resolvedModelId}`
+      );
+      process.exit(1);
+    }
+    baseUrl = normalizedProvider;
+    selectedModel = match;
+    console.error(`Using provider (forced): ${baseUrl}`);
+  } else {
+    const ranking =
+      modelManager.getProviderPriceRankingForModel(resolvedModelId);
+    if (ranking.length === 0) {
+      console.error(`No providers found for model: ${resolvedModelId}`);
+      process.exit(1);
+    }
+
+    const cheapest = ranking[0];
+    baseUrl = cheapest.baseUrl;
+    selectedModel = cheapest.model;
+
+    console.error(`Using provider: ${baseUrl}`);
+    console.error(
+      `Pricing sats/M prompt=${cheapest.promptPerMillion.toFixed(2)} completion=${cheapest.completionPerMillion.toFixed(2)} total=${cheapest.totalPerMillion.toFixed(2)}`
+    );
   }
 
-  const cheapest = ranking[0];
-  const baseUrl = cheapest.baseUrl;
-  const selectedModel = cheapest.model;
-
-  console.error(`Using provider: ${baseUrl}`);
-  console.error(
-    `Pricing sats/M prompt=${cheapest.promptPerMillion.toFixed(2)} completion=${cheapest.completionPerMillion.toFixed(2)} total=${cheapest.totalPerMillion.toFixed(2)}`
-  );
+  if (!selectedModel) {
+    console.error(`No model resolved for: ${resolvedModelId}`);
+    process.exit(1);
+  }
 
   let activeMintUrl: string | null = null;
   let mintUnits: Record<string, string> = {};
@@ -202,7 +262,7 @@ async function main(): Promise<void> {
       providerRegistry
     );
 
-    const messageHistory: Message[] = [{ role: "user", content: text }];
+    const messageHistory: Message[] = [{ role: "user", content: resolvedText }];
     let finalMessage = "";
     let errorMessage = "";
 
