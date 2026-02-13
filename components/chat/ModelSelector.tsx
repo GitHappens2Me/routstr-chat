@@ -194,11 +194,20 @@ export default function ModelSelector({
     );
   }, [dedupedModels]);
 
+  // Normalize a string for fuzzy matching by stripping non-alphanumeric chars
+  const normalizeForSearch = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   // Filter models based on search query, selected input->output pair filters, and web search filter
   const filteredModels = dedupedModels.filter((model) => {
-    const matchesSearch = getModelNameWithoutProvider(model.name)
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+    const normalizedQuery = normalizeForSearch(searchQuery);
+    const modelName = getModelNameWithoutProvider(model.name);
+    // Match if the normalized (stripped) name contains the normalized query,
+    // or if the raw name contains the raw query (for exact substring matches)
+    const matchesSearch =
+      normalizeForSearch(modelName).includes(normalizedQuery) ||
+      modelName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      normalizeForSearch(model.id).includes(normalizedQuery);
     if (!matchesSearch) return false;
 
     // Apply web search filter
