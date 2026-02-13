@@ -1,5 +1,6 @@
 import type { Message } from "@/types/chat";
 import { ModelManager, MintDiscovery, RoutstrClient } from "@/sdk";
+import { getDecodedToken } from "@cashu/cashu-ts";
 import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
 import {
   createDiscoveryAdapterFromStore,
@@ -237,9 +238,16 @@ async function main(): Promise<void> {
       }
       return token;
     },
-    async receiveToken(token: string): Promise<any[]> {
+    async receiveToken(
+      token: string
+    ): Promise<{ success: boolean; amount: number }> {
       await runWalletCommand(["receive", "cashu", token]);
-      return [];
+      const decoded = getDecodedToken(token);
+      const amount = decoded?.proofs?.reduce(
+        (sum, proof) => sum + proof.amount,
+        0
+      );
+      return { success: true, amount: amount ?? 0 };
     },
     isUsingNip60(): boolean {
       return false;
