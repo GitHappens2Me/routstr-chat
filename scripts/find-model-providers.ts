@@ -1,6 +1,9 @@
-import { ModelManager } from "@/sdk";
+import { ModelManager, ProviderManager } from "@/sdk";
 import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
-import { createDiscoveryAdapterFromStore } from "@/sdk/storage/store";
+import {
+  createDiscoveryAdapterFromStore,
+  createProviderRegistryFromStore,
+} from "@/sdk/storage/store";
 
 async function main(): Promise<void> {
   const modelId = process.argv[2]?.trim();
@@ -18,13 +21,15 @@ async function main(): Promise<void> {
   logStep(`Starting lookup for model: ${modelId}`);
   const store = createSdkStore({ driver: createSqliteDriver() });
   const adapter = createDiscoveryAdapterFromStore(store);
+  const providerRegistry = createProviderRegistryFromStore(store);
 
   logStep("Bootstrapping providers and fetching models...");
   const modelManager = await ModelManager.init(adapter);
+  const providerManager = new ProviderManager(providerRegistry);
   logStep("Bootstrapped providers and fetched models.");
 
   logStep("Ranking providers by pricing...");
-  const ranking = modelManager.getProviderPriceRankingForModel(modelId);
+  const ranking = providerManager.getProviderPriceRankingForModel(modelId);
   logStep(`Ranked ${ranking.length} matching providers.`);
 
   if (ranking.length === 0) {

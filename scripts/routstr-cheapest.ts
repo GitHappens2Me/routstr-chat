@@ -1,5 +1,10 @@
 import type { Message } from "@/types/chat";
-import { ModelManager, MintDiscovery, RoutstrClient } from "@/sdk";
+import {
+  ModelManager,
+  MintDiscovery,
+  ProviderManager,
+  RoutstrClient,
+} from "@/sdk";
 import { getDecodedToken } from "@cashu/cashu-ts";
 import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
 import {
@@ -155,13 +160,12 @@ async function main(): Promise<void> {
   const mintDiscovery = new MintDiscovery(discoveryAdapter);
   await mintDiscovery.discoverMints(providers);
 
+  const providerManager = new ProviderManager(providerRegistry);
   let baseUrl = "";
   let selectedModel = null as
-    | (typeof modelManager extends { getProviderPriceRankingForModel: any }
-        ? ReturnType<
-            typeof modelManager.getProviderPriceRankingForModel
-          >[number]["model"]
-        : any)
+    | ReturnType<
+        ProviderManager["getProviderPriceRankingForModel"]
+      >[number]["model"]
     | null;
 
   if (forcedProvider) {
@@ -182,7 +186,7 @@ async function main(): Promise<void> {
     console.error(`Using provider (forced): ${baseUrl}`);
   } else {
     const ranking =
-      modelManager.getProviderPriceRankingForModel(resolvedModelId);
+      providerManager.getProviderPriceRankingForModel(resolvedModelId);
     if (ranking.length === 0) {
       console.error(`No providers found for model: ${resolvedModelId}`);
       process.exit(1);
@@ -300,47 +304,53 @@ async function main(): Promise<void> {
     let finalMessage = "";
     let errorMessage = "";
 
-    await client.fetchAIResponse(
-      {
-        messageHistory,
-        selectedModel,
-        baseUrl,
-        mintUrl,
-        balance: totalBalance,
-        transactionHistory: [],
-      },
-      {
-        onStreamingUpdate: () => {},
-        onThinkingUpdate: () => {},
-        onMessageAppend: (message) => {
-          if (message.role === "assistant") {
-            finalMessage =
-              typeof message.content === "string"
-                ? message.content
-                : JSON.stringify(message.content);
-          }
-          if (message.role === "system") {
-            errorMessage =
-              typeof message.content === "string"
-                ? message.content
-                : JSON.stringify(message.content);
-          }
+    try {
+      await client.fetchAIResponse(
+        {
+          messageHistory,
+          selectedModel,
+          baseUrl,
+          mintUrl,
+          balance: totalBalance,
+          transactionHistory: [],
         },
-        onBalanceUpdate: () => {},
-        onTransactionUpdate: () => {},
-        onTokenCreated: () => {},
-        onPaymentProcessing: (isProcessing) => {
-          if (isProcessing) {
-            console.error("Processing payment...");
-          }
-        },
-        onLastMessageSatsUpdate: (satsSpent) => {
-          if (typeof satsSpent === "number") {
-            console.error(`Sats spent: ${satsSpent.toFixed(0)}`);
-          }
-        },
-      }
-    );
+        {
+          onStreamingUpdate: () => {},
+          onThinkingUpdate: () => {},
+          onMessageAppend: (message) => {
+            if (message.role === "assistant") {
+              finalMessage =
+                typeof message.content === "string"
+                  ? message.content
+                  : JSON.stringify(message.content);
+            }
+            if (message.role === "system") {
+              errorMessage =
+                typeof message.content === "string"
+                  ? message.content
+                  : JSON.stringify(message.content);
+            }
+          },
+          onBalanceUpdate: () => {},
+          onTransactionUpdate: () => {},
+          onTokenCreated: () => {},
+          onPaymentProcessing: (isProcessing) => {
+            if (isProcessing) {
+              console.error("Processing payment...");
+            }
+          },
+          onLastMessageSatsUpdate: (satsSpent) => {
+            if (typeof satsSpent === "number") {
+              console.error(`Sats spent: ${satsSpent.toFixed(0)}`);
+            }
+          },
+        }
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(errorMsg);
+      process.exit(1);
+    }
 
     if (finalMessage) {
       console.log(finalMessage);
