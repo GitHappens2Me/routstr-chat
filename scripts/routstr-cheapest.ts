@@ -341,9 +341,12 @@ async function main(): Promise<void> {
               console.error("Processing payment...");
             }
           },
-          onLastMessageSatsUpdate: (satsSpent) => {
+          onLastMessageSatsUpdate: (satsSpent, estimatedCosts) => {
             if (typeof satsSpent === "number") {
               console.error(`Sats spent: ${satsSpent.toFixed(0)}`);
+            }
+            if (typeof estimatedCosts === "number") {
+              console.error(`Estimated costs: ${estimatedCosts.toFixed(0)}`);
             }
           },
         }
