@@ -298,7 +298,8 @@ async function main(): Promise<void> {
     const client = new RoutstrClient(
       walletAdapter,
       storageAdapter,
-      providerRegistry
+      providerRegistry,
+      process.env.NODE_ENV === "development" ? "max" : "min"
     );
 
     const messageHistory: Message[] = [{ role: "user", content: resolvedText }];
