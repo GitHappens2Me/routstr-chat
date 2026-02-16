@@ -244,14 +244,15 @@ async function main(): Promise<void> {
     },
     async receiveToken(
       token: string
-    ): Promise<{ success: boolean; amount: number }> {
+    ): Promise<{ success: boolean; amount: number; unit: "sat" | "msat" }> {
       await runWalletCommand(["receive", "cashu", token]);
       const decoded = getDecodedToken(token);
       const amount = decoded?.proofs?.reduce(
         (sum, proof) => sum + proof.amount,
         0
       );
-      return { success: true, amount: amount ?? 0 };
+      const unit = decoded?.unit === "msat" ? "msat" : "sat";
+      return { success: true, amount: amount ?? 0, unit };
     },
     isUsingNip60(): boolean {
       return false;
@@ -323,6 +324,7 @@ async function main(): Promise<void> {
                 typeof message.content === "string"
                   ? message.content
                   : JSON.stringify(message.content);
+              console.log("FULL", message);
             }
             if (message.role === "system") {
               errorMessage =
