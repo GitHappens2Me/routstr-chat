@@ -295,11 +295,18 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
+    const isDev = process.env.NODE_ENV === "development";
+    const isBeta =
+      typeof window !== "undefined" &&
+      (window.location.origin === "https://beta.chat.routstr.com" ||
+        window.location.origin === "https://alpha.chat.routstr.com");
+    const alertLevel = isDev || isBeta ? "max" : "min";
+
     const client = new RoutstrClient(
       walletAdapter,
       storageAdapter,
       providerRegistry,
-      process.env.NODE_ENV === "development" ? "max" : "min"
+      alertLevel
     );
 
     const messageHistory: Message[] = [{ role: "user", content: resolvedText }];
@@ -315,6 +322,7 @@ async function main(): Promise<void> {
           mintUrl,
           balance: totalBalance,
           transactionHistory: [],
+          maxTokens: 1000,
         },
         {
           onStreamingUpdate: () => {},
