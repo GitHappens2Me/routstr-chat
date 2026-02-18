@@ -208,7 +208,7 @@ async function main(): Promise<void> {
   }
 
   let activeMintUrl: string | null = null;
-  let mintUnits: Record<string, string> = {};
+  let mintUnits: Record<string, "sat" | "msat"> = {};
 
   const walletAdapter = {
     async getBalances(): Promise<Record<string, number>> {
@@ -222,7 +222,7 @@ async function main(): Promise<void> {
       }
       return balances;
     },
-    getMintUnits(): Record<string, string> {
+    getMintUnits(): Record<string, "sat" | "msat"> {
       return mintUnits;
     },
     getActiveMintUrl(): string | null {
