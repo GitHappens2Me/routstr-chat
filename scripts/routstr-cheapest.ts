@@ -306,7 +306,8 @@ async function main(): Promise<void> {
       walletAdapter,
       storageAdapter,
       providerRegistry,
-      alertLevel
+      alertLevel,
+      "lazyrefund"
     );
 
     const messageHistory: Message[] = [{ role: "user", content: resolvedText }];
@@ -322,7 +323,7 @@ async function main(): Promise<void> {
           mintUrl,
           balance: totalBalance,
           transactionHistory: [],
-          maxTokens: 1000,
+          // maxTokens: 1000,
         },
         {
           onStreamingUpdate: () => {},
