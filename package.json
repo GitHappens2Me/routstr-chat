@@ -22,7 +22,8 @@
     "test:e2e:onboarding": "playwright test tests/e2e/onboarding.spec.ts",
     "test:e2e:features": "playwright test tests/e2e/basic-features.spec.ts",
     "test:e2e:headed": "playwright test --headed --workers=1",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "test:sdk": "vitest run --dir sdk/__tests__"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^3.1.1",
@@ -101,7 +102,8 @@
     "prettier": "^3.7.4",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   },
   "msw": {
     "workerDirectory": [
