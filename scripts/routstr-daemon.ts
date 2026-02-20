@@ -218,6 +218,8 @@ async function main(): Promise<void> {
       const host = req.headers.host || "localhost";
       const url = new URL(req.url || "/", `http://${host}`);
 
+      console.log(`[daemon] ${req.method} ${url.pathname} - Request received`);
+
       if (req.method === "GET" && url.pathname === "/health") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
@@ -247,6 +249,8 @@ async function main(): Promise<void> {
 
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
+      console.log(`[daemon] Model: ${modelId}, Stream: ${bodyObj.stream}`);
+
       if (!modelId) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Missing required 'model' field." }));
@@ -259,7 +263,10 @@ async function main(): Promise<void> {
         provider ||
         undefined;
 
+      console.log(`[daemon] Forced provider: ${forcedProvider || "none"}`);
+
       try {
+        console.log(`[daemon] Routing request to cheapest provider...`);
         const result = await routeRequests({
           modelId,
           requestBody,
@@ -271,12 +278,15 @@ async function main(): Promise<void> {
           modelManager,
         });
 
+        console.log(`[daemon] Request successful, provider: ${result.baseUrl}`);
+
         res.writeHead(result.response.status, {
           "Content-Type": "application/json",
         });
         res.end(JSON.stringify(result.response.body));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        console.error(`[daemon] Error: ${message}`);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: message }));
       }
