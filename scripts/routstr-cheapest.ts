@@ -307,7 +307,7 @@ async function main(): Promise<void> {
       storageAdapter,
       providerRegistry,
       alertLevel,
-      "xcashu"
+      "lazyrefund"
     );
 
     const messageHistory: Message[] = [{ role: "user", content: resolvedText }];
