@@ -1,5 +1,10 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { routeRequests, createSdkStore, createSqliteDriver } from "@/sdk";
+import {
+  routeRequests,
+  createSdkStore,
+  createSqliteDriver,
+  ModelManager,
+} from "@/sdk";
 import {
   createDiscoveryAdapterFromStore,
   createProviderRegistryFromStore,
@@ -140,6 +145,13 @@ async function main(): Promise<void> {
   const providerRegistry = createProviderRegistryFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);
 
+  console.log("Bootstrapping providers...");
+  const modelManager = new ModelManager(discoveryAdapter);
+  const providers = await modelManager.bootstrapProviders(false);
+  console.log(`Bootstrapped ${providers.length} providers`);
+  await modelManager.fetchModels(providers);
+  console.log("Provider bootstrap complete.");
+
   let activeMintUrl: string | null = null;
   let mintUnits: Record<string, "sat" | "msat"> = {};
 
@@ -256,6 +268,7 @@ async function main(): Promise<void> {
           storageAdapter,
           providerRegistry,
           discoveryAdapter,
+          modelManager,
         });
 
         res.writeHead(result.response.status, {
