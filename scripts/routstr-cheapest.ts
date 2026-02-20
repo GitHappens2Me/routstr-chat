@@ -353,10 +353,10 @@ async function main(): Promise<void> {
           },
           onLastMessageSatsUpdate: (satsSpent, estimatedCosts) => {
             if (typeof satsSpent === "number") {
-              console.error(`Sats spent: ${satsSpent.toFixed(0)}`);
+              console.error(`Sats spent: ${satsSpent.toFixed(3)}`);
             }
             if (typeof estimatedCosts === "number") {
-              console.error(`Estimated costs: ${estimatedCosts.toFixed(0)}`);
+              console.error(`Estimated costs: ${estimatedCosts.toFixed(3)}`);
             }
           },
         }
