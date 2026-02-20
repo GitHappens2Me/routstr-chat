@@ -2,16 +2,15 @@
 
 ## Goal
 
-Create a simple localhost daemon that routes OpenAI-compatible `/v1/responses` requests to the cheapest provider for a given model. The daemon should always proxy to whichever provider offers the lowest price for that model, handling Cashu send/receive flows via the Routstr SDK. No implementation yet; this is a planning document only.
+Document the current SDK-based routing flow that a localhost daemon will reuse. The daemon routes OpenAI-compatible requests to the cheapest provider for a given model, using the existing SDK helpers and Cashu flow.
 
 ## Scope
 
 - Provide a local HTTP service at `http://localhost:8008/`.
-- Pass through all requests (e.g., `/v1/responses`, `/v1/chat/completions`, `/v1/models`, etc.) to the cheapest provider for the requested model.
-- Determine cheapest provider per model using existing SDK discovery and pricing utilities.
-- Route requests while preserving OpenAI-compatible semantics.
-- Handle Cashu send/receive automatically, as the Routstr client does.
-- Add a high-level SDK helper (`routeRequests`) to enable reuse by the daemon and other Node services.
+- Route OpenAI-compatible chat requests via the SDK `routeRequests` helper (currently targets `/v1/chat/completions`).
+- Determine cheapest provider per model using `ModelManager` + `ProviderManager` ranking.
+- Handle Cashu token spend/refund via `RoutstrClient.routeRequest`.
+- Mirror error handling/fallback behavior used by `fetchAIResponse` (refunds, provider failover on network/4xx/5xx, and user-safe errors).
 
 ## Non-Goals
 
@@ -21,172 +20,41 @@ Create a simple localhost daemon that routes OpenAI-compatible `/v1/responses` r
 
 ## Current References
 
-- `scripts/routstr-cheapest.ts` shows end-to-end routing and Cashu wallet flow using `RoutstrClient`.
-- `scripts/find-model-providers.ts` shows pricing-based provider ranking.
+- `sdk/client/RoutstrClient.ts` implements request proxying, token spend/refund, and failover.
+- `sdk/routeRequests.ts` selects cheapest provider and proxies the request.
 
-## Proposed Architecture
+## Current Architecture
 
-### 1. Daemon Entry Point
+### 1. Daemon Entry Point (Planned)
 
 - Location: `scripts/routstr-daemon.ts` (or `packages/daemon` later).
 - HTTP server (Node `http` or lightweight framework).
-- Accept all requests and pass them through to the cheapest provider.
-- Extract model ID from request body or query params to determine routing.
-- Optional query or header to force provider (matches current `--provider` behavior).
+- Extract model ID from request body and optional provider override.
 
-### 2. Request Routing Flow
+### 2. Routing Flow (Implemented in SDK)
 
-1. Parse request body to identify model ID.
-2. Use `ModelManager` + `ProviderManager` to fetch providers and rank by price.
-3. Select cheapest provider for the model.
-4. Route request to the cheapest provider's base URL + `/v1/responses`.
+1. `routeRequests` bootstraps providers and fetches models via `ModelManager`.
+2. Cheapest provider is selected by `ProviderManager` (or forced provider).
+3. Wallet balance and mint selection are resolved from adapters.
+4. `RoutstrClient.routeRequest` proxies `/v1/chat/completions` with `stream: false`.
+5. Response is normalized to a minimal `{ content }` body payload for daemon use.
 
-### 3. Cashu Handling
+### 3. Cashu Handling (Implemented)
 
-- Mirror the wallet adapter logic from `scripts/routstr-cheapest.ts`.
-- Use the Routstr SDK storage adapters in Node (sqlite driver).
-- Maintain an active mint and ensure wallet has balances.
-- Send and receive tokens via wallet CLI (`cocod`) or a pluggable wallet adapter.
-
-### 4. SDK Addition: `routeRequests`
-
-- New function in SDK to encapsulate the routing logic:
-
-```ts
-type RouteRequestOptions = {
-  modelId: string;
-  requestBody: unknown;
-  forcedProvider?: string;
-  walletAdapter: WalletAdapter;
-  storageAdapter: StorageAdapter;
-  providerRegistry: ProviderRegistry;
-  discoveryAdapter: DiscoveryAdapter;
-};
-
-type RouteRequestResult = {
-  baseUrl: string;
-  selectedModel: Model;
-  response: Response;
-};
-
-async function routeRequests(
-  options: RouteRequestOptions
-): Promise<RouteRequestResult>;
-```
-
-- Responsibilities:
-  - Bootstrap providers, fetch models, discover mints.
-  - Determine cheapest provider unless forced.
-  - Use `RoutstrClient` to handle Cashu send/receive and token lifecycle.
-  - Proxy the request and return the response.
-
-### 5. Daemon Adapter Usage
-
-- Daemon uses `routeRequests` with a Node wallet adapter that wraps the wallet CLI.
-- Return upstream response as-is (headers/body), keeping streaming support in mind.
+- `RoutstrClient.routeRequest` spends a token before proxying.
+- Refunds occur on non-OK responses.
+- Uses wallet/storage adapters already wired in the SDK.
 
 ## API Behavior Details
 
-- Request path: pass through any path (e.g., `/v1/responses`, `/v1/chat/completions`, `/v1/models`).
-- Required: `model` in request body to determine cheapest provider. For endpoints without a model (like `/v1/models`), route to default/cheapest provider.
+- Request path: daemon should map to `/v1/chat/completions` for now (aligned with `routeRequests`).
+- Required: `model` in request body to determine cheapest provider.
 - Optional: `provider` override via query string or header (format TBD).
-- Response: forward status, headers, and body from upstream.
-- Errors: return 4xx/5xx with minimal transformation.
+- Response: normalized JSON `{ content }` based on upstream `choices[0].message.content`.
+- Errors: follow `fetchAIResponse`-style handling (refunds, provider failover, and user-safe error messages).
 
-## Implementation Phases
+## Remaining Work
 
-### Phase 1: SDK Helper - `routeRequests`
-**Goal**: Create the core routing function in the SDK.
-
-**Steps**:
-1. Create `sdk/src/routeRequests.ts` with the `RouteRequestOptions` and `RouteRequestResult` types.
-2. Implement `routeRequests` function that:
-   - Takes modelId, requestBody, forcedProvider, walletAdapter, storageAdapter, providerRegistry, discoveryAdapter
-   - Uses ModelManager + ProviderManager to fetch and rank providers by price
-   - Selects cheapest provider for the model (or forced provider)
-   - Uses RoutstrClient for Cashu send/receive flow
-   - Proxies request and returns response
-3. Add unit tests for provider ranking logic.
-4. Export from SDK index.
-
-**Estimated effort**: 2-3 hours
-
----
-
-### Phase 2: Daemon HTTP Server
-**Goal**: Basic HTTP server that accepts requests and routes them.
-
-**Steps**:
-1. Create `scripts/routstr-daemon.ts` entry point.
-2. Set up Node HTTP server on port 8008.
-3. Implement request parser to extract model ID from body/query.
-4. Integrate with `routeRequests` SDK helper.
-5. Pass through request path (e.g., `/v1/responses`, `/v1/chat/completions`).
-6. Handle error responses (4xx/5xx) with minimal transformation.
-7. Add basic logging (request received, provider selected, response status).
-
-**Estimated effort**: 2-3 hours
-
----
-
-### Phase 3: Streaming Support
-**Goal**: Enable streaming responses for real-time LLM output.
-
-**Steps**:
-1. Detect streaming request (check `Content-Type: text/event-stream` or `stream: true`).
-2. Pass through `Transfer-Encoding: chunked` headers.
-3. Use Node.js streams to proxy response body directly from upstream to client.
-4. Handle Cashu token receive asynchronously while streaming.
-5. Test with streaming-compatible providers.
-6. Verify memory usage remains stable during long streams.
-
-**Estimated effort**: 3-4 hours
-
----
-
-### Phase 4: Configuration & Polish
-**Goal**: Make the daemon usable and maintainable.
-
-**Steps**:
-1. Add configuration file (`daemon.config.json`) for:
-   - Port (default 8008)
-   - Default provider override
-   - Price cache TTL (optional)
-2. Implement provider override via query param (`?provider=`).
-3. Add health check endpoint (`/health`).
-4. Graceful shutdown handling.
-5. Production-readiness: process management with pm2, logs to file.
-6. Document usage: how to run, how to test, how to override provider.
-
-**Estimated effort**: 2-3 hours
-
----
-
-## Success Criteria
-
-- [ ] Phase 1: SDK helper handles routing + Cashu flow
-- [ ] Phase 2: Daemon accepts HTTP requests and routes to cheapest provider
-- [ ] Phase 3: Streaming responses work without buffering
-- [ ] Phase 4: Daemon is configurable and production-ready
-
-## Open Questions
-
-- How should provider override be passed: query param (`?provider=`) or header?
-- Should the daemon support streaming responses immediately, or buffer?
-- Should the wallet adapter be CLI-only or allow injectable wallet implementations?
-
-## Streaming Support (Added v2.0.0)
-
-- **Priority**: Implement streaming support early rather than buffering responses.
-- **Rationale**: LLM responses are often streamed, and buffering defeats the latency benefit of routing to the cheapest provider.
-- **Implementation approach**:
-  - Pass through `Transfer-Encoding: chunked` and `Content-Type: text/event-stream` headers.
-  - Stream the response body directly from the upstream provider to the client without buffering.
-  - Handle Cashu token receive in the background while streaming response tokens.
-  - Consider using Node.js streams for efficient memory usage.
-
-## Caching (Optional Enhancement)
-
-- **Consideration**: Cache provider prices briefly (e.g., 60 seconds) to avoid hitting the discovery API on every request.
-- **Implementation**: Use an in-memory cache with TTL in the provider ranking logic.
-- **Trade-off**: Balance freshness of pricing data vs. API call overhead.
+- Implement the daemon HTTP server wrapper around `routeRequests`.
+- Add streaming proxy support (current SDK path forces `stream: false`).
+- Add provider override wiring and health endpoint.
