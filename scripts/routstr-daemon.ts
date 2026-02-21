@@ -12,6 +12,18 @@ import {
 } from "@/sdk/storage/store";
 import { spawn } from "child_process";
 import { getDecodedToken } from "@cashu/cashu-ts";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+
+const REQUESTS_DIR = join(__dirname, "requests");
+
+async function ensureRequestsDir(): Promise<void> {
+  try {
+    await mkdir(REQUESTS_DIR, { recursive: true });
+  } catch (error) {
+    // Directory may already exist
+  }
+}
 
 function parseArgs(argv: string[]): {
   port: number;
@@ -137,6 +149,14 @@ function pickTokenLine(output: string): string {
   return lines[lines.length - 1] || "";
 }
 
+async function saveRequestBody(body: unknown): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `req-${timestamp}.json`;
+  const filepath = join(REQUESTS_DIR, filename);
+  await writeFile(filepath, JSON.stringify(body, null, 2));
+  return filename;
+}
+
 async function main(): Promise<void> {
   const { port, provider } = parseArgs(process.argv);
 
@@ -247,6 +267,9 @@ async function main(): Promise<void> {
         return;
       }
 
+      // const savedFilename = await saveRequestBody(requestBody);
+      // console.log(`[daemon] Request body saved to: ${savedFilename}`);
+
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
       console.log(`[daemon] Model: ${modelId}, Stream: ${bodyObj.stream}`);
@@ -266,7 +289,6 @@ async function main(): Promise<void> {
       console.log(`[daemon] Forced provider: ${forcedProvider || "none"}`);
 
       try {
-        console.log(`[daemon] Routing request to cheapest provider...`);
         const result = await routeRequests({
           modelId,
           requestBody,
@@ -279,6 +301,7 @@ async function main(): Promise<void> {
         });
 
         console.log(`[daemon] Request successful, provider: ${result.baseUrl}`);
+        console.log(`[daemon] Request successful, provider: ${result.response.body}`);
 
         res.writeHead(result.response.status, {
           "Content-Type": "application/json",
@@ -293,7 +316,8 @@ async function main(): Promise<void> {
     }
   );
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
+    await ensureRequestsDir();
     console.log(`Routstr daemon listening on http://localhost:${port}`);
   });
 }
