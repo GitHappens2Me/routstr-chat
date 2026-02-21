@@ -302,6 +302,7 @@ async function main(): Promise<void> {
         });
 
         console.log(`[daemon] Request successful, provider: ${result.baseUrl}`);
+        console.log(result.response.body);
 
         const isStream = bodyObj.stream === true;
         const responseHeaders = result.response.headers;
