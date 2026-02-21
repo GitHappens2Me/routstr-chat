@@ -1,4 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
+import { Readable } from "stream";
+import { ReadableStream as WebReadableStream } from "stream/web";
 import {
   routeRequests,
   createSdkStore,
@@ -290,7 +292,7 @@ async function main(): Promise<void> {
       console.log(`[daemon] Forced provider: ${forcedProvider || "none"}`);
 
       try {
-        const result = await routeRequests({
+        const response = await routeRequests({
           modelId,
           requestBody,
           forcedProvider,
@@ -301,40 +303,33 @@ async function main(): Promise<void> {
           modelManager,
         });
 
-        console.log(`[daemon] Request successful, provider: ${result.baseUrl}`);
-        console.log(result.response.body);
-
         const isStream = bodyObj.stream === true;
-        const responseHeaders = result.response.headers;
 
-        if (isStream && result.response.body instanceof ReadableStream) {
+        if (isStream) {
           console.log(`[daemon] Streaming response to client`);
-          res.writeHead(result.response.status, {
-            "Content-Type":
-              responseHeaders["content-type"] || "text/event-stream",
-            "Transfer-Encoding": "chunked",
-          });
+          // res.writeHead(response.status, {
+          //   "Content-Type":
+          //     response.headers.get("content-type") || "text/event-stream",
+          //   "Transfer-Encoding": "chunked",
+          // });
 
-          const reader = result.response.body.getReader();
-          const decoder = new TextDecoder();
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(decoder.decode(value, { stream: true }));
-            }
-          } finally {
-            reader.releaseLock();
+          const body = response.body;
+          if (body) {
+            const nodeReadable = Readable.fromWeb(
+              body as unknown as WebReadableStream
+            );
+            nodeReadable.pipe(res);
+          } else {
+            res.end();
           }
-          res.end();
           return;
         }
 
-        res.writeHead(result.response.status, {
+        const responseBody = await response.json();
+        res.writeHead(response.status, {
           "Content-Type": "application/json",
         });
-        res.end(JSON.stringify(result.response.body));
+        res.end(JSON.stringify(responseBody));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[daemon] Error: ${message}`);
