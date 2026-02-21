@@ -4,6 +4,7 @@ import {
   createSdkStore,
   createSqliteDriver,
   ModelManager,
+  InsufficientBalanceError,
 } from "@/sdk";
 import {
   createDiscoveryAdapterFromStore,
@@ -301,7 +302,33 @@ async function main(): Promise<void> {
         });
 
         console.log(`[daemon] Request successful, provider: ${result.baseUrl}`);
-        console.log(`[daemon] Request successful, provider: ${result.response.body}`);
+
+        const isStream = bodyObj.stream === true;
+        const responseHeaders = result.response.headers;
+
+        if (isStream && result.response.body instanceof ReadableStream) {
+          console.log(`[daemon] Streaming response to client`);
+          res.writeHead(result.response.status, {
+            "Content-Type":
+              responseHeaders["content-type"] || "text/event-stream",
+            "Transfer-Encoding": "chunked",
+          });
+
+          const reader = result.response.body.getReader();
+          const decoder = new TextDecoder();
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(decoder.decode(value, { stream: true }));
+            }
+          } finally {
+            reader.releaseLock();
+          }
+          res.end();
+          return;
+        }
 
         res.writeHead(result.response.status, {
           "Content-Type": "application/json",
@@ -310,6 +337,22 @@ async function main(): Promise<void> {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[daemon] Error: ${message}`);
+
+        if (error instanceof InsufficientBalanceError) {
+          res.writeHead(402, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: message,
+              error_type: "insufficient_balance",
+              required: error.required,
+              available: error.available,
+              maxMintBalance: error.maxMintBalance,
+              maxMintUrl: error.maxMintUrl,
+            })
+          );
+          return;
+        }
+
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: message }));
       }

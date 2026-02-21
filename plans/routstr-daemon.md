@@ -51,10 +51,11 @@ Document the current SDK-based routing flow that a localhost daemon will reuse. 
 - Required: `model` in request body to determine cheapest provider.
 - Optional: `provider` override via query string or header (format TBD).
 - Response: normalized JSON `{ content }` based on upstream `choices[0].message.content`.
+- Streaming: When `stream: true` is in request body, `routeRequests` returns a `ReadableStream` for the response body. The daemon must detect this and pipe it directly to the client response with `Transfer-Encoding: chunked`.
 - Errors: follow `fetchAIResponse`-style handling (refunds, provider failover, and user-safe error messages).
 
 ## Remaining Work
 
 - Implement the daemon HTTP server wrapper around `routeRequests`.
-- Add streaming proxy support (current SDK path forces `stream: false`).
+- Add streaming proxy support: detect `stream: true` in request body, handle `ReadableStream` response from SDK, and pipe to client with chunked transfer encoding.
 - Add provider override wiring and health endpoint.
