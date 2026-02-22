@@ -64,3 +64,4 @@ public/dev-cleanup.js
 
 routstr.sqlite
 *.sqlite
+audit.log

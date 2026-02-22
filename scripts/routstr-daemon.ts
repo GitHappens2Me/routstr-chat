@@ -241,8 +241,6 @@ async function main(): Promise<void> {
       const host = req.headers.host || "localhost";
       const url = new URL(req.url || "/", `http://${host}`);
 
-      console.log(`[daemon] ${req.method} ${url.pathname} - Request received`);
-
       if (req.method === "GET" && url.pathname === "/health") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
@@ -275,7 +273,6 @@ async function main(): Promise<void> {
 
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
-      console.log(`[daemon] Model: ${modelId}, Stream: ${bodyObj.stream}`);
 
       if (!modelId) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -288,8 +285,6 @@ async function main(): Promise<void> {
         (req.headers["x-routstr-provider"] as string | undefined) ||
         provider ||
         undefined;
-
-      console.log(`[daemon] Forced provider: ${forcedProvider || "none"}`);
 
       try {
         const response = await routeRequests({
@@ -306,7 +301,6 @@ async function main(): Promise<void> {
         const isStream = bodyObj.stream === true;
 
         if (isStream) {
-          console.log(`[daemon] Streaming response to client`);
           // res.writeHead(response.status, {
           //   "Content-Type":
           //     response.headers.get("content-type") || "text/event-stream",
