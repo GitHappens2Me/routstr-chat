@@ -46,6 +46,7 @@ async function main(): Promise<void> {
   const body = {
     model: "minimax-m2.5",
     messages: [{ role: "user", content: "hi" }],
+    // stream: true
   };
 
   console.log(`Sending ${NUM_REQUESTS} parallel requests...`);
