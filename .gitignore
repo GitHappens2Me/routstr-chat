@@ -67,3 +67,4 @@ routstr.sqlite
 audit.log
 
 dist
+package-lock.json

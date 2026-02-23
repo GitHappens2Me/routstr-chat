@@ -32,8 +32,8 @@ export function useApiKeysSync() {
   const hasActiveAccount = activeAccount !== undefined;
 
   // Subscribe to the generic config sync
-  const syncedApiKeys = useObservableState(apiKeys$, []);
-  const isLoadingApiKeys = useObservableState(configSyncLoading$, true);
+  const syncedApiKeys = useObservableState(apiKeys$);
+  const isLoadingApiKeys = useObservableState(configSyncLoading$);
 
   // Pending state for mutations
   const [isPending, setIsPending] = useState(false);
@@ -154,7 +154,7 @@ export function useApiKeysSync() {
       }
 
       // Get current keys and filter out the one to delete
-      const currentKeys = syncedApiKeys;
+      const currentKeys = syncedApiKeys ?? [];
       const updatedKeys = currentKeys.filter(
         (k: StoredApiKey) => k.key !== keyToDelete
       );

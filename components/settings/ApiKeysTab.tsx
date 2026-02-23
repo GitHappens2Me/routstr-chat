@@ -374,18 +374,15 @@ const ApiKeysTab = ({
   // Effect to manage API keys based on cloud sync setting
   useEffect(() => {
     if (cloudSyncEnabled && hasActiveAccount) {
+      const apiKeys = syncedApiKeys ?? [];
       // Only update if syncedApiKeys content actually changed
-      if (!areApiKeysEqual(prevSyncedApiKeysRef.current, syncedApiKeys)) {
-        setStoredApiKeys(syncedApiKeys);
-        prevSyncedApiKeysRef.current = syncedApiKeys;
+      if (!areApiKeysEqual(prevSyncedApiKeysRef.current, apiKeys)) {
+        setStoredApiKeys(apiKeys);
+        prevSyncedApiKeysRef.current = apiKeys;
       }
 
       // Auto-open inline create form if no keys exist after sync
-      if (
-        !isLoadingApiKeys &&
-        !isSyncingApiKeys &&
-        syncedApiKeys.length === 0
-      ) {
+      if (!isLoadingApiKeys && !isSyncingApiKeys && apiKeys.length === 0) {
         setShowInlineCreateForm(true);
       } else {
         setShowInlineCreateForm(false);
@@ -397,7 +394,7 @@ const ApiKeysTab = ({
       if (
         localKeys &&
         JSON.parse(localKeys).length > 0 &&
-        syncedApiKeys.length === 0
+        apiKeys.length === 0
       ) {
         toast.info("Migrating local API keys to cloud...");
         const parsedLocalKeys: StoredApiKey[] = JSON.parse(localKeys);
