@@ -18,6 +18,27 @@ import { getDecodedToken } from "@cashu/cashu-ts";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
+const MOCK_ERROR_CODES: Record<string, number> = {
+  // 'https://api.provider.com': 429,
+};
+
+if (process.env.NODE_ENV === "test" || process.env.MOCK_ERRORS) {
+  const originalFetch = global.fetch;
+  global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+    const urlStr = input instanceof Request ? input.url : input.toString();
+    for (const [providerUrl, errorCode] of Object.entries(MOCK_ERROR_CODES)) {
+      if (urlStr.includes(providerUrl)) {
+        console.log(`[MOCK] Returning ${errorCode} for ${urlStr}`);
+        return new Response(JSON.stringify({ error: `${errorCode} Error` }), {
+          status: errorCode,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+    return originalFetch(input, init);
+  };
+}
+
 const REQUESTS_DIR = join(__dirname, "requests");
 
 async function ensureRequestsDir(): Promise<void> {
