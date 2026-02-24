@@ -173,7 +173,7 @@ interface StorageAdapter {
   removeToken(baseUrl: string): void;
 
   /** Get all stored tokens as distribution (baseUrl -> amount) */
-  getPendingTokenDistribution(): Array<{ baseUrl: string; amount: number }>;
+  getCachedTokenDistribution(): Array<{ baseUrl: string; amount: number }>;
 }
 ```
 

@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   const storageAdapter = createStorageAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
 
-  const pendingDistribution = storageAdapter.getPendingTokenDistribution();
+  const pendingDistribution = storageAdapter.getCachedTokenDistribution();
 
   if (pendingDistribution.length === 0) {
     console.log("No pending tokens to refund");
