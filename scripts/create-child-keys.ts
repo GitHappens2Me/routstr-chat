@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     processed++;
 
     try {
-      const childKeys = await createChildKeys(baseUrl, apiKey, 5);
+      const childKeys = await createChildKeys(baseUrl, apiKey.key, 5);
 
       for (const childKeyData of childKeys) {
         storageAdapter.setChildKey(
