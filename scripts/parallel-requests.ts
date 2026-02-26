@@ -1,7 +1,7 @@
 import http from "http";
 
-const DAEMON_URL = "http://localhost:8008";
-const NUM_REQUESTS = 5;
+const DAEMON_URL = "http://localhost:8009";
+const NUM_REQUESTS = 2;
 
 async function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -44,7 +44,7 @@ async function sendRequest(body: object, index: number): Promise<void> {
 
 async function main(): Promise<void> {
   const body = {
-    model: "minimax-m2.5",
+    model: "qwen-2.5-7b-instruct",
     messages: [{ role: "user", content: "hi" }],
     // stream: true
   };
