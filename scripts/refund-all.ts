@@ -81,8 +81,9 @@ async function main(): Promise<void> {
   const providerRegistry = createProviderRegistryFromStore(store);
 
   const pendingDistribution = storageAdapter.getCachedTokenDistribution();
+  const apiKeysStored = storageAdapter.getApiKeyDistribution();
 
-  if (pendingDistribution.length === 0) {
+  if (pendingDistribution.length === 0 && apiKeysStored.length === 0) {
     console.log("No pending tokens to refund");
     return;
   }
@@ -92,7 +93,14 @@ async function main(): Promise<void> {
     console.log(`  - ${pending.baseUrl}: ${pending.amount} sats`);
   }
 
-  const refundBaseUrls = pendingDistribution.map((p) => p.baseUrl);
+  console.log(`Found ${apiKeysStored.length} apikeys:`);
+  for (const apikey of apiKeysStored) {
+    console.log(`  - ${apikey.baseUrl}: ${apikey.amount} sats`);
+  }
+
+  const refundBaseUrls = pendingDistribution
+    .map((p) => p.baseUrl)
+    .concat(apiKeysStored.map((p) => p.baseUrl));
 
   let mintUnits: Record<string, "sat" | "msat"> = {};
 
