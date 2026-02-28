@@ -238,7 +238,7 @@ async function main(): Promise<void> {
     },
     async receiveToken(
       token: string
-    ): Promise<{ success: boolean; amount: number; unit: "sat" | "msat" }> {
+    ): Promise<{ success: boolean; amount: number; unit: "sat" | "msat", message?: string }> {
       try {
         await runWalletCommand(["receive", "cashu", token]);
         const decoded = getDecodedToken(token);
@@ -250,7 +250,12 @@ async function main(): Promise<void> {
         return { success: true, amount: amount ?? 0, unit };
       } catch (error) {
         console.log("Eerro in receive", error);
-        return { success: false, amount: 0, unit: "sat" };
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const message = errorMessage.includes("Failed to fetch mint")
+          ? errorMessage
+          : undefined;
+        return { success: false, amount: 0, unit: "sat", message };
       }
     },
     isUsingNip60(): boolean {
