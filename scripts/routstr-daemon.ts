@@ -218,30 +218,40 @@ async function main(): Promise<void> {
       return activeMintUrl;
     },
     async sendToken(mintUrl: string, amount: number): Promise<string> {
-      const output = await runWalletCommand([
-        "send",
-        "cashu",
-        String(amount),
-        "--mint-url",
-        mintUrl,
-      ]);
-      const token = pickTokenLine(output);
-      if (!token) {
-        throw new Error("Wallet CLI did not return a token.");
+      try {
+        const output = await runWalletCommand([
+          "send",
+          "cashu",
+          String(amount),
+          "--mint-url",
+          mintUrl,
+        ]);
+        const token = pickTokenLine(output);
+        if (!token) {
+          throw new Error("Wallet CLI did not return a token.");
+        }
+        return token;
+      } catch (error) {
+        console.log("ERRORE IN WALLEWT ADP", error);
+        throw error;
       }
-      return token;
     },
     async receiveToken(
       token: string
     ): Promise<{ success: boolean; amount: number; unit: "sat" | "msat" }> {
-      await runWalletCommand(["receive", "cashu", token]);
-      const decoded = getDecodedToken(token);
-      const amount = decoded?.proofs?.reduce(
-        (sum, proof) => sum + proof.amount,
-        0
-      );
-      const unit = decoded?.unit === "msat" ? "msat" : "sat";
-      return { success: true, amount: amount ?? 0, unit };
+      try {
+        await runWalletCommand(["receive", "cashu", token]);
+        const decoded = getDecodedToken(token);
+        const amount = decoded?.proofs?.reduce(
+          (sum, proof) => sum + proof.amount,
+          0
+        );
+        const unit = decoded?.unit === "msat" ? "msat" : "sat";
+        return { success: true, amount: amount ?? 0, unit };
+      } catch (error) {
+        console.log("Eerro in receive", error);
+        return { success: false, amount: 0, unit: "sat" };
+      }
     },
     isUsingNip60(): boolean {
       return false;
