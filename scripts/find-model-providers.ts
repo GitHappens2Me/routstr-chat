@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   };
 
   logStep(`Starting lookup for model: ${modelId}`);
-  const store = createSdkStore({ driver: createSqliteDriver() });
+  const store = await createSdkStore({ driver: createSqliteDriver() });
   const adapter = createDiscoveryAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
 

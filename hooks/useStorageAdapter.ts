@@ -5,13 +5,25 @@
  * storage utilities (storageUtils.ts).
  */
 
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import type { StorageAdapter } from "@/sdk/wallet/interfaces";
 import { getDefaultStorageAdapter } from "@/sdk/storage";
 
 /**
  * Hook that creates a StorageAdapter for the SDK
  */
-export function useStorageAdapter(): StorageAdapter {
-  return useMemo(() => getDefaultStorageAdapter(), []);
+export function useStorageAdapter(): StorageAdapter | null {
+  const [adapter, setAdapter] = useState<StorageAdapter | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDefaultStorageAdapter().then((a) => {
+      if (!cancelled) setAdapter(a);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return adapter;
 }

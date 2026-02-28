@@ -76,7 +76,7 @@ function parseBalances(output: string): Record<string, number> {
 async function main(): Promise<void> {
   const mintUrl = process.argv[2] || "https://mint.minibits.cash/Bitcoin";
 
-  const store = createSdkStore({ driver: createSqliteDriver() });
+  const store = await createSdkStore({ driver: createSqliteDriver() });
   const storageAdapter = createStorageAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
 

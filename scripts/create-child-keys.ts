@@ -43,7 +43,7 @@ async function createChildKeys(
 }
 
 async function main(): Promise<void> {
-  const store = createSdkStore({ driver: createSqliteDriver() });
+  const store = await createSdkStore({ driver: createSqliteDriver() });
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);
 

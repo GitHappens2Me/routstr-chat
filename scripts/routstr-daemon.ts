@@ -184,7 +184,7 @@ async function saveRequestBody(body: unknown): Promise<string> {
 async function main(): Promise<void> {
   const { port, provider } = parseArgs(process.argv);
 
-  const store = createSdkStore({ driver: createSqliteDriver() });
+  const store = await createSdkStore({ driver: createSqliteDriver() });
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);

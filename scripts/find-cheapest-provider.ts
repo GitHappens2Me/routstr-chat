@@ -11,7 +11,7 @@ async function findCheapestProvider(): Promise<{
   baseUrl: string;
   price: number;
 } | null> {
-  const store = createSdkStore({ driver: createSqliteDriver() });
+  const store = await createSdkStore({ driver: createSqliteDriver() });
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
 
   const modelManager = new ModelManager(discoveryAdapter);
