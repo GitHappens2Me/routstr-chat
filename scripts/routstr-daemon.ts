@@ -238,7 +238,12 @@ async function main(): Promise<void> {
     },
     async receiveToken(
       token: string
-    ): Promise<{ success: boolean; amount: number; unit: "sat" | "msat", message?: string }> {
+    ): Promise<{
+      success: boolean;
+      amount: number;
+      unit: "sat" | "msat";
+      message?: string;
+    }> {
       try {
         await runWalletCommand(["receive", "cashu", token]);
         const decoded = getDecodedToken(token);
@@ -327,6 +332,7 @@ async function main(): Promise<void> {
           modelId,
           requestBody,
           forcedProvider,
+          debugLevel: "DEBUG",
           walletAdapter,
           storageAdapter,
           providerRegistry,
