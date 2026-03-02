@@ -281,8 +281,14 @@ export const useApiState = (
       let modelToSelect: Model | null = null;
       const urlModelId = searchParams.get("model");
       if (urlModelId) {
+        const decodedUrlModelId = decodeURIComponent(urlModelId).trim();
+        const shortUrlModelId =
+          decodedUrlModelId.split("/").pop() || decodedUrlModelId;
         modelToSelect =
-          combinedModels.find((m: Model) => m.id === urlModelId) || null;
+          combinedModels.find(
+            (m: Model) =>
+              m.id === decodedUrlModelId || m.id === shortUrlModelId
+          ) || null;
       }
       const lastUsedModelId = loadLastUsedModel();
       if (!modelToSelect) {
