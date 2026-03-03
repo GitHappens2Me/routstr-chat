@@ -1,7 +1,7 @@
 import http from "http";
 
 const DAEMON_URL = "http://localhost:8009";
-const NUM_REQUESTS = 1;
+const NUM_REQUESTS = 2;
 
 async function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
