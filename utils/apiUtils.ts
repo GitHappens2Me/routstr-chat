@@ -235,14 +235,36 @@ async function routstrRequest(params: {
       message.includes("Load failed");
 
     if (isNetworkError) {
-      const refundStatus = await unifiedRefund(
-        mintUrl,
-        baseUrl,
-        usingNip60,
-        storeCashu
-      );
-      if (!refundStatus.success) {
-        await logApiErrorForRefund(refundStatus, baseUrl, onMessageAppend);
+      const storedToken = getLocalCashuToken(baseUrl);
+      let shouldAttemptUnifiedRefund = true;
+
+      if (storedToken) {
+        try {
+          await storeCashu(storedToken);
+          shouldAttemptUnifiedRefund = false;
+        } catch (receiveError) {
+          if (
+            receiveError instanceof Error &&
+            receiveError.message.includes("Token already spent")
+          ) {
+            shouldAttemptUnifiedRefund = true;
+          } else {
+            console.error("Error receiving token:", receiveError);
+            shouldAttemptUnifiedRefund = true;
+          }
+        }
+      }
+
+      if (shouldAttemptUnifiedRefund) {
+        const refundStatus = await unifiedRefund(
+          mintUrl,
+          baseUrl,
+          usingNip60,
+          storeCashu
+        );
+        if (!refundStatus.success) {
+          await logApiErrorForRefund(refundStatus, baseUrl, onMessageAppend);
+        }
       }
 
       // Mark current provider as failed and try the next best one
