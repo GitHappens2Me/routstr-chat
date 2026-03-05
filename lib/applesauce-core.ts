@@ -13,7 +13,7 @@ import { getEventDatabaseInstance } from "./eventDatabase";
 const eventDatabase = getEventDatabaseInstance();
 
 // Central event storage with persistent database backend
-export const eventStore = new EventStore(eventDatabase);
+export const eventStore = new EventStore({ database: eventDatabase });
 
 // Relay pool for managing connections
 export const relayPool = new RelayPool();
