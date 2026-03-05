@@ -246,7 +246,7 @@ export function useAutoRefill({
       ) {
         if (!isInCooldown(apiSettings.lastTopupAt)) {
           // Find the configured API key in synced keys
-          const targetApiKey = syncedApiKeys.find(
+          const targetApiKey = (syncedApiKeys ?? []).find(
             (k) => k.key === apiSettings.apiKey
           );
 

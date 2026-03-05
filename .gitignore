@@ -61,3 +61,10 @@ public/fallback-*.js
 # Development cleanup files
 scripts/clean-sw.js
 public/dev-cleanup.js
+
+routstr.sqlite
+*.sqlite
+audit.log
+
+dist
+package-lock.json

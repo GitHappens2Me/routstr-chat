@@ -120,8 +120,8 @@ const AutoRefillSettings: React.FC<AutoRefillSettingsProps> = ({
   const effectiveApiKeys =
     apiKeys.length > 0
       ? apiKeys
-      : syncedApiKeys.length > 0
-        ? syncedApiKeys
+      : (syncedApiKeys ?? []).length > 0
+        ? (syncedApiKeys ?? [])
         : loadedApiKeys;
   const validApiKeys = effectiveApiKeys.filter((k) => !k.isInvalid);
 

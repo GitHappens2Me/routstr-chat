@@ -22,7 +22,8 @@
     "test:e2e:onboarding": "playwright test tests/e2e/onboarding.spec.ts",
     "test:e2e:features": "playwright test tests/e2e/basic-features.spec.ts",
     "test:e2e:headed": "playwright test --headed --workers=1",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "test:sdk": "vitest run"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^3.1.1",
@@ -39,13 +40,13 @@
     "@radix-ui/react-tabs": "^1.1.11",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/react-query": "^5.80.6",
-    "applesauce-accounts": "^4.1.0",
-    "applesauce-core": "^4.1.0",
-    "applesauce-factory": "^4.0.0",
-    "applesauce-loaders": "^4.0.0",
-    "applesauce-react": "^4.0.0",
-    "applesauce-relay": "^4.1.0",
-    "applesauce-signers": "^4.1.0",
+    "applesauce-accounts": "^5.1.0",
+    "applesauce-common": "^5.1.0",
+    "applesauce-core": "^5.1.0",
+    "applesauce-loaders": "^5.1.0",
+    "applesauce-react": "^5.1.0",
+    "applesauce-relay": "^5.1.0",
+    "applesauce-signers": "^5.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -80,6 +81,9 @@
     "workbox-window": "^7.1.0",
     "zustand": "^5.0.5"
   },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.7.2"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.56.1",
@@ -97,7 +101,9 @@
     "playwright": "^1.56.1",
     "prettier": "^3.7.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   },
   "msw": {
     "workerDirectory": [

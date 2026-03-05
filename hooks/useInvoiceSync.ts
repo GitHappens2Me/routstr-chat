@@ -56,9 +56,9 @@ export function useInvoiceSync() {
   const activeAccount = useObservableState(manager.active$);
 
   // Subscribe to the generic config sync
-  const cloudInvoices = useObservableState(invoices$, []);
-  const isLoading = useObservableState(configSyncLoading$, true);
-  const syncEose = useObservableState(configSyncEose$, false);
+  const cloudInvoices = useObservableState(invoices$);
+  const isLoading = useObservableState(configSyncLoading$);
+  const syncEose = useObservableState(configSyncEose$);
 
   // Pending state for mutations
   const [isPending, setIsPending] = useState(false);
@@ -164,7 +164,7 @@ export function useInvoiceSync() {
     const mergedMap = new Map<string, StoredInvoice>();
 
     // Add all cloud invoices
-    cloudInvoices.forEach((inv) => mergedMap.set(inv.id, inv));
+    (cloudInvoices ?? []).forEach((inv) => mergedMap.set(inv.id, inv));
 
     // Add/update with local invoices (local takes precedence for newer data)
     localInvoices.forEach((inv) => {
