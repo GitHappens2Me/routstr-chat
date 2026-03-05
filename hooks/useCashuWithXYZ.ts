@@ -47,23 +47,23 @@ export interface SpendCashuResult {
 export function useCashuWithXYZ() {
   // Balance and wallet state
   const [balance, setBalance] = useState(0);
-  
+
   // Ref to track critical spending section to prevent accidental refresh
   const isSpendingCritical = useRef(false);
-  
+
   // Set up beforeunload listener to warn user during critical spending operation
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isSpendingCritical.current) {
         e.preventDefault();
-        e.returnValue = '';
-        return '';
+        e.returnValue = "";
+        return "";
       }
     };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
   const [maxBalance, setMaxBalance] = useState(0);
@@ -331,9 +331,16 @@ export function useCashuWithXYZ() {
     excludeMints: string[] = [],
     retryCount: number = 0
   ): Promise<SpendCashuResult> => {
+    const getLatestMintBalances = async () => {
+      const latestState = useCashuStore.getState();
+      const latestProofs = await latestState.getAllProofs();
+      return calculateBalanceByMint(latestProofs, latestState.mints);
+    };
+
     // Read latest balances/units from store to avoid stale closure
-    let latestMintBalances = mintBalances;
-    let latestMintUnits = mintUnits;
+    const latestInitial = await getLatestMintBalances();
+    let latestMintBalances = latestInitial.balances;
+    let latestMintUnits = latestInitial.units;
     // Check if amount is a decimal and round up if necessary
     let adjustedAmount = amount;
     if (amount % 1 !== 0) {
@@ -383,11 +390,10 @@ export function useCashuWithXYZ() {
     let nip60Balance = 0;
     const localBalance = getBalanceFromStoredProofs();
     if (retryCount > 0) {
-      // If retrying, get the latest proofs from the store
-      const proofs = await cashuStore.getAllProofs();
-      const result = calculateBalanceByMint(proofs, cashuStore.mints);
-      latestMintBalances = result.balances;
-      latestMintUnits = result.units;
+      // If retrying, force a fresh balance read from store
+      const latest = await getLatestMintBalances();
+      latestMintBalances = latest.balances;
+      latestMintUnits = latest.units;
     }
 
     for (const mintUrl in latestMintBalances) {
@@ -410,11 +416,9 @@ export function useCashuWithXYZ() {
 
     // If totalBalance is 0, refetch latest balances from store and recalculate
     if (totalBalance < adjustedAmount) {
-      const proofs = await cashuStore.getAllProofs();
-      console.log(proofs);
-      const result = calculateBalanceByMint(proofs, cashuStore.mints);
-      latestMintBalances = result.balances;
-      latestMintUnits = result.units;
+      const latest = await getLatestMintBalances();
+      latestMintBalances = latest.balances;
+      latestMintUnits = latest.units;
       console.log("Lat", latestMintBalances);
 
       nip60Balance = 0;

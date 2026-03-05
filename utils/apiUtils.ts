@@ -636,7 +636,8 @@ export const fetchAIResponse = async (
       const modifiedErrorMsg =
         error.message.includes("Error in input stream") ||
         error.message.includes("Load failed")
-          ? "AI stream was cut off, turn on Keep Active or please try again"
+          ? "AI stream was cut off, turn on Keep Active or please try again" +
+            (isDev || isBeta ? " | " + error.message + error.stack : "")
           : error.message;
 
       const errorMsg =
