@@ -2,11 +2,16 @@
   "name": "routstr-chat",
   "version": "0.2.1",
   "private": true,
+  "workspaces": [
+    "sdk"
+  ],
   "scripts": {
     "dev": "next dev",
     "dev:clean": "npm run clean:sw && next dev",
     "clean:sw": "node -e \"if (typeof window !== 'undefined') { navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(reg => reg.unregister())) }\" || echo 'SW cleanup completed'",
     "build": "next build",
+    "build:all": "npm run -w @routstr/sdk build && npm run build",
+    "build:sdk": "npm run -w @routstr/sdk build",
     "start": "npx --yes serve -s out -l 3000",
     "lint": "next lint",
     "format": "prettier --write .",
@@ -23,7 +28,8 @@
     "test:e2e:features": "playwright test tests/e2e/basic-features.spec.ts",
     "test:e2e:headed": "playwright test --headed --workers=1",
     "test:e2e:debug": "playwright test --debug",
-    "test:sdk": "vitest run"
+    "test:sdk": "vitest run",
+    "typecheck:sdk": "npm run -w @routstr/sdk typecheck"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^3.1.1",
