@@ -184,6 +184,7 @@ export function useCashuToken() {
         if (
           message.includes("Not enough funds available") ||
           message.includes("Token already spent") ||
+          message.includes("proofs already spent") ||
           message.includes("Not enough balance to send")
         ) {
           console.log(
