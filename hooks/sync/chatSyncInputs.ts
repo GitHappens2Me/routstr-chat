@@ -9,6 +9,7 @@ import type { NostrEvent } from "nostr-tools";
 
 // Storage key for chat sync enabled (shared with [`hooks/useChatSync.ts`](hooks/useChatSync.ts:1))
 const CHAT_SYNC_ENABLED_KEY = "chatSyncEnabled";
+const WOT_PUBKEY_KEY = "wotPubkey";
 
 // Reactive chat sync enabled state - reads from localStorage
 export const chatSyncEnabled$ = new BehaviorSubject<boolean>(
@@ -23,12 +24,21 @@ export function updateChatSyncEnabled(enabled: boolean) {
   chatSyncEnabled$.next(enabled);
 }
 
+export function updateWotPubkey(pubkey: string | null) {
+  wotPubkey$.next(pubkey);
+}
+
 // Listen for storage events from other tabs (only in browser)
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e: StorageEvent) => {
     if (e.key === CHAT_SYNC_ENABLED_KEY) {
       const newValue = e.newValue ? JSON.parse(e.newValue) : true;
       chatSyncEnabled$.next(newValue);
+    }
+
+    if (e.key === WOT_PUBKEY_KEY) {
+      const newValue = e.newValue ? JSON.parse(e.newValue) : null;
+      wotPubkey$.next(newValue);
     }
   });
 }
@@ -48,6 +58,18 @@ export const relayUrlsDefined$ = relayUrls$.pipe(
 export const userPubkey$ = new BehaviorSubject<string | null>(null);
 export const userPubkeyDefined$ = userPubkey$.pipe(
   filter((pubkey): pubkey is string => pubkey !== null),
+  distinctUntilChanged(),
+  shareReplay(1)
+);
+
+// Optional WoT pubkey override for config sync reads
+export const wotPubkey$ = new BehaviorSubject<string | null>(
+  typeof window !== "undefined"
+    ? getStorageItem<string | null>(WOT_PUBKEY_KEY, null)
+    : null
+);
+export const wotPubkeyDefined$ = wotPubkey$.pipe(
+  filter((pubkey): pubkey is string => pubkey !== null && pubkey.length > 0),
   distinctUntilChanged(),
   shareReplay(1)
 );
@@ -81,4 +103,3 @@ export const userSignerDefined$ = userSigner$.pipe(
   distinctUntilChanged((prev, curr) => prev.pubkey === curr.pubkey),
   shareReplay(1)
 );
-

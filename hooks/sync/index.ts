@@ -31,6 +31,7 @@ export { publishConfig, deleteConfig, canPublish } from "./configPublish";
 // Decrypted config observables
 export {
   createConfigObservable,
+  activeConfigPubkey$,
   apiKeys$,
   invoices$,
   configSyncLoading$,
@@ -43,12 +44,19 @@ export {
   relayUrlsDefined$,
   userPubkey$,
   userPubkeyDefined$,
+  wotPubkey$,
+  wotPubkeyDefined$,
   userSigner$,
   userSignerDefined$,
   chatSyncEnabled$,
   updateChatSyncEnabled,
+  updateWotPubkey,
   type UserSignerInfo,
 } from "./chatSyncInputs";
 
 // Existing sync modules (for backwards compatibility)
-export { sync1081Event$, derivedPnsKeys$, derivedPnsPubkeys$ } from "./sync1081Keyring";
+export {
+  sync1081Event$,
+  derivedPnsKeys$,
+  derivedPnsPubkeys$,
+} from "./sync1081Keyring";

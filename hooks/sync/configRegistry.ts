@@ -30,7 +30,9 @@ export interface ConfigTypeDefinition<T = unknown> {
 /**
  * Helper to create a type-safe config definition
  */
-function defineConfig<T>(config: ConfigTypeDefinition<T>): ConfigTypeDefinition<T> {
+function defineConfig<T>(
+  config: ConfigTypeDefinition<T>
+): ConfigTypeDefinition<T> {
   return config;
 }
 
@@ -83,6 +85,27 @@ export const CONFIG_TYPES = {
     },
     defaultValue: [],
   }),
+
+  THEME: defineConfig<StoredInvoice[]>({
+    id: "theme",
+    kind: KINDS.ARBITRARY_APP_DATA, // 30078
+    dTag: "routstr-chat-invoices-v1",
+    encrypted: true,
+    parseContent: (data: unknown): StoredInvoice[] | null => {
+      if (!Array.isArray(data)) return null;
+      // Basic validation - ensure each item has required fields
+      const valid = data.every(
+        (item) =>
+          typeof item === "object" &&
+          item !== null &&
+          "id" in item &&
+          "type" in item &&
+          "quoteId" in item
+      );
+      return valid ? (data as StoredInvoice[]) : null;
+    },
+    defaultValue: [],
+  }),
 } as const;
 
 /**
@@ -94,7 +117,8 @@ export type ConfigDataType<T extends ConfigTypeDefinition> =
 /**
  * Union type of all config type IDs
  */
-export type ConfigTypeId = (typeof CONFIG_TYPES)[keyof typeof CONFIG_TYPES]["id"];
+export type ConfigTypeId =
+  (typeof CONFIG_TYPES)[keyof typeof CONFIG_TYPES]["id"];
 
 /**
  * Get all config definitions as an array
@@ -106,7 +130,9 @@ export function getAllConfigTypes(): ConfigTypeDefinition[] {
 /**
  * Get a config definition by its ID
  */
-export function getConfigTypeById(id: string): ConfigTypeDefinition | undefined {
+export function getConfigTypeById(
+  id: string
+): ConfigTypeDefinition | undefined {
   return getAllConfigTypes().find((config) => config.id === id);
 }
 

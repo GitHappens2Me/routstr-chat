@@ -8,7 +8,6 @@
  */
 
 import {
-  BehaviorSubject,
   combineLatest,
   filter,
   switchMap,
@@ -17,15 +16,14 @@ import {
   of,
   shareReplay,
   distinctUntilChanged,
-  merge,
   startWith,
 } from "rxjs";
 import type { Observable } from "rxjs";
 import type { NostrEvent } from "nostr-tools";
-import { eventStore } from "@/lib/applesauce-core";
 import {
   userPubkeyDefined$,
   userSignerDefined$,
+  wotPubkey$,
   type UserSignerInfo,
 } from "./chatSyncInputs";
 import {
@@ -49,8 +47,13 @@ const log = (...args: unknown[]) =>
  * @returns An observable that emits decrypted config data
  */
 export function createConfigObservable<T>(
-  configDef: ConfigTypeDefinition<T>
+  configDef: ConfigTypeDefinition<T>,
+  options?: {
+    wotPubkey$?: Observable<string>;
+  }
 ): Observable<T> {
+  const activePubkey$ = options?.wotPubkey$ ?? userPubkeyDefined$;
+
   // Create a trigger for when this specific config type receives an event
   const configUpdated$ = configEventReceived$.pipe(
     filter((event) => {
@@ -62,7 +65,7 @@ export function createConfigObservable<T>(
 
   return combineLatest([
     userSignerDefined$,
-    userPubkeyDefined$,
+    activePubkey$,
     configSyncEose$,
     configUpdated$,
   ]).pipe(
@@ -92,14 +95,34 @@ export function createConfigObservable<T>(
         const validated = configDef.parseContent(parsed);
         return of(validated ?? configDef.defaultValue);
       } catch (err) {
-        console.error(`[configObservables] Failed to parse ${configDef.id}:`, err);
+        console.error(
+          `[configObservables] Failed to parse ${configDef.id}:`,
+          err
+        );
         return of(configDef.defaultValue);
       }
     }),
-    distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
+    distinctUntilChanged(
+      (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)
+    ),
     shareReplay(1)
   );
 }
+
+/**
+ * Active pubkey for reading config: WoT override (if present) or signed-in user pubkey.
+ */
+export const activeConfigPubkey$ = combineLatest([
+  userPubkeyDefined$,
+  wotPubkey$,
+]).pipe(
+  map(([userPubkey, wotPubkey]) => {
+    const trimmed = wotPubkey?.trim();
+    return trimmed ? trimmed : userPubkey;
+  }),
+  distinctUntilChanged(),
+  shareReplay(1)
+);
 
 /**
  * Helper to decrypt and parse a config event
@@ -122,7 +145,10 @@ async function decryptConfig<T>(
     log(`Successfully decrypted ${configDef.id}`);
     return validated;
   } catch (err) {
-    console.error(`[configObservables] Failed to decrypt ${configDef.id}:`, err);
+    console.error(
+      `[configObservables] Failed to decrypt ${configDef.id}:`,
+      err
+    );
     return configDef.defaultValue;
   }
 }
@@ -142,6 +168,12 @@ export const apiKeys$ = createConfigObservable(CONFIG_TYPES.API_KEYS);
  * Emits decrypted array of StoredInvoice
  */
 export const invoices$ = createConfigObservable(CONFIG_TYPES.INVOICES);
+
+/**
+ * Observable for Invoices config
+ * Emits decrypted array of StoredInvoice
+ */
+export const theme$ = createConfigObservable(CONFIG_TYPES.INVOICES);
 
 // ============================================================================
 // Loading state observables

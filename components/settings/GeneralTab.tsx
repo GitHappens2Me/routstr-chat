@@ -9,9 +9,12 @@ import NWCWalletManager from "./NWCWalletManager"; // Import the NWC wallet mana
 import AutoRefillSettings from "./AutoRefillSettings"; // Import auto-refill settings
 import ThemeSettings from "./ThemeSettings"; // Import theme settings
 import { useChatSync } from "@/hooks/useChatSync";
+import { updateWotPubkey } from "@/hooks/sync";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
 import {
+  getStorageItem,
+  setStorageItem,
   loadAutoDeleteConversations,
   saveAutoDeleteConversations,
   loadKeepAliveEnabled,
@@ -31,9 +34,12 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   onClose,
   // Model configuration moved to Models tab
 }) => {
+  const WOT_PUBKEY_KEY = "wotPubkey";
+
   // Model configuration moved to Models tab
   const [showNsecWarning, setShowNsecWarning] = useState<boolean>(false);
   const [newNsec, setNewNsec] = useState<string>("");
+  const [wotPubkeyInput, setWotPubkeyInput] = useState<string>("");
 
   const toast = (message: string) => {
     alert(message); // Placeholder for a proper toast notification
@@ -49,7 +55,37 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   useEffect(() => {
     setAutoDeleteEnabled(loadAutoDeleteConversations());
     setKeepAliveEnabled(loadKeepAliveEnabled());
+    setWotPubkeyInput(
+      getStorageItem<string | null>(WOT_PUBKEY_KEY, null) ?? ""
+    );
   }, []);
+
+  const normalizeWotPubkey = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+      return trimmed.toLowerCase();
+    }
+
+    try {
+      const decoded = nip19.decode(trimmed);
+      if (decoded.type === "npub") {
+        return decoded.data as string;
+      }
+    } catch {
+      // Keep raw input for unsupported formats
+    }
+
+    return trimmed;
+  };
+
+  const handleWotPubkeyBlur = () => {
+    const normalized = normalizeWotPubkey(wotPubkeyInput);
+    setWotPubkeyInput(normalized ?? "");
+    setStorageItem(WOT_PUBKEY_KEY, normalized);
+    updateWotPubkey(normalized);
+  };
 
   useEffect(() => {
     if (localStorage.getItem("nsec_storing_skipped") === "true") {
@@ -164,6 +200,27 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                 setAutoDeleteEnabled(checked);
                 saveAutoDeleteConversations(checked);
               }}
+            />
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <div className="text-sm text-foreground/70">WoT Npub/Pubkey</div>
+            <div className="text-xs text-muted-foreground mt-1 mb-2">
+              Optional override for config sync reads; accepts `npub` or hex
+              pubkey
+            </div>
+            <input
+              type="text"
+              value={wotPubkeyInput}
+              onChange={(e) => setWotPubkeyInput(e.target.value)}
+              onBlur={handleWotPubkeyBlur}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="npub1... or 64-char hex"
             />
           </div>
         </div>
