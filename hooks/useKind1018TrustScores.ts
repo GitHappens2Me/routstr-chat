@@ -25,15 +25,24 @@ export function useKind1018TrustScores() {
 
   useEffect(() => {
     if (config.relayUrls.length > 0) {
+      console.log(
+        "[useKind1018TrustScores] Updating relay URLs:",
+        config.relayUrls
+      );
       relayUrls$.next(config.relayUrls);
     }
   }, [config.relayUrls]);
 
   useEffect(() => {
+    console.log(
+      "[useKind1018TrustScores] Updating active pubkey:",
+      activeAccount?.pubkey ?? null
+    );
     userPubkey$.next(activeAccount?.pubkey ?? null);
   }, [activeAccount?.pubkey]);
 
   useEffect(() => {
+    console.log("[useKind1018TrustScores] Setting kind 1018 eTag");
     updateKind1018ETag(
       "2117b770e05d5f729ed125919514f8552e50df9c3833dec5cf5e99943088865e"
     );
@@ -41,12 +50,22 @@ export function useKind1018TrustScores() {
 
   useEffect(() => {
     const syncSub = kind1018Sync$.subscribe({
+      next: (event) => {
+        console.log("[useKind1018TrustScores] kind 1018 sync next:", event);
+      },
       error: (err) => {
         console.error("[useKind1018TrustScores] kind 1018 sync error:", err);
       },
     });
 
     const eventsSub = kind1018Events$.subscribe({
+      next: (events) => {
+        console.log(
+          "[useKind1018TrustScores] kind 1018 events next:",
+          events.length,
+          events
+        );
+      },
       error: (err) => {
         console.error("[useKind1018TrustScores] kind 1018 events error:", err);
       },
@@ -62,6 +81,18 @@ export function useKind1018TrustScores() {
     () => trustScores.reduce((sum, score) => sum + score.score, 0),
     [trustScores]
   );
+
+  useEffect(() => {
+    console.log("[useKind1018TrustScores] eose state:", eose);
+  }, [eose]);
+
+  useEffect(() => {
+    console.log("[useKind1018TrustScores] trust scores:", trustScores);
+  }, [trustScores]);
+
+  useEffect(() => {
+    console.log("[useKind1018TrustScores] total trust score:", totalTrustScore);
+  }, [totalTrustScore]);
 
   return {
     trustScores,

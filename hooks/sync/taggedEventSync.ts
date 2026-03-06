@@ -23,13 +23,13 @@ import {
 } from "rxjs";
 import type { NostrEvent, Filter as NostrFilter } from "nostr-tools";
 import { eventStore, relayPool } from "@/lib/applesauce-core";
-import { relayUrlsDefined$, userPubkeyDefined$ } from "./chatSyncInputs";
+import { relayUrlsDefined$ } from "./chatSyncInputs";
 import {
   RoutstrChatClient,
   type CalculateTrustScoresOutput,
 } from "@/src/ctxcn/RoutstrChatClient";
 
-const DEBUG = false;
+const DEBUG = true;
 const log = (...args: unknown[]) =>
   DEBUG && console.log("[taggedEventSync]", ...args);
 
@@ -43,16 +43,21 @@ function getRoutstrClient(): RoutstrChatClient {
 }
 
 async function logKind1018TrustScores(events: NostrEvent[]): Promise<void> {
+  log("Calculating trust scores from events:", events.length, events);
   const targetPubkeys = Array.from(
     new Set(events.map((event) => event.pubkey).filter(Boolean))
   );
 
+  log("Target pubkeys for trust scores:", targetPubkeys);
+
   if (targetPubkeys.length === 0) {
+    log("No target pubkeys found, resetting trust scores");
     kind1018TrustScores$.next([]);
     return;
   }
 
   try {
+    log("Calling CalculateTrustScores for pubkeys:", targetPubkeys);
     const { trustScores } =
       await getRoutstrClient().CalculateTrustScores(targetPubkeys);
 
@@ -74,6 +79,7 @@ export const KIND_1018 = 1018;
 export const kind1018ETag$ = new BehaviorSubject<string | null>(null);
 
 export function updateKind1018ETag(eTag: string | null): void {
+  log("Updating kind 1018 eTag:", eTag);
   kind1018ETag$.next(eTag);
 }
 
@@ -91,10 +97,9 @@ export const kind1018TrustScores$ = new BehaviorSubject<
   CalculateTrustScoresOutput["trustScores"]
 >([]);
 
-function buildKind1018Filter(pubkey: string, eTag: string | null): NostrFilter {
+function buildKind1018Filter(eTag: string | null): NostrFilter {
   const filter: NostrFilter = {
     kinds: [KIND_1018],
-    authors: [pubkey],
   };
 
   if (eTag && eTag.length > 0) {
@@ -106,21 +111,26 @@ function buildKind1018Filter(pubkey: string, eTag: string | null): NostrFilter {
 }
 
 export const kind1018Sync$ = combineLatest([
-  userPubkeyDefined$,
   relayUrlsDefined$,
   kind1018ETag$.pipe(distinctUntilChanged()),
 ]).pipe(
-  tap(() => {
+  tap(([relays, eTag]) => {
     kind1018SyncEose$.next(false);
-    log("Starting kind 1018 sync");
+    log("Starting kind 1018 sync", {
+      relayCount: relays.length,
+      eTag,
+    });
   }),
-  switchMap(([pubkey, relays, eTag]) => {
-    const filter = buildKind1018Filter(pubkey, eTag);
+  switchMap(([relays, eTag]) => {
+    const filter = buildKind1018Filter(eTag);
+    log("Subscribing to relays with filter", { relays, filter });
 
     return relayPool.subscription(relays, filter).pipe(
       mergeMap((value: unknown) => {
+        log("kind1018 subscription emitted value:", value);
         if (value === "EOSE") {
           kind1018SyncEose$.next(true);
+          log("Received EOSE for kind 1018 sync");
           return EMPTY;
         }
 
@@ -131,6 +141,12 @@ export const kind1018Sync$ = combineLatest([
           typeof event === "object" && event !== null && "id" in event
       ),
       tap((event) => {
+        log("Received kind 1018 event", {
+          id: event.id,
+          pubkey: event.pubkey,
+          created_at: event.created_at,
+          tags: event.tags,
+        });
         eventStore.add(event);
         kind1018EventReceived$.next(event);
       }),
@@ -147,13 +163,9 @@ export const kind1018Sync$ = combineLatest([
 /**
  * Read all kind-1018 events from local eventStore using tag filter.
  */
-export function getKind1018Events(
-  pubkey: string,
-  eTag: string | null
-): NostrEvent[] {
+export function getKind1018Events(eTag: string | null): NostrEvent[] {
   const filter: NostrFilter = {
     kinds: [KIND_1018],
-    authors: [pubkey],
   };
 
   if (eTag && eTag.length > 0) {
@@ -167,13 +179,28 @@ export function getKind1018Events(
  * Reactive observable that emits all matching events from eventStore.
  */
 export const kind1018Events$ = combineLatest([
-  userPubkeyDefined$,
   kind1018ETag$,
   kind1018SyncEose$,
   kind1018EventReceived$.pipe(startWith(null as NostrEvent | null)),
 ]).pipe(
-  rxFilter(([_pubkey, _eTag, eose]) => eose),
-  map(([pubkey, eTag]) => getKind1018Events(pubkey, eTag)),
+  tap(([eTag, eose, lastEvent]) => {
+    log("kind1018Events$ combineLatest emission", {
+      eTag,
+      eose,
+      lastEventId: lastEvent?.id ?? null,
+    });
+  }),
+  rxFilter(([_eTag, eose]) => eose),
+  tap(([eTag]) => {
+    log("kind1018Events$ passed EOSE filter", { eTag });
+  }),
+  map(([eTag]) => getKind1018Events(eTag)),
+  tap((events) => {
+    log("kind1018Events$ fetched from eventStore", {
+      count: events.length,
+      eventIds: events.map((event) => event.id),
+    });
+  }),
   distinctUntilChanged(
     (prev, curr) =>
       prev.length === curr.length &&
