@@ -43,9 +43,19 @@ function getRoutstrClient(): RoutstrChatClient {
 }
 
 async function logKind1018TrustScores(events: NostrEvent[]): Promise<void> {
-  log("Calculating trust scores from events:", events.length, events);
+  const responseEvents = events.filter((event) =>
+    event.tags.some(
+      (tag) => Array.isArray(tag) && tag[0] === "response" && !!tag[1]
+    )
+  );
+
+  log(
+    "Calculating trust scores from response events:",
+    responseEvents.length,
+    responseEvents
+  );
   const targetPubkeys = Array.from(
-    new Set(events.map((event) => event.pubkey).filter(Boolean))
+    new Set(responseEvents.map((event) => event.pubkey).filter(Boolean))
   );
 
   log("Target pubkeys for trust scores:", targetPubkeys);

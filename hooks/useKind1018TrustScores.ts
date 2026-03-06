@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useObservableState } from "applesauce-react/hooks";
+import type { NostrEvent } from "nostr-tools";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useAppContext } from "@/hooks/useAppContext";
 import type { CalculateTrustScoresOutput } from "@/src/ctxcn/RoutstrChatClient";
@@ -13,10 +14,93 @@ import {
   userPubkey$,
 } from "@/hooks/sync";
 
+const THEME_POLL_EVENT_ID =
+  "2117b770e05d5f729ed125919514f8552e50df9c3833dec5cf5e99943088865e";
+
+const THEME_OPTION_IDS = {
+  light: "DvlMq6JNF",
+  dark: "w0H9IdDsU",
+  solar: "3BsI7Itoi",
+} as const;
+
+const THEME_OPTION_ORDER = ["light", "dark", "solar"] as const;
+
+type ThemeOptionId = (typeof THEME_OPTION_ORDER)[number];
+
+type ThemeVoteStats = {
+  optionId: string;
+  count: number;
+  trustScore: number;
+};
+
+type ThemeVoteStatsByTheme = Record<ThemeOptionId, ThemeVoteStats>;
+
+function extractResponseOptionId(event: NostrEvent): string | null {
+  const responseTag = event.tags.find(
+    (tag) => Array.isArray(tag) && tag[0] === "response" && !!tag[1]
+  );
+
+  return responseTag?.[1] ?? null;
+}
+
+function calculateThemeVoteStats(
+  events: NostrEvent[],
+  trustScores: CalculateTrustScoresOutput["trustScores"]
+): ThemeVoteStatsByTheme {
+  const scoreByPubkey = new Map<string, number>();
+  for (const score of trustScores) {
+    scoreByPubkey.set(score.targetPubkey, score.score);
+  }
+
+  const latestVoteByPubkey = new Map<string, NostrEvent>();
+
+  for (const event of events) {
+    const optionId = extractResponseOptionId(event);
+    if (!optionId) continue;
+
+    const existing = latestVoteByPubkey.get(event.pubkey);
+    if (!existing) {
+      latestVoteByPubkey.set(event.pubkey, event);
+      continue;
+    }
+
+    if (event.created_at > existing.created_at) {
+      latestVoteByPubkey.set(event.pubkey, event);
+      continue;
+    }
+
+    if (event.created_at === existing.created_at && event.id > existing.id) {
+      latestVoteByPubkey.set(event.pubkey, event);
+    }
+  }
+
+  const stats: ThemeVoteStatsByTheme = {
+    light: { optionId: THEME_OPTION_IDS.light, count: 0, trustScore: 0 },
+    dark: { optionId: THEME_OPTION_IDS.dark, count: 0, trustScore: 0 },
+    solar: { optionId: THEME_OPTION_IDS.solar, count: 0, trustScore: 0 },
+  };
+
+  for (const event of latestVoteByPubkey.values()) {
+    const optionId = extractResponseOptionId(event);
+    if (!optionId) continue;
+
+    const optionKey = THEME_OPTION_ORDER.find(
+      (themeOptionId) => THEME_OPTION_IDS[themeOptionId] === optionId
+    );
+    if (!optionKey) continue;
+
+    stats[optionKey].count += 1;
+    stats[optionKey].trustScore += scoreByPubkey.get(event.pubkey) ?? 0;
+  }
+
+  return stats;
+}
+
 export function useKind1018TrustScores() {
   const { config } = useAppContext();
   const { manager } = useAccountManager();
   const activeAccount = useObservableState(manager.active$);
+  const kind1018Events = useObservableState(kind1018Events$) ?? [];
   const trustScores =
     (useObservableState(kind1018TrustScores$) as
       | CalculateTrustScoresOutput["trustScores"]
@@ -43,9 +127,7 @@ export function useKind1018TrustScores() {
 
   useEffect(() => {
     console.log("[useKind1018TrustScores] Setting kind 1018 eTag");
-    updateKind1018ETag(
-      "2117b770e05d5f729ed125919514f8552e50df9c3833dec5cf5e99943088865e"
-    );
+    updateKind1018ETag(THEME_POLL_EVENT_ID);
   }, []);
 
   useEffect(() => {
@@ -82,6 +164,29 @@ export function useKind1018TrustScores() {
     [trustScores]
   );
 
+  const themeVoteStats = useMemo(
+    () => calculateThemeVoteStats(kind1018Events, trustScores),
+    [kind1018Events, trustScores]
+  );
+
+  const winningTheme = useMemo(() => {
+    const orderedStats = THEME_OPTION_ORDER.map((themeId) => ({
+      themeId,
+      ...themeVoteStats[themeId],
+    }));
+
+    return orderedStats.reduce(
+      (best, current) => {
+        if (!best) return current;
+        if (current.count > best.count) return current;
+        if (current.count < best.count) return best;
+        if (current.trustScore > best.trustScore) return current;
+        return best;
+      },
+      null as (typeof orderedStats)[number] | null
+    );
+  }, [themeVoteStats]);
+
   useEffect(() => {
     console.log("[useKind1018TrustScores] eose state:", eose);
   }, [eose]);
@@ -91,12 +196,18 @@ export function useKind1018TrustScores() {
   }, [trustScores]);
 
   useEffect(() => {
+    console.log("[useKind1018TrustScores] theme vote stats:", themeVoteStats);
+  }, [themeVoteStats]);
+
+  useEffect(() => {
     console.log("[useKind1018TrustScores] total trust score:", totalTrustScore);
   }, [totalTrustScore]);
 
   return {
     trustScores,
     totalTrustScore,
+    themeVoteStats,
+    winningTheme,
     isLoading: !eose,
   };
 }

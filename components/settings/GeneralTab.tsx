@@ -50,8 +50,12 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   const applesauceAccounts = useObservableState(manager.accounts$) || [];
   const activeApplesauceAccount = useObservableState(manager.active$);
   const { chatSyncEnabled, setChatSyncEnabled } = useChatSync();
-  const { totalTrustScore, isLoading: isLoadingKind1018Trust } =
-    useKind1018TrustScores();
+  const {
+    totalTrustScore,
+    isLoading: isLoadingKind1018Trust,
+    themeVoteStats,
+    winningTheme,
+  } = useKind1018TrustScores();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
   const [keepAliveEnabled, setKeepAliveEnabled] = useState<boolean>(false);
 
@@ -170,7 +174,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
       </div>
 
       {/* Theme Settings */}
-      <ThemeSettings />
+      <ThemeSettings
+        themeVoteStats={themeVoteStats}
+        winningTheme={winningTheme}
+        isLoadingThemeVotes={isLoadingKind1018Trust}
+      />
 
       {/* Background Keep-Alive Settings */}
       <div className="mb-6">
