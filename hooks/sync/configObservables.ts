@@ -173,7 +173,7 @@ export const invoices$ = createConfigObservable(CONFIG_TYPES.INVOICES);
  * Observable for Invoices config
  * Emits decrypted array of StoredInvoice
  */
-export const theme$ = createConfigObservable(CONFIG_TYPES.INVOICES);
+export const theme$ = createConfigObservable(CONFIG_TYPES.THEME);
 
 // ============================================================================
 // Loading state observables

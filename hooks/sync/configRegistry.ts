@@ -9,6 +9,8 @@ import { KINDS } from "@/lib/nostr-kinds";
 import type { StoredApiKey } from "@/components/settings/ApiKeysTab";
 import type { StoredInvoice } from "@/hooks/useInvoiceSync";
 
+export type ThemeConfig = "light-theme" | "dark-theme" | "solar-sync";
+
 /**
  * Definition for a syncable config type
  */
@@ -86,25 +88,23 @@ export const CONFIG_TYPES = {
     defaultValue: [],
   }),
 
-  THEME: defineConfig<StoredInvoice[]>({
+  THEME: defineConfig<ThemeConfig>({
     id: "theme",
     kind: KINDS.ARBITRARY_APP_DATA, // 30078
-    dTag: "routstr-chat-invoices-v1",
-    encrypted: true,
-    parseContent: (data: unknown): StoredInvoice[] | null => {
-      if (!Array.isArray(data)) return null;
-      // Basic validation - ensure each item has required fields
-      const valid = data.every(
-        (item) =>
-          typeof item === "object" &&
-          item !== null &&
-          "id" in item &&
-          "type" in item &&
-          "quoteId" in item
-      );
-      return valid ? (data as StoredInvoice[]) : null;
+    dTag: "routstr-chat-theme",
+    encrypted: false,
+    parseContent: (data: unknown): ThemeConfig | null => {
+      if (typeof data !== "string") return null;
+      const validThemes: ThemeConfig[] = [
+        "light-theme",
+        "dark-theme",
+        "solar-sync",
+      ];
+      return validThemes.includes(data as ThemeConfig)
+        ? (data as ThemeConfig)
+        : null;
     },
-    defaultValue: [],
+    defaultValue: "light-theme",
   }),
 } as const;
 
