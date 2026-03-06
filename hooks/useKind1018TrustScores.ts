@@ -286,9 +286,9 @@ export function useKind1018TrustScores() {
     return orderedStats.reduce(
       (best, current) => {
         if (!best) return current;
-        if (current.count > best.count) return current;
-        if (current.count < best.count) return best;
         if (current.trustScore > best.trustScore) return current;
+        if (current.trustScore < best.trustScore) return best;
+        if (current.count > best.count) return current;
         return best;
       },
       null as (typeof orderedStats)[number] | null
