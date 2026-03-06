@@ -1,6 +1,8 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
+import { useObservableState } from "applesauce-react/hooks";
 import {
   Sun,
   Moon,
@@ -9,7 +11,10 @@ import {
   ChevronsUpDown,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useAccountManager } from "@/components/ClientProviders";
+import { useAppContext } from "@/hooks/useAppContext";
+import { CONFIG_TYPES, publishConfig, userSigner$ } from "@/hooks/sync";
 
 const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
 
@@ -58,6 +63,7 @@ type ThemeVotersByTheme = {
 
 type ThemeButtonId = "light" | "dark" | "solar" | "system";
 type PollThemeId = Exclude<ThemeButtonId, "system">;
+type ThemeConfig = "light-theme" | "dark-theme" | "solar-sync";
 
 type WinningTheme = {
   themeId: Exclude<ThemeButtonId, "system">;
@@ -78,11 +84,48 @@ export default function ThemeSettings({
   winningTheme,
 }: ThemeSettingsProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { config } = useAppContext();
+  const { manager } = useAccountManager();
+  const activeAccount = useObservableState(manager.active$);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
   const [solarSyncActive, setSolarSyncActive] = useState(false);
   const [solarMode, setSolarMode] = useState(false);
   const [openVoterList, setOpenVoterList] = useState<PollThemeId | null>(null);
+
+  const mapThemeToConfig = (id: ThemeButtonId): ThemeConfig | null => {
+    if (id === "light") return "light-theme";
+    if (id === "dark") return "dark-theme";
+    if (id === "solar") return "solar-sync";
+    return null;
+  };
+
+  const publishThemeSelection = useCallback(
+    async (id: ThemeButtonId) => {
+      const configTheme = mapThemeToConfig(id);
+      if (!configTheme || config.relayUrls.length === 0 || !activeAccount) {
+        return;
+      }
+
+      const signerInfo = userSigner$.getValue();
+      if (!signerInfo) {
+        return;
+      }
+
+      try {
+        await publishConfig(
+          CONFIG_TYPES.THEME,
+          configTheme,
+          signerInfo,
+          config.relayUrls
+        );
+      } catch (error) {
+        console.error("[ThemeSettings] Failed to publish theme config:", error);
+        toast.error("Failed to sync theme to Nostr");
+      }
+    },
+    [activeAccount, config.relayUrls]
+  );
 
   const isSolarSyncTime = () => {
     const now = new Date();
@@ -182,7 +225,7 @@ export default function ThemeSettings({
             <div key={id} className="flex flex-col gap-1">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (id === "solar") {
                     setSolarMode(true);
                     localStorage.removeItem(WINNING_THEME_CACHE_KEY);
@@ -196,6 +239,8 @@ export default function ThemeSettings({
                     localStorage.removeItem(WINNING_THEME_CACHE_KEY);
                     setTheme(id);
                   }
+
+                  await publishThemeSelection(id);
                 }}
                 className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all cursor-pointer ${
                   (id === "solar" && solarMode) || theme === id
