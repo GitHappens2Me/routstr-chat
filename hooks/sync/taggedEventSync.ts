@@ -81,6 +81,13 @@ async function logKind1018TrustScores(events: NostrEvent[]): Promise<void> {
 
 // Requested non-replaceable kind
 export const KIND_1018 = 1018;
+export const KIND_0 = 0;
+
+export type Kind0Profile = {
+  pubkey: string;
+  name: string;
+  picture?: string;
+};
 
 /**
  * e-tag target for kind 1018 sync.
@@ -106,6 +113,69 @@ export const kind1018EventReceived$ = new Subject<NostrEvent>();
 export const kind1018TrustScores$ = new BehaviorSubject<
   CalculateTrustScoresOutput["trustScores"]
 >([]);
+export const kind0SyncEose$ = new BehaviorSubject<boolean>(false);
+export const kind0EventReceived$ = new Subject<NostrEvent>();
+
+function extractResponsePubkeys(events: NostrEvent[]): string[] {
+  const pubkeys = events
+    .filter((event) =>
+      event.tags.some(
+        (tag) => Array.isArray(tag) && tag[0] === "response" && !!tag[1]
+      )
+    )
+    .map((event) => event.pubkey)
+    .filter(
+      (pubkey): pubkey is string =>
+        typeof pubkey === "string" && pubkey.length > 0
+    );
+
+  return Array.from(new Set(pubkeys)).sort();
+}
+
+function buildKind0Filter(pubkeys: string[]): NostrFilter {
+  const filter: NostrFilter = {
+    kinds: [KIND_0],
+    authors: pubkeys,
+  };
+
+  log("Built kind 0 filter:", filter);
+  return filter;
+}
+
+function parseKind0ProfileEvent(event: NostrEvent): Kind0Profile {
+  const fallbackName = event.pubkey.slice(0, 12);
+
+  try {
+    const parsed = JSON.parse(event.content) as {
+      name?: string;
+      display_name?: string;
+      picture?: string;
+      nip05?: string;
+    };
+
+    const resolvedName =
+      (typeof parsed.display_name === "string" && parsed.display_name.trim()) ||
+      (typeof parsed.name === "string" && parsed.name.trim()) ||
+      (typeof parsed.nip05 === "string" && parsed.nip05.trim()) ||
+      fallbackName;
+
+    const picture =
+      typeof parsed.picture === "string" && parsed.picture.trim().length > 0
+        ? parsed.picture.trim()
+        : undefined;
+
+    return {
+      pubkey: event.pubkey,
+      name: resolvedName,
+      picture,
+    };
+  } catch {
+    return {
+      pubkey: event.pubkey,
+      name: fallbackName,
+    };
+  }
+}
 
 function buildKind1018Filter(eTag: string | null): NostrFilter {
   const filter: NostrFilter = {
@@ -218,6 +288,130 @@ export const kind1018Events$ = combineLatest([
   ),
   tap((events) => {
     void logKind1018TrustScores(events);
+  }),
+  shareReplay(1)
+);
+
+const kind1018ResponsePubkeys$ = kind1018Events$.pipe(
+  map((events) => extractResponsePubkeys(events)),
+  distinctUntilChanged(
+    (prev, curr) =>
+      prev.length === curr.length &&
+      prev.every((pubkey, i) => pubkey === curr[i])
+  ),
+  shareReplay(1)
+);
+
+export const kind0Sync$ = combineLatest([
+  relayUrlsDefined$,
+  kind1018ResponsePubkeys$,
+]).pipe(
+  tap(([relays, pubkeys]) => {
+    kind0SyncEose$.next(false);
+    log("Starting kind 0 profile sync", {
+      relayCount: relays.length,
+      pubkeyCount: pubkeys.length,
+    });
+  }),
+  switchMap(([relays, pubkeys]) => {
+    if (pubkeys.length === 0) {
+      kind0SyncEose$.next(true);
+      return EMPTY;
+    }
+
+    const filter = buildKind0Filter(pubkeys);
+    log("Subscribing to relays for kind 0 with filter", { relays, filter });
+
+    return relayPool.subscription(relays, filter).pipe(
+      mergeMap((value: unknown) => {
+        log("kind0 subscription emitted value:", value);
+        if (value === "EOSE") {
+          kind0SyncEose$.next(true);
+          log("Received EOSE for kind 0 sync");
+          return EMPTY;
+        }
+
+        return from([value as NostrEvent]);
+      }),
+      rxFilter(
+        (event): event is NostrEvent =>
+          typeof event === "object" &&
+          event !== null &&
+          "id" in event &&
+          (event as NostrEvent).kind === KIND_0
+      ),
+      tap((event) => {
+        log("Received kind 0 event", {
+          id: event.id,
+          pubkey: event.pubkey,
+          created_at: event.created_at,
+        });
+        eventStore.add(event);
+        kind0EventReceived$.next(event);
+      }),
+      catchError((err) => {
+        console.error("[taggedEventSync] Kind 0 subscription error:", err);
+        kind0SyncEose$.next(true);
+        return EMPTY;
+      })
+    );
+  }),
+  shareReplay(1)
+);
+
+function getKind0Events(pubkeys: string[]): NostrEvent[] {
+  if (pubkeys.length === 0) {
+    return [];
+  }
+
+  return eventStore.getTimeline({
+    kinds: [KIND_0],
+    authors: pubkeys,
+  });
+}
+
+export const kind0Profiles$ = combineLatest([
+  kind1018ResponsePubkeys$,
+  kind0SyncEose$,
+  kind0EventReceived$.pipe(startWith(null as NostrEvent | null)),
+]).pipe(
+  tap(([pubkeys, eose, lastEvent]) => {
+    log("kind0Profiles$ combineLatest emission", {
+      pubkeyCount: pubkeys.length,
+      eose,
+      lastEventId: lastEvent?.id ?? null,
+    });
+  }),
+  rxFilter(([_pubkeys, eose]) => eose),
+  map(([pubkeys]) => {
+    const timeline = getKind0Events(pubkeys);
+    const latestByPubkey = new Map<string, NostrEvent>();
+
+    for (const event of timeline) {
+      if (!latestByPubkey.has(event.pubkey)) {
+        latestByPubkey.set(event.pubkey, event);
+      }
+    }
+
+    const profiles: Record<string, Kind0Profile> = {};
+    for (const [pubkey, event] of latestByPubkey) {
+      profiles[pubkey] = parseKind0ProfileEvent(event);
+    }
+
+    return profiles;
+  }),
+  distinctUntilChanged((prev, curr) => {
+    const prevKeys = Object.keys(prev);
+    const currKeys = Object.keys(curr);
+    if (prevKeys.length !== currKeys.length) {
+      return false;
+    }
+
+    return prevKeys.every((pubkey) => {
+      const a = prev[pubkey];
+      const b = curr[pubkey];
+      return a?.name === b?.name && a?.picture === b?.picture;
+    });
   }),
   shareReplay(1)
 );

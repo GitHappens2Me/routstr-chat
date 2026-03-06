@@ -5,10 +5,13 @@ import { useAccountManager } from "@/components/ClientProviders";
 import { useAppContext } from "@/hooks/useAppContext";
 import type { CalculateTrustScoresOutput } from "@/src/ctxcn/RoutstrChatClient";
 import {
+  kind0Profiles$,
+  kind0Sync$,
   kind1018Events$,
   kind1018Sync$,
   kind1018SyncEose$,
   kind1018TrustScores$,
+  type Kind0Profile,
   relayUrls$,
   updateKind1018ETag,
   userPubkey$,
@@ -31,6 +34,7 @@ type ThemeVoteStats = {
   optionId: string;
   count: number;
   trustScore: number;
+  voterPubkeys: string[];
 };
 
 type ThemeVoteStatsByTheme = Record<ThemeOptionId, ThemeVoteStats>;
@@ -75,9 +79,24 @@ function calculateThemeVoteStats(
   }
 
   const stats: ThemeVoteStatsByTheme = {
-    light: { optionId: THEME_OPTION_IDS.light, count: 0, trustScore: 0 },
-    dark: { optionId: THEME_OPTION_IDS.dark, count: 0, trustScore: 0 },
-    solar: { optionId: THEME_OPTION_IDS.solar, count: 0, trustScore: 0 },
+    light: {
+      optionId: THEME_OPTION_IDS.light,
+      count: 0,
+      trustScore: 0,
+      voterPubkeys: [],
+    },
+    dark: {
+      optionId: THEME_OPTION_IDS.dark,
+      count: 0,
+      trustScore: 0,
+      voterPubkeys: [],
+    },
+    solar: {
+      optionId: THEME_OPTION_IDS.solar,
+      count: 0,
+      trustScore: 0,
+      voterPubkeys: [],
+    },
   };
 
   for (const event of latestVoteByPubkey.values()) {
@@ -91,9 +110,39 @@ function calculateThemeVoteStats(
 
     stats[optionKey].count += 1;
     stats[optionKey].trustScore += scoreByPubkey.get(event.pubkey) ?? 0;
+    stats[optionKey].voterPubkeys.push(event.pubkey);
   }
 
   return stats;
+}
+
+type ThemeVoter = {
+  pubkey: string;
+  name: string;
+  picture?: string;
+};
+
+type ThemeVotersByTheme = Record<ThemeOptionId, ThemeVoter[]>;
+
+function toThemeVotersByTheme(
+  stats: ThemeVoteStatsByTheme,
+  profiles: Record<string, Kind0Profile>
+): ThemeVotersByTheme {
+  const buildVoters = (pubkeys: string[]) =>
+    pubkeys.map((pubkey) => {
+      const profile = profiles[pubkey];
+      return {
+        pubkey,
+        name: profile?.name ?? pubkey.slice(0, 12),
+        picture: profile?.picture,
+      };
+    });
+
+  return {
+    light: buildVoters(stats.light.voterPubkeys),
+    dark: buildVoters(stats.dark.voterPubkeys),
+    solar: buildVoters(stats.solar.voterPubkeys),
+  };
 }
 
 export function useKind1018TrustScores() {
@@ -105,6 +154,10 @@ export function useKind1018TrustScores() {
     (useObservableState(kind1018TrustScores$) as
       | CalculateTrustScoresOutput["trustScores"]
       | undefined) ?? [];
+  const kind0Profiles =
+    (useObservableState(kind0Profiles$) as
+      | Record<string, Kind0Profile>
+      | undefined) ?? {};
   const eose = useObservableState(kind1018SyncEose$) ?? false;
 
   useEffect(() => {
@@ -153,9 +206,19 @@ export function useKind1018TrustScores() {
       },
     });
 
+    const kind0SyncSub = kind0Sync$.subscribe({
+      next: (event) => {
+        console.log("[useKind1018TrustScores] kind 0 sync next:", event);
+      },
+      error: (err) => {
+        console.error("[useKind1018TrustScores] kind 0 sync error:", err);
+      },
+    });
+
     return () => {
       syncSub.unsubscribe();
       eventsSub.unsubscribe();
+      kind0SyncSub.unsubscribe();
     };
   }, []);
 
@@ -187,6 +250,11 @@ export function useKind1018TrustScores() {
     );
   }, [themeVoteStats]);
 
+  const themeVoters = useMemo(
+    () => toThemeVotersByTheme(themeVoteStats, kind0Profiles),
+    [kind0Profiles, themeVoteStats]
+  );
+
   useEffect(() => {
     console.log("[useKind1018TrustScores] eose state:", eose);
   }, [eose]);
@@ -207,6 +275,7 @@ export function useKind1018TrustScores() {
     trustScores,
     totalTrustScore,
     themeVoteStats,
+    themeVoters,
     winningTheme,
     isLoading: !eose,
   };

@@ -54,6 +54,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
     totalTrustScore,
     isLoading: isLoadingKind1018Trust,
     themeVoteStats,
+    themeVoters,
     winningTheme,
   } = useKind1018TrustScores();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
@@ -176,6 +177,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
       {/* Theme Settings */}
       <ThemeSettings
         themeVoteStats={themeVoteStats}
+        themeVoters={themeVoters}
         winningTheme={winningTheme}
         isLoadingThemeVotes={isLoadingKind1018Trust}
       />

@@ -1,17 +1,46 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor, Sunrise } from "lucide-react";
+import { Sun, Moon, Monitor, Sunrise, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type ThemeVoteStatsByTheme = {
-  light: { optionId: string; count: number; trustScore: number };
-  dark: { optionId: string; count: number; trustScore: number };
-  solar: { optionId: string; count: number; trustScore: number };
+type ThemeVoter = {
+  pubkey: string;
+  name: string;
+  picture?: string;
 };
 
+type ThemeVoteStatsByTheme = {
+  light: {
+    optionId: string;
+    count: number;
+    trustScore: number;
+    voterPubkeys: string[];
+  };
+  dark: {
+    optionId: string;
+    count: number;
+    trustScore: number;
+    voterPubkeys: string[];
+  };
+  solar: {
+    optionId: string;
+    count: number;
+    trustScore: number;
+    voterPubkeys: string[];
+  };
+};
+
+type ThemeVotersByTheme = {
+  light: ThemeVoter[];
+  dark: ThemeVoter[];
+  solar: ThemeVoter[];
+};
+
+type ThemeButtonId = "light" | "dark" | "solar" | "system";
+
 type WinningTheme = {
-  themeId: "light" | "dark" | "solar";
+  themeId: Exclude<ThemeButtonId, "system">;
   optionId: string;
   count: number;
   trustScore: number;
@@ -19,12 +48,14 @@ type WinningTheme = {
 
 interface ThemeSettingsProps {
   themeVoteStats: ThemeVoteStatsByTheme;
+  themeVoters: ThemeVotersByTheme;
   winningTheme: WinningTheme;
   isLoadingThemeVotes: boolean;
 }
 
 export default function ThemeSettings({
   themeVoteStats,
+  themeVoters,
   winningTheme,
   isLoadingThemeVotes,
 }: ThemeSettingsProps) {
@@ -114,12 +145,16 @@ export default function ThemeSettings({
     );
   }
 
-  const themes = [
+  const themes: {
+    id: ThemeButtonId;
+    label: string;
+    icon: LucideIcon;
+  }[] = [
     { id: "light", label: "Light", icon: Sun },
     { id: "dark", label: "Dark", icon: Moon },
     { id: "solar", label: "Solar Sync", icon: Sunrise },
     { id: "system", label: "System", icon: Monitor },
-  ] as const;
+  ];
 
   const getVoteMeta = (themeId: (typeof themes)[number]["id"]) => {
     if (themeId === "system") {
@@ -127,9 +162,11 @@ export default function ThemeSettings({
     }
 
     const stats = themeVoteStats[themeId];
+    const voters = themeVoters[themeId] ?? [];
     return {
       votes: stats?.count ?? 0,
       trust: (stats?.trustScore ?? 0).toFixed(4),
+      voters,
     };
   };
 
@@ -179,7 +216,7 @@ export default function ThemeSettings({
 
               <div className="h-9 px-1 text-[11px] text-muted-foreground leading-tight">
                 {voteMeta ? (
-                  <>
+                  <div className="relative group">
                     <div>
                       Trust:{" "}
                       <span className="text-foreground/70">
@@ -195,7 +232,35 @@ export default function ThemeSettings({
                         <span className="ml-1 text-foreground/70">(top)</span>
                       ) : null}
                     </div>
-                  </>
+                    <div className="pointer-events-none absolute left-0 bottom-full mb-2 z-50 min-w-44 max-w-56 rounded-md border border-border bg-popover p-2 text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                      <div className="text-xs font-medium mb-2">Voters</div>
+                      {voteMeta.voters.length > 0 ? (
+                        <div className="max-h-44 overflow-y-auto space-y-1">
+                          {voteMeta.voters.map((voter) => (
+                            <div
+                              key={voter.pubkey}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              {voter.picture ? (
+                                <img
+                                  src={voter.picture}
+                                  alt={voter.name}
+                                  className="h-4 w-4 rounded-full object-cover border border-border"
+                                />
+                              ) : (
+                                <div className="h-4 w-4 rounded-full bg-muted border border-border" />
+                              )}
+                              <span className="truncate">{voter.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">
+                          No voters yet
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <div className="pt-2">No poll stats</div>
                 )}
