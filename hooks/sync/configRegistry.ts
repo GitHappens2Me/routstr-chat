@@ -9,7 +9,12 @@ import { KINDS } from "@/lib/nostr-kinds";
 import type { StoredApiKey } from "@/components/settings/ApiKeysTab";
 import type { StoredInvoice } from "@/hooks/useInvoiceSync";
 
-export type ThemeConfig = "light-theme" | "dark-theme" | "solar-sync" | "unset";
+export type ThemeConfig =
+  | "light-theme"
+  | "dark-theme"
+  | "solar-sync"
+  | "system-sync"
+  | "unset";
 
 /**
  * Definition for a syncable config type
@@ -99,6 +104,8 @@ export const CONFIG_TYPES = {
         "light-theme",
         "dark-theme",
         "solar-sync",
+        "system-sync",
+        "unset",
       ];
       return validThemes.includes(data as ThemeConfig)
         ? (data as ThemeConfig)

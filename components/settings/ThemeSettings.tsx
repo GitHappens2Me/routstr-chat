@@ -14,7 +14,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useAppContext } from "@/hooks/useAppContext";
-import { CONFIG_TYPES, publishConfig, userSigner$ } from "@/hooks/sync";
+import { CONFIG_TYPES, publishConfig, theme$, userSigner$ } from "@/hooks/sync";
 
 const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
 
@@ -87,12 +87,18 @@ export default function ThemeSettings({
   const { config } = useAppContext();
   const { manager } = useAccountManager();
   const activeAccount = useObservableState(manager.active$);
+  const syncedTheme = useObservableState(theme$);
+  const hasSyncedTheme = !!syncedTheme && syncedTheme !== "unset";
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
   const [solarSyncActive, setSolarSyncActive] = useState(false);
   const [solarMode, setSolarMode] = useState(false);
   const [openVoterList, setOpenVoterList] = useState<PollThemeId | null>(null);
   const [isUserSovereign, setIsUserSovereign] = useState(false);
+
+  useEffect(() => {
+    setIsUserSovereign(hasSyncedTheme);
+  }, [hasSyncedTheme]);
 
   const mapThemeToConfig = (id: ThemeButtonId): ThemeConfig | null => {
     if (id === "light") return "light-theme";
@@ -224,7 +230,7 @@ export default function ThemeSettings({
               </span>
               <button
                 type="button"
-                onClick={() => setIsUserSovereign(true)}
+                onClick={() => setIsUserSovereign(hasSyncedTheme)}
                 className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
               >
                 Override
@@ -236,10 +242,9 @@ export default function ThemeSettings({
               key={id}
               type="button"
               onClick={async () => {
-                setIsUserSovereign(true);
+                setIsUserSovereign(hasSyncedTheme);
                 if (id === "solar") {
                   setSolarMode(true);
-                  localStorage.removeItem(WINNING_THEME_CACHE_KEY);
                   if (isSolarSyncTime()) {
                     setTheme("light");
                   } else {
@@ -247,7 +252,6 @@ export default function ThemeSettings({
                   }
                 } else {
                   setSolarMode(false);
-                  localStorage.removeItem(WINNING_THEME_CACHE_KEY);
                   setTheme(id);
                 }
 
@@ -391,14 +395,21 @@ export default function ThemeSettings({
         </div>
       </div>
       <p className="text-xs text-foreground/40 mt-2">
-        {isUserSovereign ? (
+        {solarMode ? (
+          isUserSovereign ? (
+            <span className="text-foreground/70">
+              You are Sovereign — Solar Sync: Light{" "}
+              {solarSyncActive ? "now" : ""} (7:21 AM - 7:21 PM)
+            </span>
+          ) : (
+            `Solar Sync: Light ${solarSyncActive ? "now" : ""} (7:21 AM - 7:21 PM)`
+          )
+        ) : isUserSovereign ? (
           <span className="text-foreground/70">
             You are Sovereign — Using {theme} theme
           </span>
         ) : theme === "system" ? (
           "Theme follows your system preferences"
-        ) : solarMode ? (
-          `Solar Sync: Light ${solarSyncActive ? "now" : ""} (7:21 AM - 7:21 PM)`
         ) : (
           `Using ${theme} theme`
         )}
