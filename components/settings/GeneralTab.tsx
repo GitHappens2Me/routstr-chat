@@ -9,6 +9,7 @@ import NWCWalletManager from "./NWCWalletManager"; // Import the NWC wallet mana
 import AutoRefillSettings from "./AutoRefillSettings"; // Import auto-refill settings
 import ThemeSettings from "./ThemeSettings"; // Import theme settings
 import { useChatSync } from "@/hooks/useChatSync";
+import { useKind1018TrustScores } from "@/hooks/useKind1018TrustScores";
 import { updateWotPubkey } from "@/hooks/sync";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
@@ -49,6 +50,8 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   const applesauceAccounts = useObservableState(manager.accounts$) || [];
   const activeApplesauceAccount = useObservableState(manager.active$);
   const { chatSyncEnabled, setChatSyncEnabled } = useChatSync();
+  const { totalTrustScore, isLoading: isLoadingKind1018Trust } =
+    useKind1018TrustScores();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
   const [keepAliveEnabled, setKeepAliveEnabled] = useState<boolean>(false);
 
@@ -159,6 +162,10 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
             className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="npub1... or 64-char hex"
           />
+          <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+            Kind 1018 trust score sum:{" "}
+            {isLoadingKind1018Trust ? "Loading..." : totalTrustScore.toFixed(4)}
+          </div>
         </div>
       </div>
 

@@ -24,10 +24,45 @@ import {
 import type { NostrEvent, Filter as NostrFilter } from "nostr-tools";
 import { eventStore, relayPool } from "@/lib/applesauce-core";
 import { relayUrlsDefined$, userPubkeyDefined$ } from "./chatSyncInputs";
+import {
+  RoutstrChatClient,
+  type CalculateTrustScoresOutput,
+} from "@/src/ctxcn/RoutstrChatClient";
 
 const DEBUG = false;
 const log = (...args: unknown[]) =>
   DEBUG && console.log("[taggedEventSync]", ...args);
+
+let routstrClient: RoutstrChatClient | null = null;
+
+function getRoutstrClient(): RoutstrChatClient {
+  if (!routstrClient) {
+    routstrClient = new RoutstrChatClient();
+  }
+  return routstrClient;
+}
+
+async function logKind1018TrustScores(events: NostrEvent[]): Promise<void> {
+  const targetPubkeys = Array.from(
+    new Set(events.map((event) => event.pubkey).filter(Boolean))
+  );
+
+  if (targetPubkeys.length === 0) {
+    kind1018TrustScores$.next([]);
+    return;
+  }
+
+  try {
+    const { trustScores } =
+      await getRoutstrClient().CalculateTrustScores(targetPubkeys);
+
+    kind1018TrustScores$.next(trustScores);
+    console.log("[taggedEventSync] kind 1018 trust scores:", trustScores);
+  } catch (err) {
+    kind1018TrustScores$.next([]);
+    console.error("[taggedEventSync] Failed to fetch trust scores:", err);
+  }
+}
 
 // Requested non-replaceable kind
 export const KIND_1018 = 1018;
@@ -52,13 +87,19 @@ export const kind1018ETagDefined$ = kind1018ETag$.pipe(
 
 export const kind1018SyncEose$ = new BehaviorSubject<boolean>(false);
 export const kind1018EventReceived$ = new Subject<NostrEvent>();
+export const kind1018TrustScores$ = new BehaviorSubject<
+  CalculateTrustScoresOutput["trustScores"]
+>([]);
 
-function buildKind1018Filter(pubkey: string, eTag: string): NostrFilter {
+function buildKind1018Filter(pubkey: string, eTag: string | null): NostrFilter {
   const filter: NostrFilter = {
     kinds: [KIND_1018],
     authors: [pubkey],
-    "#e": [eTag],
   };
+
+  if (eTag && eTag.length > 0) {
+    filter["#e"] = [eTag];
+  }
 
   log("Built kind 1018 filter:", filter);
   return filter;
@@ -67,7 +108,7 @@ function buildKind1018Filter(pubkey: string, eTag: string): NostrFilter {
 export const kind1018Sync$ = combineLatest([
   userPubkeyDefined$,
   relayUrlsDefined$,
-  kind1018ETagDefined$,
+  kind1018ETag$.pipe(distinctUntilChanged()),
 ]).pipe(
   tap(() => {
     kind1018SyncEose$.next(false);
@@ -108,13 +149,18 @@ export const kind1018Sync$ = combineLatest([
  */
 export function getKind1018Events(
   pubkey: string,
-  eTag: string
+  eTag: string | null
 ): NostrEvent[] {
-  return eventStore.getTimeline({
+  const filter: NostrFilter = {
     kinds: [KIND_1018],
     authors: [pubkey],
-    "#e": [eTag],
-  });
+  };
+
+  if (eTag && eTag.length > 0) {
+    filter["#e"] = [eTag];
+  }
+
+  return eventStore.getTimeline(filter);
 }
 
 /**
@@ -122,7 +168,7 @@ export function getKind1018Events(
  */
 export const kind1018Events$ = combineLatest([
   userPubkeyDefined$,
-  kind1018ETagDefined$,
+  kind1018ETag$,
   kind1018SyncEose$,
   kind1018EventReceived$.pipe(startWith(null as NostrEvent | null)),
 ]).pipe(
@@ -133,5 +179,8 @@ export const kind1018Events$ = combineLatest([
       prev.length === curr.length &&
       prev.every((event, index) => event.id === curr[index]?.id)
   ),
+  tap((events) => {
+    void logKind1018TrustScores(events);
+  }),
   shareReplay(1)
 );

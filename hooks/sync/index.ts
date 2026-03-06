@@ -33,6 +33,7 @@ export {
   kind1018ETagDefined$,
   kind1018SyncEose$,
   kind1018EventReceived$,
+  kind1018TrustScores$,
   kind1018Sync$,
   getKind1018Events,
   kind1018Events$,
