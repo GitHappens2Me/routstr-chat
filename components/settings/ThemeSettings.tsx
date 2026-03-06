@@ -274,10 +274,10 @@ export default function ThemeSettings({
                           current === id ? null : (id as PollThemeId)
                         );
                       }}
-                      className="mt-1 w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                      className="mt-1 w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded py-0.5 px-1 transition-colors"
                     >
                       <div className="flex items-center">
-                        {voteMeta.voters.slice(0, 5).map((voter, index) => (
+                        {voteMeta.voters.slice(0, 4).map((voter, index) => (
                           <div
                             key={voter.pubkey}
                             className="h-4 w-4 rounded-full border border-background overflow-hidden bg-muted"
@@ -303,13 +303,12 @@ export default function ThemeSettings({
                             )}
                           </div>
                         ))}
-                        {voteMeta.voters.length > 5 ? (
+                        {voteMeta.voters.length > 4 ? (
                           <span className="ml-1 text-[10px] text-foreground/70">
-                            +{voteMeta.voters.length - 5}
+                            +{voteMeta.voters.length - 4}
                           </span>
                         ) : null}
                       </div>
-                      <span>View voters</span>
                       <ChevronsUpDown className="h-3 w-3" />
                     </button>
                     <div
