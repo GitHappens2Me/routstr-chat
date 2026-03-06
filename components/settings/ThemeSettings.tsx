@@ -13,6 +13,15 @@ import { useEffect, useState } from "react";
 
 const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
 
+function getColorFromPubkey(pubkey: string): string {
+  let hash = 0;
+  for (let i = 0; i < pubkey.length; i++) {
+    hash = ((hash << 5) - hash + pubkey.charCodeAt(i)) | 0;
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 65%, 45%)`;
+}
+
 type ThemeVoter = {
   pubkey: string;
   name: string;
@@ -235,7 +244,18 @@ export default function ThemeSettings({
                                 alt={voter.name}
                                 className="h-full w-full object-cover"
                               />
-                            ) : null}
+                            ) : (
+                              <div
+                                className="h-full w-full flex items-center justify-center text-[8px] text-white font-medium"
+                                style={{
+                                  backgroundColor: getColorFromPubkey(
+                                    voter.pubkey
+                                  ),
+                                }}
+                              >
+                                {voter.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                           </div>
                         ))}
                         {voteMeta.voters.length > 5 ? (
@@ -270,7 +290,16 @@ export default function ThemeSettings({
                                     className="h-4 w-4 rounded-full object-cover border border-border"
                                   />
                                 ) : (
-                                  <div className="h-4 w-4 rounded-full bg-muted border border-border" />
+                                  <div
+                                    className="h-4 w-4 rounded-full border border-border flex items-center justify-center text-[8px] text-white font-medium"
+                                    style={{
+                                      backgroundColor: getColorFromPubkey(
+                                        voter.pubkey
+                                      ),
+                                    }}
+                                  >
+                                    {voter.name.charAt(0).toUpperCase()}
+                                  </div>
                                 )}
                                 <span className="truncate">{voter.name}</span>
                               </div>
