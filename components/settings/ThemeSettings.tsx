@@ -1,7 +1,14 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor, Sunrise, type LucideIcon } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Sunrise,
+  ChevronsUpDown,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
@@ -10,6 +17,7 @@ type ThemeVoter = {
   pubkey: string;
   name: string;
   picture?: string;
+  trustScore: number;
 };
 
 type ThemeVoteStatsByTheme = {
@@ -40,6 +48,7 @@ type ThemeVotersByTheme = {
 };
 
 type ThemeButtonId = "light" | "dark" | "solar" | "system";
+type PollThemeId = Exclude<ThemeButtonId, "system">;
 
 type WinningTheme = {
   themeId: Exclude<ThemeButtonId, "system">;
@@ -66,6 +75,7 @@ export default function ThemeSettings({
   const [currentTime, setCurrentTime] = useState("");
   const [solarSyncActive, setSolarSyncActive] = useState(false);
   const [solarMode, setSolarMode] = useState(false);
+  const [openVoterList, setOpenVoterList] = useState<PollThemeId | null>(null);
 
   const isSolarSyncTime = () => {
     const now = new Date();
@@ -218,34 +228,85 @@ export default function ThemeSettings({
                 <span className="hidden sm:inline">{label}</span>
               </button>
 
-              <div className="h-9 px-1 text-[11px] text-muted-foreground leading-tight">
+              <div className="h-12 px-1 text-[11px] text-muted-foreground leading-tight">
                 {voteMeta ? (
                   <div className="relative group">
-                    <div>
-                      {voteMeta.trust} ({voteMeta.votes} votes)
-                      {isPollWinner && (
-                        <span className="text-foreground/70"> (top)</span>
-                      )}
+                    <div className="flex justify-center">
+                      <span
+                        className={`rounded px-1 py-0.5 ${
+                          isPollWinner
+                            ? "bg-foreground/10 text-foreground font-semibold"
+                            : "text-foreground/80"
+                        }`}
+                      >
+                        {voteMeta.trust} ({voteMeta.votes} votes)
+                      </span>
                     </div>
-                    <div className="pointer-events-none absolute left-0 bottom-full mb-2 z-50 min-w-44 max-w-56 rounded-md border border-border bg-popover p-2 text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (id === "system") return;
+                        setOpenVoterList((current) =>
+                          current === id ? null : (id as PollThemeId)
+                        );
+                      }}
+                      className="mt-1 w-full flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <div className="flex items-center">
+                        {voteMeta.voters.slice(0, 5).map((voter, index) => (
+                          <div
+                            key={voter.pubkey}
+                            className="h-4 w-4 rounded-full border border-background overflow-hidden bg-muted"
+                            style={{ marginLeft: index === 0 ? 0 : -4 }}
+                          >
+                            {voter.picture ? (
+                              <img
+                                src={voter.picture}
+                                alt={voter.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : null}
+                          </div>
+                        ))}
+                        {voteMeta.voters.length > 5 ? (
+                          <span className="ml-1 text-[10px] text-foreground/70">
+                            +{voteMeta.voters.length - 5}
+                          </span>
+                        ) : null}
+                      </div>
+                      <span>View voters</span>
+                      <ChevronsUpDown className="h-3 w-3" />
+                    </button>
+                    <div
+                      className={`absolute left-0 bottom-full mb-2 z-50 min-w-52 max-w-64 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md transition-opacity ${
+                        openVoterList === id
+                          ? "opacity-100 pointer-events-auto"
+                          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                      }`}
+                    >
                       <div className="text-xs font-medium mb-2">Voters</div>
                       {voteMeta.voters.length > 0 ? (
                         <div className="max-h-44 overflow-y-auto space-y-1">
                           {voteMeta.voters.map((voter) => (
                             <div
                               key={voter.pubkey}
-                              className="flex items-center gap-2 text-xs"
+                              className="flex items-center justify-between gap-2 text-xs"
                             >
-                              {voter.picture ? (
-                                <img
-                                  src={voter.picture}
-                                  alt={voter.name}
-                                  className="h-4 w-4 rounded-full object-cover border border-border"
-                                />
-                              ) : (
-                                <div className="h-4 w-4 rounded-full bg-muted border border-border" />
-                              )}
-                              <span className="truncate">{voter.name}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                {voter.picture ? (
+                                  <img
+                                    src={voter.picture}
+                                    alt={voter.name}
+                                    className="h-4 w-4 rounded-full object-cover border border-border"
+                                  />
+                                ) : (
+                                  <div className="h-4 w-4 rounded-full bg-muted border border-border" />
+                                )}
+                                <span className="truncate">{voter.name}</span>
+                              </div>
+                              <span className="text-foreground/70 tabular-nums">
+                                {voter.trustScore.toFixed(2)}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -256,9 +317,7 @@ export default function ThemeSettings({
                       )}
                     </div>
                   </div>
-                ) : (
-                  <div className="pt-2">No poll stats</div>
-                )}
+                ) : null}
               </div>
             </div>
           );

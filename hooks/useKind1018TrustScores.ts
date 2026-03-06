@@ -120,23 +120,33 @@ type ThemeVoter = {
   pubkey: string;
   name: string;
   picture?: string;
+  trustScore: number;
 };
 
 type ThemeVotersByTheme = Record<ThemeOptionId, ThemeVoter[]>;
 
 function toThemeVotersByTheme(
   stats: ThemeVoteStatsByTheme,
-  profiles: Record<string, Kind0Profile>
+  profiles: Record<string, Kind0Profile>,
+  trustScores: CalculateTrustScoresOutput["trustScores"]
 ): ThemeVotersByTheme {
+  const scoreByPubkey = new Map<string, number>();
+  for (const score of trustScores) {
+    scoreByPubkey.set(score.targetPubkey, score.score);
+  }
+
   const buildVoters = (pubkeys: string[]) =>
-    pubkeys.map((pubkey) => {
-      const profile = profiles[pubkey];
-      return {
-        pubkey,
-        name: profile?.name ?? pubkey.slice(0, 12),
-        picture: profile?.picture,
-      };
-    });
+    pubkeys
+      .map((pubkey) => {
+        const profile = profiles[pubkey];
+        return {
+          pubkey,
+          name: profile?.name ?? pubkey.slice(0, 12),
+          picture: profile?.picture,
+          trustScore: scoreByPubkey.get(pubkey) ?? 0,
+        };
+      })
+      .sort((a, b) => b.trustScore - a.trustScore);
 
   return {
     light: buildVoters(stats.light.voterPubkeys),
@@ -251,8 +261,8 @@ export function useKind1018TrustScores() {
   }, [themeVoteStats]);
 
   const themeVoters = useMemo(
-    () => toThemeVotersByTheme(themeVoteStats, kind0Profiles),
-    [kind0Profiles, themeVoteStats]
+    () => toThemeVotersByTheme(themeVoteStats, kind0Profiles, trustScores),
+    [kind0Profiles, themeVoteStats, trustScores]
   );
 
   useEffect(() => {
