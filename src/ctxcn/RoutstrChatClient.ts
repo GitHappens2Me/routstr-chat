@@ -130,21 +130,41 @@ export interface ManageTaOutput {
 }
 
 export type RoutstrChat = {
-  CalculateTrustScore: (targetPubkey: string) => Promise<CalculateTrustScoreOutput>;
-  CalculateTrustScores: (targetPubkeys: string[]) => Promise<CalculateTrustScoresOutput>;
+  CalculateTrustScore: (
+    targetPubkey: string
+  ) => Promise<CalculateTrustScoreOutput>;
+  CalculateTrustScores: (
+    targetPubkeys: string[]
+  ) => Promise<CalculateTrustScoresOutput>;
   Stats: (args: StatsInput) => Promise<StatsOutput>;
-  SearchProfiles: (query: string, limit?: number, extendToNostr?: boolean) => Promise<SearchProfilesOutput>;
+  SearchProfiles: (
+    query: string,
+    limit?: number,
+    extendToNostr?: boolean
+  ) => Promise<SearchProfilesOutput>;
   ManageTa: (action: string, customRelays?: string) => Promise<ManageTaOutput>;
 };
 
 export class RoutstrChatClient implements RoutstrChat {
-  static readonly SERVER_PUBKEY = "750682303c9f0ddad75941b49edc9d46e3ed306b9ee3335338a21a3e404c5fa3";
-  static readonly DEFAULT_RELAYS = ["wss://relay.contextvm.org", "wss://relay.primal.net", "wss://relay.damus.io", "wss://cvm.otherstuff.ai", "wss://nos.lol"];
+  static readonly SERVER_PUBKEY =
+    "750682303c9f0ddad75941b49edc9d46e3ed306b9ee3335338a21a3e404c5fa3";
+  static readonly DEFAULT_RELAYS = [
+    "wss://relay.contextvm.org",
+    "wss://relay.primal.net",
+    "wss://relay.damus.io",
+    "wss://cvm.otherstuff.ai",
+    "wss://nos.lol",
+  ];
   private client: Client;
   private transport: Transport;
+  private connectPromise: Promise<void>;
+  private connectError: unknown | null = null;
 
   constructor(
-    options: Partial<NostrTransportOptions> & { privateKey?: string; relays?: string[] } = {}
+    options: Partial<NostrTransportOptions> & {
+      privateKey?: string;
+      relays?: string[];
+    } = {}
   ) {
     this.client = new Client({
       name: "RoutstrChatClient",
@@ -152,15 +172,15 @@ export class RoutstrChatClient implements RoutstrChat {
     });
 
     // Private key precedence: constructor options > config file
-    const resolvedPrivateKey = options.privateKey ||
-      "";
+    const resolvedPrivateKey = options.privateKey || "";
 
     // Use options.signer if provided, otherwise create from resolved private key
     const signer = options.signer || new PrivateKeySigner(resolvedPrivateKey);
     // Use options.relays if provided, otherwise use class DEFAULT_RELAYS
     const relays = options.relays || RoutstrChatClient.DEFAULT_RELAYS;
     // Use options.relayHandler if provided, otherwise create from relays
-    const relayHandler = options.relayHandler || new ApplesauceRelayPool(relays);
+    const relayHandler =
+      options.relayHandler || new ApplesauceRelayPool(relays);
     const serverPubkey = options.serverPubkey;
     const { privateKey: _, ...rest } = options;
 
@@ -173,7 +193,8 @@ export class RoutstrChatClient implements RoutstrChat {
     });
 
     // Auto-connect in constructor
-    this.client.connect(this.transport).catch((error) => {
+    this.connectPromise = this.client.connect(this.transport).catch((error) => {
+      this.connectError = error;
       console.error(`Failed to connect to server: ${error}`);
     });
   }
@@ -186,6 +207,13 @@ export class RoutstrChatClient implements RoutstrChat {
     name: string,
     args: Record<string, unknown>
   ): Promise<T> {
+    await this.connectPromise;
+    if (this.connectError) {
+      throw new Error(
+        `RoutstrChatClient connection failed: ${String(this.connectError)}`
+      );
+    }
+
     const result = await this.client.callTool({
       name,
       arguments: { ...args },
@@ -193,7 +221,7 @@ export class RoutstrChatClient implements RoutstrChat {
     return result.structuredContent as T;
   }
 
-    /**
+  /**
    * Compute trust score for a Nostr pubkey using social graph analysis and profile validation. Only target pubkey is required - all other parameters are optional.
    * @param {string} targetPubkey The target pubkey parameter
    * @returns {Promise<CalculateTrustScoreOutput>} The result of the calculate_trust_score operation
@@ -204,7 +232,7 @@ export class RoutstrChatClient implements RoutstrChat {
     return this.call("calculate_trust_score", { targetPubkey });
   }
 
-    /**
+  /**
    * Compute trust scores for a list of Nostr pubkeys in one batch using social graph analysis and profile validation.
    * @param {string[]} targetPubkeys The target pubkeys parameter
    * @returns {Promise<CalculateTrustScoresOutput>} The result of the calculate_trust_scores operation
@@ -215,17 +243,15 @@ export class RoutstrChatClient implements RoutstrChat {
     return this.call("calculate_trust_scores", { targetPubkeys });
   }
 
-    /**
+  /**
    * Get comprehensive statistics about the Relatr service including database stats, social graph stats, and the source public key
    * @returns {Promise<StatsOutput>} The result of the stats operation
    */
-  async Stats(
-    args: StatsInput
-  ): Promise<StatsOutput> {
+  async Stats(args: StatsInput): Promise<StatsOutput> {
     return this.call("stats", args);
   }
 
-    /**
+  /**
    * Search for Nostr profiles by name/query and return results sorted by trust score. Queries metadata relays and calculates trust scores for each result.
    * @param {string} query The query parameter
    * @param {number} limit [optional] Maximum number of results to return (default: 20)
@@ -233,19 +259,22 @@ export class RoutstrChatClient implements RoutstrChat {
    * @returns {Promise<SearchProfilesOutput>} The result of the search_profiles operation
    */
   async SearchProfiles(
-    query: string, limit?: number, extendToNostr?: boolean
+    query: string,
+    limit?: number,
+    extendToNostr?: boolean
   ): Promise<SearchProfilesOutput> {
     return this.call("search_profiles", { query, limit, extendToNostr });
   }
 
-    /**
+  /**
    * Manage your Trusted Assertions. Check status, enable, or disable TA entries.
    * @param {string} action Action to perform: 'get' to check status, 'enable' to activate, 'disable' to deactivate
    * @param {string} customRelays [optional] Optional comma-separated list of custom relay URLs to publish TA events to (only used for enable action)
    * @returns {Promise<ManageTaOutput>} The result of the manage_ta operation
    */
   async ManageTa(
-    action: string, customRelays?: string
+    action: string,
+    customRelays?: string
   ): Promise<ManageTaOutput> {
     return this.call("manage_ta", { action, customRelays });
   }
