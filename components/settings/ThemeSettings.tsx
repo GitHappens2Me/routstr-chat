@@ -4,6 +4,8 @@ import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor, Sunrise, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
+const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
+
 type ThemeVoter = {
   pubkey: string;
   name: string;
@@ -165,7 +167,7 @@ export default function ThemeSettings({
     const voters = themeVoters[themeId] ?? [];
     return {
       votes: stats?.count ?? 0,
-      trust: (stats?.trustScore ?? 0).toFixed(4),
+      trust: (stats?.trustScore ?? 0).toFixed(2),
       voters,
     };
   };
@@ -194,6 +196,7 @@ export default function ThemeSettings({
                 onClick={() => {
                   if (id === "solar") {
                     setSolarMode(true);
+                    localStorage.removeItem(WINNING_THEME_CACHE_KEY);
                     if (isSolarSyncTime()) {
                       setTheme("light");
                     } else {
@@ -201,6 +204,7 @@ export default function ThemeSettings({
                     }
                   } else {
                     setSolarMode(false);
+                    localStorage.removeItem(WINNING_THEME_CACHE_KEY);
                     setTheme(id);
                   }
                 }}
@@ -218,19 +222,10 @@ export default function ThemeSettings({
                 {voteMeta ? (
                   <div className="relative group">
                     <div>
-                      Trust:{" "}
-                      <span className="text-foreground/70">
-                        {voteMeta.trust}
-                      </span>
-                    </div>
-                    <div>
-                      Votes:{" "}
-                      <span className="text-foreground/70">
-                        {voteMeta.votes}
-                      </span>
-                      {isPollWinner ? (
-                        <span className="ml-1 text-foreground/70">(top)</span>
-                      ) : null}
+                      {voteMeta.trust} ({voteMeta.votes} votes)
+                      {isPollWinner && (
+                        <span className="text-foreground/70"> (top)</span>
+                      )}
                     </div>
                     <div className="pointer-events-none absolute left-0 bottom-full mb-2 z-50 min-w-44 max-w-56 rounded-md border border-border bg-popover p-2 text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100">
                       <div className="text-xs font-medium mb-2">Voters</div>
