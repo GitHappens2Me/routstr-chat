@@ -234,6 +234,8 @@ async function routstrRequest(params: {
       message.includes("Failed to fetch") ||
       message.includes("Load failed");
 
+    console.log("FULLL ERRROR", error);
+
     if (isNetworkError) {
       const storedToken = getLocalCashuToken(baseUrl);
       let shouldAttemptUnifiedRefund = true;
