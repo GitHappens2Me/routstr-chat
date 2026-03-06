@@ -54,6 +54,7 @@ export {
   activeConfigPubkey$,
   apiKeys$,
   invoices$,
+  theme$,
   configSyncLoading$,
   configSyncReady$,
 } from "./configObservables";

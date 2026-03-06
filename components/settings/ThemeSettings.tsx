@@ -61,14 +61,12 @@ interface ThemeSettingsProps {
   themeVoteStats: ThemeVoteStatsByTheme;
   themeVoters: ThemeVotersByTheme;
   winningTheme: WinningTheme;
-  isLoadingThemeVotes: boolean;
 }
 
 export default function ThemeSettings({
   themeVoteStats,
   themeVoters,
   winningTheme,
-  isLoadingThemeVotes,
 }: ThemeSettingsProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -107,34 +105,6 @@ export default function ThemeSettings({
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, [solarMode, resolvedTheme, setTheme]);
-
-  useEffect(() => {
-    if (
-      !mounted ||
-      isLoadingThemeVotes ||
-      !winningTheme ||
-      winningTheme.count <= 0
-    ) {
-      return;
-    }
-
-    if (winningTheme.themeId === "solar") {
-      setSolarMode(true);
-      if (isSolarSyncTime()) {
-        if (theme !== "light") {
-          setTheme("light");
-        }
-      } else if (theme !== "dark") {
-        setTheme("dark");
-      }
-      return;
-    }
-
-    setSolarMode(false);
-    if (theme !== winningTheme.themeId) {
-      setTheme(winningTheme.themeId);
-    }
-  }, [isLoadingThemeVotes, mounted, setTheme, theme, winningTheme]);
 
   if (!mounted) {
     return (

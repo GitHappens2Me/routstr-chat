@@ -179,7 +179,6 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         themeVoteStats={themeVoteStats}
         themeVoters={themeVoters}
         winningTheme={winningTheme}
-        isLoadingThemeVotes={isLoadingKind1018Trust}
       />
 
       {/* Background Keep-Alive Settings */}

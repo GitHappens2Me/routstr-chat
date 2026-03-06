@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useKind1018TrustScores } from "@/hooks/useKind1018TrustScores";
+import { genericConfigSync$ } from "@/hooks/sync";
 
 const WINNING_THEME_CACHE_KEY = "kind1018_winning_theme";
 
@@ -27,6 +28,16 @@ function toAppliedTheme(themeId: PollTheme): "light" | "dark" {
 export default function Kind1018ThemeBootstrap() {
   const { setTheme } = useTheme();
   const { winningTheme, isLoading } = useKind1018TrustScores();
+
+  useEffect(() => {
+    const subscription = genericConfigSync$.subscribe({
+      error: (err) => {
+        console.error("[Kind1018ThemeBootstrap] Config sync error:", err);
+      },
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     try {

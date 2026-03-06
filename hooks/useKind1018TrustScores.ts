@@ -5,6 +5,7 @@ import { useAccountManager } from "@/components/ClientProviders";
 import { useAppContext } from "@/hooks/useAppContext";
 import type { CalculateTrustScoresOutput } from "@/src/ctxcn/RoutstrChatClient";
 import {
+  theme$,
   kind0Profiles$,
   kind0Sync$,
   kind1018Events$,
@@ -13,6 +14,8 @@ import {
   kind1018TrustScores$,
   type Kind0Profile,
   relayUrls$,
+  userSigner$,
+  type UserSignerInfo,
   updateKind1018ETag,
   userPubkey$,
 } from "@/hooks/sync";
@@ -125,6 +128,17 @@ type ThemeVoter = {
 
 type ThemeVotersByTheme = Record<ThemeOptionId, ThemeVoter[]>;
 
+type ConfigTheme = "light-theme" | "dark-theme" | "solar-sync";
+
+function mapConfigThemeToPollTheme(
+  theme: ConfigTheme | undefined
+): ThemeOptionId | null {
+  if (theme === "light-theme") return "light";
+  if (theme === "dark-theme") return "dark";
+  if (theme === "solar-sync") return "solar";
+  return null;
+}
+
 function toThemeVotersByTheme(
   stats: ThemeVoteStatsByTheme,
   profiles: Record<string, Kind0Profile>,
@@ -168,6 +182,9 @@ export function useKind1018TrustScores() {
     (useObservableState(kind0Profiles$) as
       | Record<string, Kind0Profile>
       | undefined) ?? {};
+  const syncedThemeConfig = useObservableState(theme$) as
+    | ConfigTheme
+    | undefined;
   const eose = useObservableState(kind1018SyncEose$) ?? false;
 
   useEffect(() => {
@@ -187,6 +204,24 @@ export function useKind1018TrustScores() {
     );
     userPubkey$.next(activeAccount?.pubkey ?? null);
   }, [activeAccount?.pubkey]);
+
+  useEffect(() => {
+    if (activeAccount && activeAccount.nip44 && activeAccount.signEvent) {
+      const signerInfo: UserSignerInfo = {
+        signer: {
+          nip44: {
+            encrypt: activeAccount.nip44.encrypt.bind(activeAccount.nip44),
+            decrypt: activeAccount.nip44.decrypt.bind(activeAccount.nip44),
+          },
+          signEvent: activeAccount.signEvent.bind(activeAccount),
+        },
+        pubkey: activeAccount.pubkey,
+      };
+      userSigner$.next(signerInfo);
+    } else {
+      userSigner$.next(null);
+    }
+  }, [activeAccount]);
 
   useEffect(() => {
     console.log("[useKind1018TrustScores] Setting kind 1018 eTag");
@@ -242,7 +277,7 @@ export function useKind1018TrustScores() {
     [kind1018Events, trustScores]
   );
 
-  const winningTheme = useMemo(() => {
+  const pollWinningTheme = useMemo(() => {
     const orderedStats = THEME_OPTION_ORDER.map((themeId) => ({
       themeId,
       ...themeVoteStats[themeId],
@@ -259,6 +294,20 @@ export function useKind1018TrustScores() {
       null as (typeof orderedStats)[number] | null
     );
   }, [themeVoteStats]);
+
+  const winningTheme = useMemo(() => {
+    const configThemeId = mapConfigThemeToPollTheme(syncedThemeConfig);
+    if (configThemeId) {
+      return {
+        themeId: configThemeId,
+        optionId: THEME_OPTION_IDS[configThemeId],
+        count: 1,
+        trustScore: Number.MAX_SAFE_INTEGER,
+      };
+    }
+
+    return pollWinningTheme;
+  }, [pollWinningTheme, syncedThemeConfig]);
 
   const themeVoters = useMemo(
     () => toThemeVotersByTheme(themeVoteStats, kind0Profiles, trustScores),
@@ -280,6 +329,13 @@ export function useKind1018TrustScores() {
   useEffect(() => {
     console.log("[useKind1018TrustScores] total trust score:", totalTrustScore);
   }, [totalTrustScore]);
+
+  useEffect(() => {
+    console.log(
+      "[useKind1018TrustScores] synced theme config:",
+      syncedThemeConfig
+    );
+  }, [syncedThemeConfig]);
 
   return {
     trustScores,
