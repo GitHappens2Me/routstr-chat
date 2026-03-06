@@ -100,6 +100,18 @@ export default function ThemeSettings({
     setIsUserSovereign(hasSyncedTheme);
   }, [hasSyncedTheme]);
 
+  useEffect(() => {
+    if (syncedTheme === "solar-sync") {
+      setSolarMode(true);
+    }
+  }, [syncedTheme]);
+
+  useEffect(() => {
+    if (winningTheme?.themeId === "solar") {
+      setSolarMode(true);
+    }
+  }, [winningTheme]);
+
   const mapThemeToConfig = (id: ThemeButtonId): ThemeConfig | null => {
     if (id === "light") return "light-theme";
     if (id === "dark") return "dark-theme";
