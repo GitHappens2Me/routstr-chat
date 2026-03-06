@@ -136,6 +136,32 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         </div>
       )}
 
+      {/* WoT Npub/Pubkey - First thing they see */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-foreground/80 mb-2">
+          WoT Npub/Pubkey
+        </h3>
+        <div className="bg-muted/50 border border-border rounded-md p-3">
+          <div className="text-xs text-muted-foreground mb-2">
+            Optional override for config sync reads; accepts `npub` or hex
+            pubkey
+          </div>
+          <input
+            type="text"
+            value={wotPubkeyInput}
+            onChange={(e) => setWotPubkeyInput(e.target.value)}
+            onBlur={handleWotPubkeyBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="npub1... or 64-char hex"
+          />
+        </div>
+      </div>
+
       {/* Theme Settings */}
       <ThemeSettings />
 
@@ -200,27 +226,6 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                 setAutoDeleteEnabled(checked);
                 saveAutoDeleteConversations(checked);
               }}
-            />
-          </div>
-
-          <div className="border-t border-border pt-4">
-            <div className="text-sm text-foreground/70">WoT Npub/Pubkey</div>
-            <div className="text-xs text-muted-foreground mt-1 mb-2">
-              Optional override for config sync reads; accepts `npub` or hex
-              pubkey
-            </div>
-            <input
-              type="text"
-              value={wotPubkeyInput}
-              onChange={(e) => setWotPubkeyInput(e.target.value)}
-              onBlur={handleWotPubkeyBlur}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="npub1... or 64-char hex"
             />
           </div>
         </div>
