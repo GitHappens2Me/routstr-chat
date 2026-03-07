@@ -1,40 +1,133 @@
-import { readFile, readdir } from "fs/promises";
+import { createWriteStream } from "fs";
+import { mkdir, readFile, readdir } from "fs/promises";
 import { join } from "path";
 import http from "http";
 
 const REQUESTS_DIR = join(__dirname, "requests");
-const DAEMON_URL = "http://localhost:8008";
+const RESPONSES_DIR = join(__dirname, "responses");
+const DAEMON_URL = "https://api.nonkycai.com";
 
-async function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk) => {
-      data += chunk.toString();
-    });
-    req.on("end", () => resolve(data));
-    req.on("error", reject);
-  });
+type SavedRequest = {
+  method?: string;
+  path?: string;
+  headers?: http.OutgoingHttpHeaders;
+  body?: object;
+};
+
+function normalizeHeaders(
+  headers: http.OutgoingHttpHeaders | undefined,
+  bodyStr: string
+): http.OutgoingHttpHeaders {
+  const normalized: http.OutgoingHttpHeaders = {};
+  const incoming = headers || {};
+
+  for (const [key, value] of Object.entries(incoming)) {
+    const lower = key.toLowerCase();
+    if (
+      lower === "host" ||
+      lower === "connection" ||
+      lower === "content-length"
+    ) {
+      continue;
+    }
+    normalized[key] = value;
+  }
+
+  if (!normalized["Content-Type"] && !normalized["content-type"]) {
+    normalized["Content-Type"] = "application/json";
+  }
+
+  normalized["Content-Length"] = Buffer.byteLength(bodyStr);
+  normalized["Authorization"] =
+    "Bearer sk-ceff560519a2b88a6ec52b7a35f24f36d92ea022ffdfe1e53fbc47ef1cc26430";
+  return normalized;
 }
 
-async function sendRequest(body: object): Promise<void> {
+async function ensureResponsesDir(): Promise<void> {
+  await mkdir(RESPONSES_DIR, { recursive: true });
+}
+
+async function sendRequest(
+  saved: SavedRequest,
+  responseFilename: string
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const url = new URL("/v1/chat/completions", DAEMON_URL);
+    const body = saved.body || {};
     const bodyStr = JSON.stringify(body);
+    const url = new URL(saved.path || "/v1/chat/completions", DAEMON_URL);
+    const method = saved.method || "POST";
+    const headers = normalizeHeaders(saved.headers, bodyStr);
 
     const req = http.request(
       url,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(bodyStr),
-        },
+        method,
+        headers,
       },
-      async (res) => {
-        const responseBody = await readBody(res);
-        console.log(`[response] Status: ${res.statusCode}`);
-        console.log(`[response] Body: ${responseBody}`);
-        resolve();
+      (res) => {
+        const responsePath = join(RESPONSES_DIR, responseFilename);
+        const writer = createWriteStream(responsePath, {
+          flags: "w",
+          encoding: "utf-8",
+        });
+        let chunkCount = 0;
+        let settled = false;
+
+        const fail = (error: unknown): void => {
+          if (settled) return;
+          settled = true;
+          try {
+            writer.destroy();
+          } catch {
+            // ignore cleanup errors
+          }
+          reject(error);
+        };
+
+        const writeEvent = (event: Record<string, unknown>): void => {
+          writer.write(`${JSON.stringify(event)}\n`);
+        };
+
+        writer.on("error", fail);
+
+        writeEvent({
+          type: "meta",
+          status: res.statusCode,
+          headers: res.headers,
+          startedAt: new Date().toISOString(),
+        });
+
+        res.on("data", (chunk) => {
+          const buffer = Buffer.isBuffer(chunk)
+            ? chunk
+            : Buffer.from(String(chunk));
+
+          writeEvent({
+            type: "chunk",
+            index: chunkCount,
+            timestamp: new Date().toISOString(),
+            data: buffer.toString("utf-8"),
+          });
+          chunkCount += 1;
+        });
+
+        res.on("end", () => {
+          writeEvent({
+            type: "end",
+            chunkCount,
+            endedAt: new Date().toISOString(),
+          });
+
+          writer.end(() => {
+            if (settled) return;
+            settled = true;
+            console.log(`[response] Status: ${res.statusCode}`);
+            console.log(`[response] Chunks saved to: ${responseFilename}`);
+            resolve();
+          });
+        });
+
+        res.on("error", fail);
       }
     );
 
@@ -45,6 +138,8 @@ async function sendRequest(body: object): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await ensureResponsesDir();
+
   const files = await readdir(REQUESTS_DIR);
   const jsonFiles = files.filter((f) => f.endsWith(".json")).sort();
 
@@ -55,10 +150,34 @@ async function main(): Promise<void> {
     console.log(`\n[processing] ${file}`);
 
     const content = await readFile(filepath, "utf-8");
-    const body = JSON.parse(content);
+    const parsed = JSON.parse(content) as
+      | SavedRequest
+      | Record<string, unknown>;
 
-    console.log(`[sending] model: ${body.model}`);
-    await sendRequest(body);
+    const isEnvelope =
+      Boolean(parsed) &&
+      typeof parsed === "object" &&
+      ("body" in parsed || "headers" in parsed || "path" in parsed);
+
+    const saved: SavedRequest = isEnvelope
+      ? (parsed as SavedRequest)
+      : {
+          body: parsed as object,
+          method: "POST",
+          path: "/v1/chat/completions",
+        };
+
+    const body = saved.body as Record<string, unknown> | undefined;
+    console.log(
+      `[sending] ${saved.method || "POST"} ${saved.path || "/v1/chat/completions"} model: ${
+        typeof body?.model === "string" ? body.model : "(unknown)"
+      }`
+    );
+
+    const responseFilename = file
+      .replace(/^req-/, "resp-")
+      .replace(/\.json$/, ".ndjson");
+    await sendRequest(saved, responseFilename);
   }
 
   console.log("\nDone processing all requests.");

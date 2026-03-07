@@ -173,11 +173,28 @@ function pickTokenLine(output: string): string {
   return lines[lines.length - 1] || "";
 }
 
-async function saveRequestBody(body: unknown): Promise<string> {
+async function saveRequestBody(
+  body: unknown,
+  headers: IncomingMessage["headers"],
+  path: string,
+  method: string
+): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `req-${timestamp}.json`;
   const filepath = join(REQUESTS_DIR, filename);
-  await writeFile(filepath, JSON.stringify(body, null, 2));
+  await writeFile(
+    filepath,
+    JSON.stringify(
+      {
+        method,
+        path,
+        headers,
+        body,
+      },
+      null,
+      2
+    )
+  );
   return filename;
 }
 
@@ -236,9 +253,7 @@ async function main(): Promise<void> {
         throw error;
       }
     },
-    async receiveToken(
-      token: string
-    ): Promise<{
+    async receiveToken(token: string): Promise<{
       success: boolean;
       amount: number;
       unit: "sat" | "msat";
@@ -309,8 +324,13 @@ async function main(): Promise<void> {
         return;
       }
 
-      // const savedFilename = await saveRequestBody(requestBody);
-      // console.log(`[daemon] Request body saved to: ${savedFilename}`);
+      const savedFilename = await saveRequestBody(
+        requestBody,
+        req.headers,
+        `${url.pathname}${url.search}`,
+        req.method || "POST"
+      );
+      console.log(`[daemon] Request body saved to: ${savedFilename}`);
 
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
@@ -341,13 +361,10 @@ async function main(): Promise<void> {
         });
 
         const isStream = bodyObj.stream === true;
+        console.log("ISES R", isStream);
 
         if (isStream) {
-          // res.writeHead(response.status, {
-          //   "Content-Type":
-          //     response.headers.get("content-type") || "text/event-stream",
-          //   "Transfer-Encoding": "chunked",
-          // });
+          // return response;
 
           const body = response.body;
           if (body) {
