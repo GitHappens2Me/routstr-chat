@@ -2,10 +2,12 @@ import { createWriteStream } from "fs";
 import { mkdir, readFile, readdir } from "fs/promises";
 import { join } from "path";
 import http from "http";
+import https from "https";
 
 const REQUESTS_DIR = join(__dirname, "requests");
 const RESPONSES_DIR = join(__dirname, "responses");
-const DAEMON_URL = "https://api.nonkycai.com";
+// const DAEMON_URL = "https://api.nonkycai.com";
+const DAEMON_URL = "http://localhost:8009";
 
 type SavedRequest = {
   method?: string;
@@ -57,8 +59,9 @@ async function sendRequest(
     const url = new URL(saved.path || "/v1/chat/completions", DAEMON_URL);
     const method = saved.method || "POST";
     const headers = normalizeHeaders(saved.headers, bodyStr);
+    const protocolClient = url.protocol === "https:" ? https : http;
 
-    const req = http.request(
+    const req = protocolClient.request(
       url,
       {
         method,

@@ -324,13 +324,13 @@ async function main(): Promise<void> {
         return;
       }
 
-      const savedFilename = await saveRequestBody(
-        requestBody,
-        req.headers,
-        `${url.pathname}${url.search}`,
-        req.method || "POST"
-      );
-      console.log(`[daemon] Request body saved to: ${savedFilename}`);
+      // const savedFilename = await saveRequestBody(
+      //   requestBody,
+      //   req.headers,
+      //   `${url.pathname}${url.search}`,
+      //   req.method || "POST"
+      // );
+      // console.log(`[daemon] Request body saved to: ${savedFilename}`);
 
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
@@ -364,7 +364,10 @@ async function main(): Promise<void> {
         console.log("ISES R", isStream);
 
         if (isStream) {
-          // return response;
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+          });
 
           const body = response.body;
           if (body) {
