@@ -96,7 +96,7 @@ export const CONFIG_TYPES = {
   THEME: defineConfig<ThemeConfig>({
     id: "theme",
     kind: KINDS.ARBITRARY_APP_DATA, // 30078
-    dTag: "routstr-chat-theme",
+    dTag: "light-dark-mode",
     encrypted: false,
     parseContent: (data: unknown): ThemeConfig | null => {
       if (typeof data !== "string") return null;
