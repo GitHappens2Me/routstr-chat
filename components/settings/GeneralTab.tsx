@@ -9,9 +9,13 @@ import NWCWalletManager from "./NWCWalletManager"; // Import the NWC wallet mana
 import AutoRefillSettings from "./AutoRefillSettings"; // Import auto-refill settings
 import ThemeSettings from "./ThemeSettings"; // Import theme settings
 import { useChatSync } from "@/hooks/useChatSync";
+import { useKind1018TrustScores } from "@/hooks/useKind1018TrustScores";
+import { updateWotPubkey } from "@/hooks/sync";
 import { useAccountManager } from "@/components/ClientProviders";
 import { useObservableState } from "applesauce-react/hooks";
 import {
+  getStorageItem,
+  setStorageItem,
   loadAutoDeleteConversations,
   saveAutoDeleteConversations,
   loadKeepAliveEnabled,
@@ -31,9 +35,12 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   onClose,
   // Model configuration moved to Models tab
 }) => {
+  const WOT_PUBKEY_KEY = "wotPubkey";
+
   // Model configuration moved to Models tab
   const [showNsecWarning, setShowNsecWarning] = useState<boolean>(false);
   const [newNsec, setNewNsec] = useState<string>("");
+  const [wotPubkeyInput, setWotPubkeyInput] = useState<string>("");
 
   const toast = (message: string) => {
     alert(message); // Placeholder for a proper toast notification
@@ -43,13 +50,50 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   const applesauceAccounts = useObservableState(manager.accounts$) || [];
   const activeApplesauceAccount = useObservableState(manager.active$);
   const { chatSyncEnabled, setChatSyncEnabled } = useChatSync();
+  const {
+    totalTrustScore,
+    isLoading: isLoadingKind1018Trust,
+    themeVoteStats,
+    themeVoters,
+    winningTheme,
+  } = useKind1018TrustScores();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
   const [keepAliveEnabled, setKeepAliveEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     setAutoDeleteEnabled(loadAutoDeleteConversations());
     setKeepAliveEnabled(loadKeepAliveEnabled());
+    setWotPubkeyInput(
+      getStorageItem<string | null>(WOT_PUBKEY_KEY, null) ?? ""
+    );
   }, []);
+
+  const normalizeWotPubkey = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+      return trimmed.toLowerCase();
+    }
+
+    try {
+      const decoded = nip19.decode(trimmed);
+      if (decoded.type === "npub") {
+        return decoded.data as string;
+      }
+    } catch {
+      // Keep raw input for unsupported formats
+    }
+
+    return trimmed;
+  };
+
+  const handleWotPubkeyBlur = () => {
+    const normalized = normalizeWotPubkey(wotPubkeyInput);
+    setWotPubkeyInput(normalized ?? "");
+    setStorageItem(WOT_PUBKEY_KEY, normalized);
+    updateWotPubkey(normalized);
+  };
 
   useEffect(() => {
     if (localStorage.getItem("nsec_storing_skipped") === "true") {
@@ -100,8 +144,42 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         </div>
       )}
 
+      {/* WoT Npub/Pubkey - First thing they see */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-foreground/80 mb-2">
+          WoT Npub/Pubkey
+        </h3>
+        <div className="bg-muted/50 border border-border rounded-md p-3">
+          <div className="text-xs text-muted-foreground mb-2">
+            Optional override for config sync reads; accepts `npub` or hex
+            pubkey
+          </div>
+          <input
+            type="text"
+            value={wotPubkeyInput}
+            onChange={(e) => setWotPubkeyInput(e.target.value)}
+            onBlur={handleWotPubkeyBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="npub1... or 64-char hex"
+          />
+          <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+            Kind 1018 trust score sum:{" "}
+            {isLoadingKind1018Trust ? "Loading..." : totalTrustScore.toFixed(4)}
+          </div>
+        </div>
+      </div>
+
       {/* Theme Settings */}
-      <ThemeSettings />
+      <ThemeSettings
+        themeVoteStats={themeVoteStats}
+        themeVoters={themeVoters}
+        winningTheme={winningTheme}
+      />
 
       {/* Background Keep-Alive Settings */}
       <div className="mb-6">

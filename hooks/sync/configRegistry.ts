@@ -9,6 +9,13 @@ import { KINDS } from "@/lib/nostr-kinds";
 import type { StoredApiKey } from "@/components/settings/ApiKeysTab";
 import type { StoredInvoice } from "@/hooks/useInvoiceSync";
 
+export type ThemeConfig =
+  | "light-theme"
+  | "dark-theme"
+  | "solar-sync"
+  | "system-sync"
+  | "unset";
+
 /**
  * Definition for a syncable config type
  */
@@ -30,7 +37,9 @@ export interface ConfigTypeDefinition<T = unknown> {
 /**
  * Helper to create a type-safe config definition
  */
-function defineConfig<T>(config: ConfigTypeDefinition<T>): ConfigTypeDefinition<T> {
+function defineConfig<T>(
+  config: ConfigTypeDefinition<T>
+): ConfigTypeDefinition<T> {
   return config;
 }
 
@@ -83,6 +92,27 @@ export const CONFIG_TYPES = {
     },
     defaultValue: [],
   }),
+
+  THEME: defineConfig<ThemeConfig>({
+    id: "theme",
+    kind: KINDS.ARBITRARY_APP_DATA, // 30078
+    dTag: "routstr-chat-theme",
+    encrypted: false,
+    parseContent: (data: unknown): ThemeConfig | null => {
+      if (typeof data !== "string") return null;
+      const validThemes: ThemeConfig[] = [
+        "light-theme",
+        "dark-theme",
+        "solar-sync",
+        "system-sync",
+        "unset",
+      ];
+      return validThemes.includes(data as ThemeConfig)
+        ? (data as ThemeConfig)
+        : null;
+    },
+    defaultValue: "unset",
+  }),
 } as const;
 
 /**
@@ -94,7 +124,8 @@ export type ConfigDataType<T extends ConfigTypeDefinition> =
 /**
  * Union type of all config type IDs
  */
-export type ConfigTypeId = (typeof CONFIG_TYPES)[keyof typeof CONFIG_TYPES]["id"];
+export type ConfigTypeId =
+  (typeof CONFIG_TYPES)[keyof typeof CONFIG_TYPES]["id"];
 
 /**
  * Get all config definitions as an array
@@ -106,7 +137,9 @@ export function getAllConfigTypes(): ConfigTypeDefinition[] {
 /**
  * Get a config definition by its ID
  */
-export function getConfigTypeById(id: string): ConfigTypeDefinition | undefined {
+export function getConfigTypeById(
+  id: string
+): ConfigTypeDefinition | undefined {
   return getAllConfigTypes().find((config) => config.id === id);
 }
 

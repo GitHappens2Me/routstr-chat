@@ -11,6 +11,7 @@ import {
   useContext,
 } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import Kind1018ThemeBootstrap from "@/components/Kind1018ThemeBootstrap";
 import dynamic from "next/dynamic";
 import { migrateStorageItems, saveRelays } from "@/utils/storageUtils";
 import { InvoiceRecoveryProvider } from "@/components/InvoiceRecoveryProvider";
@@ -158,6 +159,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
           defaultConfig={defaultConfig}
           presetRelays={presetRelays}
         >
+          <Kind1018ThemeBootstrap />
           <QueryClientProvider client={queryClient}>
             <InvoiceRecoveryProvider>{children}</InvoiceRecoveryProvider>
           </QueryClientProvider>
