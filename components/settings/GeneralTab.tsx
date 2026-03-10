@@ -59,6 +59,9 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   } = useKind1018TrustScores();
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState<boolean>(false);
   const [keepAliveEnabled, setKeepAliveEnabled] = useState<boolean>(false);
+  const [spendMode, setSpendMode] = useState<
+    "x-cashu" | "lazy-refund" | "spillman"
+  >("x-cashu");
 
   useEffect(() => {
     setAutoDeleteEnabled(loadAutoDeleteConversations());
@@ -66,6 +69,12 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
     setWotPubkeyInput(
       getStorageItem<string | null>(WOT_PUBKEY_KEY, null) ?? ""
     );
+    const savedMode = localStorage.getItem("spendMode") as
+      | "x-cashu"
+      | "lazy-refund"
+      | "spillman"
+      | null;
+    if (savedMode) setSpendMode(savedMode);
   }, []);
 
   const normalizeWotPubkey = (value: string): string | null => {
@@ -180,6 +189,36 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         themeVoters={themeVoters}
         winningTheme={winningTheme}
       />
+
+      {/* Spend Mode Settings */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-foreground/80 mb-2">
+          Spend Mode
+        </h3>
+        <div className="bg-muted/50 border border-border rounded-md p-3">
+          <div className="text-xs text-muted-foreground mb-3">
+            Choose how to pay for model requests
+          </div>
+          <div className="flex rounded-md bg-background border border-border p-1">
+            {(["x-cashu", "lazy-refund", "spillman"] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`flex-1 py-2 px-3 text-xs font-medium rounded-md transition-colors cursor-pointer capitalize ${
+                  spendMode === mode
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => {
+                  setSpendMode(mode);
+                  localStorage.setItem("spendMode", mode);
+                }}
+              >
+                {mode.replace("-", " ")}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Background Keep-Alive Settings */}
       <div className="mb-6">
