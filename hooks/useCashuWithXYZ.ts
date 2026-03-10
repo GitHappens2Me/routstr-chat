@@ -833,6 +833,8 @@ export function useCashuWithXYZ() {
     createWalletError,
 
     // Token operations
+    sendToken,
+    receiveToken,
     spendCashu,
     storeCashu,
     cleanSpentProofs,

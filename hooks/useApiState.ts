@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { ModelManager, MintDiscovery } from "@/sdk";
 import { Model } from "@/types/models";
 import {
   loadBaseUrl,
@@ -10,33 +11,22 @@ import {
   saveBaseUrlsList,
   loadModelProviderMap,
   saveModelProviderMap,
-  setStorageItem,
   getStorageItem,
-  loadDisabledProviders,
-  saveMintsFromAllProviders,
-  setProviderLastUpdate,
-  getProviderLastUpdate,
-  saveInfoFromAllProviders,
 } from "@/utils/storageUtils";
 import {
   parseModelKey,
   normalizeBaseUrl,
-  upsertCachedProviderModels,
-  isModelAvailable,
-  getRequiredSatsForModel,
   modelSelectionStrategy,
+  isModelAvailable,
 } from "@/utils/modelUtils";
-import {
-  getPendingCashuTokenAmount,
-  getPendingCashuTokenDistribution,
-} from "@/utils/cashuUtils";
+import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
 import {
   filterBaseUrlsForTor,
-  getProviderEndpoints,
   isOnionUrl,
   isTorContext,
   normalizeProviderUrl,
 } from "@/utils/torUtils";
+import { useDiscoveryAdapter } from "./useDiscoveryAdapter";
 
 export interface UseApiStateReturn {
   models: Model[];
@@ -45,16 +35,11 @@ export interface UseApiStateReturn {
   baseUrl: string;
   setSelectedModel: (model: Model | null) => void;
   setBaseUrl: (url: string) => void;
-  fetchModels: (balance: number) => Promise<void>; // Modified to accept balance
+  fetchModels: (balance: number) => Promise<void>;
   handleModelChange: (modelId: string, configuredKeyOverride?: string) => void;
   lowBalanceWarningForModel: boolean;
 }
 
-/**
- * Custom hook for managing API configuration and model state
- * Handles API endpoint configuration, model fetching and caching,
- * model selection state, and API error handling
- */
 export const useApiState = (
   isAuthenticated: boolean,
   balance: number,
@@ -63,6 +48,16 @@ export const useApiState = (
   isWalletLoading: boolean
 ): UseApiStateReturn => {
   const searchParams = useSearchParams();
+  const discoveryAdapter = useDiscoveryAdapter();
+  const modelManager = useMemo(
+    () => (discoveryAdapter ? new ModelManager(discoveryAdapter) : null),
+    [discoveryAdapter]
+  );
+  const mintDiscovery = useMemo(
+    () => (discoveryAdapter ? new MintDiscovery(discoveryAdapter) : null),
+    [discoveryAdapter]
+  );
+
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
@@ -70,335 +65,157 @@ export const useApiState = (
   const [baseUrlsList, setBaseUrlsList] = useState<string[]>([]);
   const [lowBalanceWarningForModel, setLowBalanceWarningForModel] =
     useState(false);
-  // Removed unused currentBaseUrlIndex state
 
-  // Initialize URLs from storage
   useEffect(() => {
-    if (isAuthenticated) {
-      const torMode = isTorContext();
-      const loadedBaseUrls = loadBaseUrlsList();
-      const filteredBaseUrls = filterBaseUrlsForTor(loadedBaseUrls, torMode);
-      if (filteredBaseUrls.length !== loadedBaseUrls.length) {
-        saveBaseUrlsList(filteredBaseUrls);
-      }
-      setBaseUrlsList(filteredBaseUrls);
+    if (!isAuthenticated) return;
 
-      const currentBaseUrl = loadBaseUrl("");
-      if (!torMode && currentBaseUrl && isOnionUrl(currentBaseUrl)) {
-        const fallbackBaseUrl = filteredBaseUrls[0] || "";
-        setBaseUrlState(fallbackBaseUrl);
-        saveBaseUrl(fallbackBaseUrl);
-      } else {
-        setBaseUrlState(currentBaseUrl);
-      }
+    const torMode = isTorContext();
+    const loadedBaseUrls = loadBaseUrlsList();
+    const filteredBaseUrls = filterBaseUrlsForTor(loadedBaseUrls, torMode);
+    if (filteredBaseUrls.length !== loadedBaseUrls.length) {
+      saveBaseUrlsList(filteredBaseUrls);
+    }
+    setBaseUrlsList(filteredBaseUrls);
+
+    const currentBaseUrl = loadBaseUrl("");
+    if (!torMode && currentBaseUrl && isOnionUrl(currentBaseUrl)) {
+      const fallbackBaseUrl = filteredBaseUrls[0] || "";
+      setBaseUrlState(fallbackBaseUrl);
+      saveBaseUrl(fallbackBaseUrl);
+    } else {
+      setBaseUrlState(currentBaseUrl);
     }
   }, [isAuthenticated]);
 
-  // Bootstrap provider bases from the directory when none are configured
-  const bootstrapProviders = useCallback(async (): Promise<string[]> => {
-    try {
-      const res = await fetch("https://api.routstr.com/v1/providers/");
-      if (!res.ok) throw new Error(`Failed providers ${res.status}`);
-      const data = await res.json();
-      const providers = Array.isArray(data?.providers) ? data.providers : [];
-      if (process.env.NODE_ENV === "development") {
-        providers.push({ endpoint_url: "http://localhost:8000/" });
-      }
-      const torMode = isTorContext();
-      const bases = new Set<string>();
-      for (const p of providers) {
-        const endpoints = getProviderEndpoints(p, torMode);
-        for (const endpoint of endpoints) {
-          bases.add(endpoint);
-        }
-      }
-      // Filter out staging providers on production (disabled providers are filtered at fetch time)
-      const isProduction =
-        typeof window !== "undefined" &&
-        window.location.hostname === "chat.routstr.com";
-      const list = Array.from(bases).filter((base) => {
-        // Filter out staging providers on production
-        if (isProduction && base.includes("staging")) return false;
-        return true;
-      });
-      if (list.length > 0) {
-        saveBaseUrlsList(list);
-        setBaseUrlsList(list);
-      }
-      return list;
-    } catch (e) {
-      console.error("Failed to bootstrap providers", e);
-      return [];
-    }
-  }, []);
+  const fetchModels = useCallback(
+    async (_balance?: number) => {
+      if (!modelManager || !mintDiscovery || !discoveryAdapter) return;
 
-  // Fetch available models from API and handle URL model selection
-  const fetchModels = useCallback(async () => {
-    try {
-      setIsLoadingModels(true);
-      let bases = baseUrlsList;
-      if (!bases || bases.length === 0) {
-        bases = await bootstrapProviders();
+      try {
+        setIsLoadingModels(true);
+        const torMode = isTorContext();
+        let bases = baseUrlsList;
+
         if (!bases || bases.length === 0) {
-          setModels([]);
-          setSelectedModel(null);
-          return;
+          bases = await modelManager.bootstrapProviders(torMode, false);
+          if (process.env.NODE_ENV === "development") {
+            const localDevProvider = "http://localhost:8000/";
+            if (!bases.includes(localDevProvider)) {
+              const withDev = [...bases, localDevProvider];
+              discoveryAdapter.setBaseUrlsList(withDev);
+              discoveryAdapter.setBaseUrlsLastUpdate(Date.now());
+              bases = withDev;
+            }
+          }
+          bases = filterBaseUrlsForTor(bases, torMode);
+          setBaseUrlsList(bases);
+          saveBaseUrlsList(bases);
+          if (bases.length === 0) {
+            setModels([]);
+            setSelectedModel(null);
+            return;
+          }
         }
-      }
 
-      // Filter out disabled providers
-      const disabledProviders = loadDisabledProviders();
-
-      // Process results progressively as each provider responds
-      const modelsFromAllProviders: Record<string, Model[]> = {};
-      const bestById = new Map<string, { model: Model; base: string }>();
-      let processedCount = 0;
-
-      function estimateMinCost(m: Model): number {
-        return m?.sats_pricing?.completion ?? 0;
-      }
-
-      // Helper to update best models and UI state
-      const updateBestModels = () => {
-        const combinedModels = Array.from(bestById.values()).map(
-          (v) => v.model
-        );
+        const combinedModels = (await modelManager.fetchModels(
+          bases,
+          false
+        )) as unknown as Model[];
         setModels(combinedModels);
 
-        // Stop loading if we have enough models
-        if (combinedModels.length > 5) {
-          setIsLoadingModels(false);
-        }
+        const allProviderModels = modelManager.getAllCachedModels();
+        const bestMap = loadModelProviderMap();
+        let mapChanged = false;
+        for (const model of combinedModels) {
+          let bestBase: string | null = null;
+          let bestCost = Number.POSITIVE_INFINITY;
 
-        // Persist provider mapping for best-priced winners
-        const newMap = loadModelProviderMap();
-        let changed = false;
-        for (const [id, entry] of bestById.entries()) {
-          if (newMap[id] !== entry.base) {
-            newMap[id] = entry.base;
-            changed = true;
+          for (const [providerBase, providerModels] of Object.entries(
+            allProviderModels
+          )) {
+            const match = providerModels.find((m) => m.id === model.id);
+            if (!match?.sats_pricing) continue;
+            const cost = match.sats_pricing.completion ?? 0;
+            if (cost < bestCost) {
+              bestCost = cost;
+              bestBase = providerBase;
+            }
+          }
+
+          if (bestBase && bestMap[model.id] !== bestBase) {
+            bestMap[model.id] = bestBase;
+            mapChanged = true;
           }
         }
-        if (changed) saveModelProviderMap(newMap);
+        if (mapChanged) saveModelProviderMap(bestMap);
 
-        return combinedModels;
-      };
+        await mintDiscovery.discoverMints(bases);
 
-      // Process each provider as it responds
-      const fetchPromises = bases.map(async (url) => {
-        const base = url.endsWith("/") ? url : `${url}/`;
-        try {
-          // Check if we need to fetch or can use cached data
-          const lastUpdate = getProviderLastUpdate(base);
-          const TWENTY_ONE = 21 * 60 * 1000; // 21 mins in milliseconds
-          const cacheExpired = true; // foricng for now.
-          // !lastUpdate || Date.now() - lastUpdate > TWENTY_ONE;
+        let modelToSelect: Model | null = null;
+        const urlModelId = searchParams.get("model");
+        if (urlModelId) {
+          const decodedUrlModelId = decodeURIComponent(urlModelId).trim();
+          const shortUrlModelId =
+            decodedUrlModelId.split("/").pop() || decodedUrlModelId;
+          modelToSelect =
+            combinedModels.find(
+              (m: Model) =>
+                m.id === decodedUrlModelId || m.id === shortUrlModelId
+            ) || null;
+        }
 
-          // Load from storage first
-          const cachedModels = getStorageItem<Record<string, Model[]>>(
-            "modelsFromAllProviders",
-            {}
+        const lastUsedModelId = loadLastUsedModel();
+        if (!modelToSelect) {
+          modelToSelect = await modelSelectionStrategy(
+            combinedModels,
+            maxBalance,
+            pendingCashuAmountState
           );
-          const cachedList = cachedModels[base] || [];
-
-          // Determine if we need to fetch: either cache expired OR cache is empty
-          const needsFetch =
-            cacheExpired || !cachedList || cachedList.length === 0;
-
-          let list: Model[];
-
-          if (needsFetch) {
-            // Fetch fresh data from provider
-            const res = await fetch(`${base}v1/models`);
-            if (!res.ok) {
-              modelsFromAllProviders[base] = [];
-              setProviderLastUpdate(base, Date.now());
-              throw new Error(`Failed ${res.status}`);
-            }
-            const json = await res.json();
-            list = Array.isArray(json?.data)
-              ? json.data.map((m: Model) => ({
-                  ...m,
-                  id: m.id.split("/").pop() || m.id,
-                }))
-              : [];
-
-            // Save provider results
-            modelsFromAllProviders[base] = list;
-
-            // Update timestamp for this provider
-            setProviderLastUpdate(base, Date.now());
-          } else {
-            // Use cached data (it's fresh enough and not empty)
-            list = cachedList;
-            modelsFromAllProviders[base] = list;
-          }
-
-          if (!disabledProviders.includes(base)) {
-            // Update best-priced models
-            for (const m of list) {
-              const existing = bestById.get(m.id);
-              if (!existing) {
-                if (!m.sats_pricing)
-                  // filtering all models without sats pricing
-                  continue;
-                bestById.set(m.id, { model: m, base });
-                continue;
-              }
-              const currentCost = estimateMinCost(m);
-              const existingCost = estimateMinCost(existing.model);
-              if (currentCost < existingCost && m.sats_pricing) {
-                bestById.set(m.id, { model: m, base });
-              }
-            }
-          }
-
-          // Update UI with current best models
-          processedCount++;
-          updateBestModels();
-          console.log("PROCESSESD ", base);
-
-          return { success: true, base, list };
-        } catch (error) {
-          processedCount++;
-          console.warn(`Failed to fetch models from ${base}:`, error);
-          return { success: false, base };
         }
-      });
 
-      // Wait for all to complete (but UI updates happen progressively)
-      await Promise.allSettled(fetchPromises);
-
-      // Save all provider results to localStorage
-      try {
-        setStorageItem("modelsFromAllProviders", modelsFromAllProviders);
-      } catch {}
-
-      // Final update to ensure we have the latest state
-      const combinedModels = updateBestModels();
-
-      // Select model based on URL param or last used
-      let modelToSelect: Model | null = null;
-      const urlModelId = searchParams.get("model");
-      if (urlModelId) {
-        const decodedUrlModelId = decodeURIComponent(urlModelId).trim();
-        const shortUrlModelId =
-          decodedUrlModelId.split("/").pop() || decodedUrlModelId;
-        modelToSelect =
-          combinedModels.find(
-            (m: Model) =>
-              m.id === decodedUrlModelId || m.id === shortUrlModelId
-          ) || null;
-      }
-      const lastUsedModelId = loadLastUsedModel();
-      if (!modelToSelect) {
-        modelToSelect = await modelSelectionStrategy(
-          combinedModels,
-          maxBalance,
-          pendingCashuAmountState
-        );
-      }
-      setSelectedModel(modelToSelect);
-      if (modelToSelect && lastUsedModelId && !lastUsedModelId.includes("@@")) {
-        saveLastUsedModel(modelToSelect.id);
-        // Switch provider base URL if a provider is configured for this model
-        try {
-          const map = loadModelProviderMap();
-          const mappedBase = map[modelToSelect.id];
-          console.log("rdlogs: mappedBase", mappedBase);
-          if (
-            mappedBase &&
-            typeof mappedBase === "string" &&
-            mappedBase.length > 0
-          ) {
+        setSelectedModel(modelToSelect);
+        if (
+          modelToSelect &&
+          lastUsedModelId &&
+          !lastUsedModelId.includes("@@")
+        ) {
+          saveLastUsedModel(modelToSelect.id);
+          const mappedBase = loadModelProviderMap()[modelToSelect.id];
+          if (mappedBase) {
             const normalized = mappedBase.endsWith("/")
               ? mappedBase
               : `${mappedBase}/`;
             setBaseUrl(normalized);
           }
-        } catch {}
-      }
-    } catch (error) {
-      console.error("Error while fetching models", error);
-      setModels([]);
-      setSelectedModel(null);
-    } finally {
-      setIsLoadingModels(false);
-    }
-  }, [searchParams, baseUrlsList, bootstrapProviders]);
-
-  // Fetch available mints from each provider's /v1/info endpoint
-  const fetchMints = useCallback(async () => {
-    try {
-      let bases = baseUrlsList;
-      if (!bases || bases.length === 0) {
-        // If no providers yet, skip (will be called again after bootstrap)
-        return;
-      }
-
-      // Store mints from all providers
-      const infoFromAllProviders: Record<string, any> = {};
-      const mintsFromAllProviders: Record<string, string[]> = {};
-
-      // Fetch info from each provider
-      const fetchPromises = bases.map(async (url) => {
-        const base = url.endsWith("/") ? url : `${url}/`;
-        try {
-          const res = await fetch(`${base}v1/info`);
-          if (!res.ok) throw new Error(`Failed ${res.status}`);
-          const json = await res.json();
-
-          // Extract mints array from response
-          const mints: string[] = Array.isArray(json?.mints) ? json.mints : [];
-
-          // Save provider mints
-          mintsFromAllProviders[base] = mints;
-          // Save full provider info
-          infoFromAllProviders[base] = json;
-
-          return { success: true, base, mints, info: json };
-        } catch (error) {
-          console.warn(`Failed to fetch mints from ${base}:`, error);
-          return { success: false, base };
         }
-      });
-
-      // Wait for all to complete
-      await Promise.allSettled(fetchPromises);
-
-      // Save all provider mints and info to localStorage
-      try {
-        saveMintsFromAllProviders(mintsFromAllProviders);
       } catch (error) {
-        console.error("Error saving mints to localStorage:", error);
+        console.error("Error while fetching models", error);
+        setModels([]);
+        setSelectedModel(null);
+      } finally {
+        setIsLoadingModels(false);
       }
-      try {
-        saveInfoFromAllProviders(infoFromAllProviders);
-      } catch (error) {
-        console.error("Error saving provider info to localStorage:", error);
-      }
-    } catch (error) {
-      console.error("Error while fetching mints", error);
-    }
-  }, [baseUrlsList]);
+    },
+    [
+      modelManager,
+      mintDiscovery,
+      discoveryAdapter,
+      baseUrlsList,
+      searchParams,
+      maxBalance,
+      pendingCashuAmountState,
+    ]
+  );
 
-  // Fetch models and mints when providers are available and user is authenticated
-  // Intentionally NOT dependent on balance to avoid reloading the selector on wallet updates
   useEffect(() => {
-    if (!isAuthenticated) return;
-    // Always attempt to fetch; will bootstrap providers if missing
-    fetchModels();
-    fetchMints();
-  }, [isAuthenticated, baseUrlsList.length]);
+    if (!isAuthenticated || !modelManager || !mintDiscovery) return;
+    void fetchModels(balance);
+  }, [isAuthenticated, modelManager, mintDiscovery, baseUrlsList.length]);
 
-  // Auto-select model based on balance when balance changes
-  // Only auto-selects if no model is selected or current model is not available
   useEffect(() => {
     if (!isAuthenticated || models.length === 0) return;
 
-    // Async function to handle model selection
     const selectModel = async () => {
-      // Only auto-select if no model is selected or current model is not available
       if (!selectedModel && !isWalletLoading) {
         const lastUsedModel = loadLastUsedModel();
         const model = await modelSelectionStrategy(
@@ -412,6 +229,7 @@ export const useApiState = (
           handleModelChange(model.id);
         }
       }
+
       if (selectedModel && !isWalletLoading) {
         setLowBalanceWarningForModel(
           !isModelAvailable(
@@ -422,7 +240,7 @@ export const useApiState = (
       }
     };
 
-    selectModel();
+    void selectModel();
   }, [
     balance,
     models,
@@ -430,100 +248,50 @@ export const useApiState = (
     selectedModel,
     isLoadingModels,
     pendingCashuAmountState,
+    isWalletLoading,
+    maxBalance,
   ]);
 
   const handleModelChange = useCallback(
     (modelId: string, configuredKeyOverride?: string) => {
-      console.log("rdlogs: handleModelChange", modelId, configuredKeyOverride);
-      // If a provider base is explicitly provided, prefer provider-specific model from storage
       if (configuredKeyOverride && configuredKeyOverride.includes("@@")) {
-        const parsed = parseModelKey(configuredKeyOverride!);
+        const parsed = parseModelKey(configuredKeyOverride);
         const fixedBaseRaw = parsed.base;
         const fixedBase = normalizeBaseUrl(fixedBaseRaw);
         if (!fixedBase) return;
-        try {
-          const normalized = fixedBase.endsWith("/")
-            ? fixedBase
-            : `${fixedBase}/`;
-          const allByProvider = getStorageItem<Record<string, Model[]>>(
-            "modelsFromAllProviders",
-            {} as any
-          );
-          const list =
-            allByProvider?.[normalized] ||
-            allByProvider?.[configuredKeyOverride] ||
-            ([] as any);
-          let providerSpecific = Array.isArray(list)
-            ? list.find((m: Model) => m.id === parsed.id)
-            : undefined;
-          // If not found locally, fetch on-demand from provider and cache
-          const ensureFetched = async (): Promise<Model | undefined> => {
-            if (providerSpecific) return providerSpecific;
-            try {
-              const res = await fetch(`${normalized}v1/models`);
-              if (!res.ok) throw new Error(`Failed ${res.status}`);
-              const json = await res.json();
-              const freshList: Model[] = Array.isArray(json?.data)
-                ? json.data.map((m: Model) => ({
-                    ...m,
-                    id: m.id.split("/").pop() || m.id,
-                  }))
-                : [];
-              // cache back to storage
-              upsertCachedProviderModels(normalized, freshList);
-              return freshList.find((m: Model) => m.id === parsed.id);
-            } catch {
-              return undefined;
-            }
-          };
-          // Note: handleModelChange isn't async; fire-and-forget then early return after success
-          if (!providerSpecific) {
-            void (async () => {
-              const fetched = await ensureFetched();
-              if (fetched) {
-                setSelectedModel(fetched);
-                saveLastUsedModel(configuredKeyOverride!);
-                setBaseUrl(normalized);
-              }
-            })();
-            return;
-          }
-          console.log("rdlogs: providerSpecific", providerSpecific);
-          if (providerSpecific) {
-            setSelectedModel(providerSpecific);
-            saveLastUsedModel(configuredKeyOverride);
-            setBaseUrl(normalized);
-            return;
-          }
-        } catch (e) {
-          console.error(
-            "Failed to load provider-specific model from storage",
-            e
-          );
+
+        const normalized = fixedBase.endsWith("/")
+          ? fixedBase
+          : `${fixedBase}/`;
+        const allByProvider = getStorageItem<Record<string, Model[]>>(
+          "modelsFromAllProviders",
+          {}
+        );
+        const list =
+          allByProvider?.[normalized] ||
+          allByProvider?.[configuredKeyOverride] ||
+          [];
+        const providerSpecific = Array.isArray(list)
+          ? list.find((m: Model) => m.id === parsed.id)
+          : undefined;
+        if (providerSpecific) {
+          setSelectedModel(providerSpecific);
+          saveLastUsedModel(configuredKeyOverride);
+          setBaseUrl(normalized);
+          return;
         }
-      } else {
-        // Fallback: use currently loaded combined models
-        const model = models.find((m: Model) => m.id === modelId);
-        if (model) {
-          setSelectedModel(model);
-          saveLastUsedModel(modelId);
-          // Switch provider base URL if a provider is configured for this model
-          try {
-            const map = loadModelProviderMap();
-            const mappedBase = map[modelId];
-            console.log("rdlogs: mappedBase", mappedBase);
-            if (
-              mappedBase &&
-              typeof mappedBase === "string" &&
-              mappedBase.length > 0
-            ) {
-              const normalized = mappedBase.endsWith("/")
-                ? mappedBase
-                : `${mappedBase}/`;
-              setBaseUrl(normalized);
-            }
-          } catch {}
-        }
+      }
+
+      const model = models.find((m: Model) => m.id === modelId);
+      if (!model) return;
+      setSelectedModel(model);
+      saveLastUsedModel(modelId);
+      const mappedBase = loadModelProviderMap()[modelId];
+      if (mappedBase) {
+        const normalized = mappedBase.endsWith("/")
+          ? mappedBase
+          : `${mappedBase}/`;
+        setBaseUrl(normalized);
       }
     },
     [models]

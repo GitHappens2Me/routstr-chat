@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Message,
   MessageContent,
@@ -9,10 +9,12 @@ import {
   createTextMessage,
   createMultimodalMessage,
 } from "@/utils/messageUtils";
-import { fetchAIResponse } from "@/utils/apiUtils";
 import { getPendingCashuTokenAmount } from "@/utils/cashuUtils";
 import { useCashuWithXYZ } from "./useCashuWithXYZ";
 import { DEFAULT_MINT_URL } from "@/lib/utils";
+import { saveFile } from "@/utils/indexedDb";
+import { useWalletAdapter } from "./useWalletAdapter";
+import { useSdkClient } from "./useSdkClient";
 
 export interface UseChatActionsReturn {
   inputMessage: string;
@@ -158,10 +160,85 @@ export const useChatActions = ({
     setTransactionHistory,
     hotTokenBalance,
     usingNip60,
-    spendCashu,
-    storeCashu,
     cashuStore,
+    sendToken,
+    receiveToken,
   } = useCashuWithXYZ();
+
+  const walletAdapter = useWalletAdapter({
+    mintBalances,
+    mintUnits,
+    cashuStore,
+    sendToken,
+    receiveToken,
+  });
+  const { client } = useSdkClient(walletAdapter, "xcashu");
+
+  const dataUrlToFile = useCallback(
+    (dataUrl: string, filename: string): File => {
+      const arr = dataUrl.split(",");
+      const mimeMatch = arr[0]?.match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : "image/png";
+      const bstr = atob(arr[1] || "");
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+    },
+    []
+  );
+
+  const enrichAssistantImages = useCallback(
+    async (message: Message): Promise<Message> => {
+      if (!Array.isArray(message.content)) return message;
+
+      const content = await Promise.all(
+        message.content.map(async (item, index) => {
+          if (item.type !== "image_url" || !item.image_url?.url) return item;
+
+          const imageUrl = item.image_url.url;
+          if (!imageUrl.startsWith("data:")) return item;
+
+          let storageId: string | undefined;
+          let blossomHash: string | undefined;
+          let blossomServers: string[] | undefined;
+
+          try {
+            const file = dataUrlToFile(
+              imageUrl,
+              `ai-image-${Date.now()}-${index}.png`
+            );
+            try {
+              storageId = await saveFile(file);
+            } catch {}
+
+            if (onBlossomUpload) {
+              const uploaded = await onBlossomUpload(file);
+              if (uploaded) {
+                blossomHash = uploaded.hash;
+                blossomServers = uploaded.servers;
+              }
+            }
+          } catch {}
+
+          return {
+            ...item,
+            image_url: {
+              ...item.image_url,
+              storageId,
+              blossomHash,
+              blossomServers,
+            },
+          };
+        })
+      );
+
+      return { ...message, content };
+    },
+    [dataUrlToFile, onBlossomUpload]
+  );
 
   // Autoscroll moved to ChatMessages to honor user scroll position
 
@@ -371,88 +448,89 @@ export const useChatActions = ({
 
       try {
         const mintUrl = cashuStore.activeMintUrl || DEFAULT_MINT_URL;
-        await fetchAIResponse({
-          messageHistory,
-          selectedModel,
-          baseUrl,
-          mintUrl,
-          usingNip60,
-          balance,
-          spendCashu: spendCashu,
-          storeCashu: storeCashu,
-          activeMintUrl: cashuStore.activeMintUrl,
-          onPaymentProcessing: setIsPaymentProcessing,
-          onStreamingUpdate: (content) => {
-            // Clear payment processing state when content starts streaming
-            setIsPaymentProcessing(false);
-            
-            // Ignore stale updates from previous streams
-            if (
-              streamingConversationIdRef.current !==
-              (originConversationId ?? null)
-            )
-              return;
-            if (originConversationId) {
-              setStreamingContentByConversation((prev) => ({
-                ...prev,
-                [originConversationId]: content,
-              }));
-            }
-          },
-          onThinkingUpdate: (content) => {
-            // Clear payment processing state when thinking starts
-            setIsPaymentProcessing(false);
+        if (!client || !selectedModel) {
+          throw new Error("SDK client is not ready");
+        }
 
-            if (
-              streamingConversationIdRef.current !==
-              (originConversationId ?? null)
-            )
-              return;
-            if (originConversationId) {
-              setThinkingContentByConversation((prev) => ({
-                ...prev,
-                [originConversationId]: content,
-              }));
-            }
+        await client.fetchAIResponse(
+          {
+            messageHistory: messageHistory as any,
+            selectedModel: selectedModel as any,
+            baseUrl,
+            mintUrl,
+            balance,
+            transactionHistory: transactionHistory as any,
           },
-          onMessageAppend: (message) => {
-            let prevId;
-            if (retryMessage && message.role !== "system")
-              prevId = getLastNonSystemMessageEventId(originConversationId, [
-                "user",
-                "assistant",
-              ]);
-            else prevId = getLastNonSystemMessageEventId(originConversationId);
+          {
+            onPaymentProcessing: setIsPaymentProcessing,
+            onStreamingUpdate: (content) => {
+              setIsPaymentProcessing(false);
+              if (
+                streamingConversationIdRef.current !==
+                (originConversationId ?? null)
+              )
+                return;
+              if (originConversationId) {
+                setStreamingContentByConversation((prev) => ({
+                  ...prev,
+                  [originConversationId]: content,
+                }));
+              }
+            },
+            onThinkingUpdate: (content) => {
+              setIsPaymentProcessing(false);
+              if (
+                streamingConversationIdRef.current !==
+                (originConversationId ?? null)
+              )
+                return;
+              if (originConversationId) {
+                setThinkingContentByConversation((prev) => ({
+                  ...prev,
+                  [originConversationId]: content,
+                }));
+              }
+            },
+            onMessageAppend: async (message) => {
+              const messageWithImages = await enrichAssistantImages(
+                message as Message
+              );
+              let prevId;
+              if (retryMessage && message.role !== "system")
+                prevId = getLastNonSystemMessageEventId(originConversationId, [
+                  "user",
+                  "assistant",
+                ]);
+              else
+                prevId = getLastNonSystemMessageEventId(originConversationId);
 
-            // Update message object with prevId
-            const updatedMessage = {
-              ...message,
-              _prevId: prevId,
-              _createdAt: Date.now(),
-              _modelId: selectedModel.id,
-            };
+              // Update message object with prevId
+              const updatedMessage = {
+                ...messageWithImages,
+                _prevId: prevId,
+                _createdAt: Date.now(),
+                _modelId: selectedModel.id,
+              };
 
-            // Publish AI response to Nostr
-            if (originConversationId) {
-              createAndStoreChatEvent(
-                originConversationId,
-                updatedMessage
-              ).catch(console.error);
-            }
-          },
-          onBalanceUpdate: setBalance,
-          onTransactionUpdate: (transaction) => {
-            const updated = [...transactionHistory, transaction];
-            setTransactionHistory(updated);
-            return updated;
-          },
-          transactionHistory,
-          onTokenCreated: setPendingCashuAmountState,
-          onLastMessageSatsUpdate: (satsSpent) => {
-            updateLastMessageSatsSpent(originConversationId, satsSpent);
-          },
-          onBlossomUpload,
-        });
+              // Publish AI response to Nostr
+              if (originConversationId) {
+                createAndStoreChatEvent(
+                  originConversationId,
+                  updatedMessage
+                ).catch(console.error);
+              }
+            },
+            onBalanceUpdate: setBalance,
+            onTransactionUpdate: (transaction) => {
+              const updated = [...transactionHistory, transaction];
+              setTransactionHistory(updated);
+            },
+            onTokenCreated: setPendingCashuAmountState,
+            onLastMessageSatsUpdate: (satsSpent) => {
+              updateLastMessageSatsSpent(originConversationId, satsSpent);
+            },
+          }
+        );
         setPendingCashuAmountState(getPendingCashuTokenAmount());
       } finally {
         setIsLoading(false);
@@ -477,17 +555,15 @@ export const useChatActions = ({
       }
     },
     [
-      usingNip60,
       balance,
-      spendCashu,
-      storeCashu,
       transactionHistory,
       setPendingCashuAmountState,
       updateLastMessageSatsSpent,
       getLastNonSystemMessageEventId,
       createAndStoreChatEvent,
       cashuStore.activeMintUrl,
-      onBlossomUpload,
+      client,
+      enrichAssistantImages,
     ]
   );
 
