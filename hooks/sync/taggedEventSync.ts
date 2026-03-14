@@ -29,10 +29,6 @@ import {
   type CalculateTrustScoresOutput,
 } from "@/src/ctxcn/RoutstrChatClient";
 
-const DEBUG = true;
-const log = (...args: unknown[]) =>
-  DEBUG && console.log("[taggedEventSync]", ...args);
-
 let routstrClient: RoutstrChatClient | null = null;
 
 function getRoutstrClient(): RoutstrChatClient {
@@ -49,30 +45,20 @@ async function logKind1018TrustScores(events: NostrEvent[]): Promise<void> {
     )
   );
 
-  log(
-    "Calculating trust scores from response events:",
-    responseEvents.length,
-    responseEvents
-  );
   const targetPubkeys = Array.from(
     new Set(responseEvents.map((event) => event.pubkey).filter(Boolean))
   );
 
-  log("Target pubkeys for trust scores:", targetPubkeys);
-
   if (targetPubkeys.length === 0) {
-    log("No target pubkeys found, resetting trust scores");
     kind1018TrustScores$.next([]);
     return;
   }
 
   try {
-    log("Calling CalculateTrustScores for pubkeys:", targetPubkeys);
     const { trustScores } =
       await getRoutstrClient().CalculateTrustScores(targetPubkeys);
 
     kind1018TrustScores$.next(trustScores);
-    console.log("[taggedEventSync] kind 1018 trust scores:", trustScores);
   } catch (err) {
     kind1018TrustScores$.next([]);
     console.error("[taggedEventSync] Failed to fetch trust scores:", err);
@@ -96,7 +82,6 @@ export type Kind0Profile = {
 export const kind1018ETag$ = new BehaviorSubject<string | null>(null);
 
 export function updateKind1018ETag(eTag: string | null): void {
-  log("Updating kind 1018 eTag:", eTag);
   kind1018ETag$.next(eTag);
 }
 
@@ -138,7 +123,6 @@ function buildKind0Filter(pubkeys: string[]): NostrFilter {
     authors: pubkeys,
   };
 
-  log("Built kind 0 filter:", filter);
   return filter;
 }
 
@@ -186,7 +170,6 @@ function buildKind1018Filter(eTag: string | null): NostrFilter {
     filter["#e"] = [eTag];
   }
 
-  log("Built kind 1018 filter:", filter);
   return filter;
 }
 
@@ -196,21 +179,14 @@ export const kind1018Sync$ = combineLatest([
 ]).pipe(
   tap(([relays, eTag]) => {
     kind1018SyncEose$.next(false);
-    log("Starting kind 1018 sync", {
-      relayCount: relays.length,
-      eTag,
-    });
   }),
   switchMap(([relays, eTag]) => {
     const filter = buildKind1018Filter(eTag);
-    log("Subscribing to relays with filter", { relays, filter });
 
     return relayPool.subscription(relays, filter).pipe(
       mergeMap((value: unknown) => {
-        log("kind1018 subscription emitted value:", value);
         if (value === "EOSE") {
           kind1018SyncEose$.next(true);
-          log("Received EOSE for kind 1018 sync");
           return EMPTY;
         }
 
@@ -221,12 +197,6 @@ export const kind1018Sync$ = combineLatest([
           typeof event === "object" && event !== null && "id" in event
       ),
       tap((event) => {
-        log("Received kind 1018 event", {
-          id: event.id,
-          pubkey: event.pubkey,
-          created_at: event.created_at,
-          tags: event.tags,
-        });
         eventStore.add(event);
         kind1018EventReceived$.next(event);
       }),
@@ -263,24 +233,8 @@ export const kind1018Events$ = combineLatest([
   kind1018SyncEose$,
   kind1018EventReceived$.pipe(startWith(null as NostrEvent | null)),
 ]).pipe(
-  tap(([eTag, eose, lastEvent]) => {
-    log("kind1018Events$ combineLatest emission", {
-      eTag,
-      eose,
-      lastEventId: lastEvent?.id ?? null,
-    });
-  }),
   rxFilter(([_eTag, eose]) => eose),
-  tap(([eTag]) => {
-    log("kind1018Events$ passed EOSE filter", { eTag });
-  }),
   map(([eTag]) => getKind1018Events(eTag)),
-  tap((events) => {
-    log("kind1018Events$ fetched from eventStore", {
-      count: events.length,
-      eventIds: events.map((event) => event.id),
-    });
-  }),
   distinctUntilChanged(
     (prev, curr) =>
       prev.length === curr.length &&
@@ -308,10 +262,6 @@ export const kind0Sync$ = combineLatest([
 ]).pipe(
   tap(([relays, pubkeys]) => {
     kind0SyncEose$.next(false);
-    log("Starting kind 0 profile sync", {
-      relayCount: relays.length,
-      pubkeyCount: pubkeys.length,
-    });
   }),
   switchMap(([relays, pubkeys]) => {
     if (pubkeys.length === 0) {
@@ -320,14 +270,11 @@ export const kind0Sync$ = combineLatest([
     }
 
     const filter = buildKind0Filter(pubkeys);
-    log("Subscribing to relays for kind 0 with filter", { relays, filter });
 
     return relayPool.subscription(relays, filter).pipe(
       mergeMap((value: unknown) => {
-        log("kind0 subscription emitted value:", value);
         if (value === "EOSE") {
           kind0SyncEose$.next(true);
-          log("Received EOSE for kind 0 sync");
           return EMPTY;
         }
 
@@ -341,11 +288,6 @@ export const kind0Sync$ = combineLatest([
           (event as NostrEvent).kind === KIND_0
       ),
       tap((event) => {
-        log("Received kind 0 event", {
-          id: event.id,
-          pubkey: event.pubkey,
-          created_at: event.created_at,
-        });
         eventStore.add(event);
         kind0EventReceived$.next(event);
       }),
@@ -375,13 +317,6 @@ export const kind0Profiles$ = combineLatest([
   kind0SyncEose$,
   kind0EventReceived$.pipe(startWith(null as NostrEvent | null)),
 ]).pipe(
-  tap(([pubkeys, eose, lastEvent]) => {
-    log("kind0Profiles$ combineLatest emission", {
-      pubkeyCount: pubkeys.length,
-      eose,
-      lastEventId: lastEvent?.id ?? null,
-    });
-  }),
   rxFilter(([_pubkeys, eose]) => eose),
   map(([pubkeys]) => {
     const timeline = getKind0Events(pubkeys);
