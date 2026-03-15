@@ -11,9 +11,7 @@ interface BalanceInvoiceTabProps {
   bcStatus: BitcoinConnectStatus;
   bcBalance: number | null;
   onConnectWallet: () => void | Promise<void>;
-  usingNip60: boolean;
-  nip60Invoice: string;
-  mintInvoice: string;
+  invoice: string;
   mintAmount: string;
   currentMintUnit: string;
   onShowQRCode: (data: {
@@ -32,9 +30,7 @@ const BalanceInvoiceTab: React.FC<BalanceInvoiceTabProps> = ({
   bcStatus,
   bcBalance,
   onConnectWallet,
-  usingNip60,
-  nip60Invoice,
-  mintInvoice,
+  invoice,
   mintAmount,
   currentMintUnit,
   onShowQRCode,
@@ -43,8 +39,6 @@ const BalanceInvoiceTab: React.FC<BalanceInvoiceTabProps> = ({
   copyToClipboard,
   copySuccess,
 }) => {
-  const invoice = usingNip60 ? nip60Invoice : mintInvoice;
-
   return (
     <div className="p-3 space-y-3">
       {/* Back Button */}

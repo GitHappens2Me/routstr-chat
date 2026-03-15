@@ -61,9 +61,7 @@ import BitcoinConnectStatusRow from "@/components/bitcoin-connect/BitcoinConnect
 
 const SixtyWallet: React.FC<{
   mintUrl: string;
-  usingNip60: boolean;
-  setUsingNip60: (usingNip60: boolean) => void;
-}> = ({ mintUrl, usingNip60, setUsingNip60 }) => {
+}> = ({ mintUrl }) => {
   // Popular amounts for quick minting
   const popularAmounts = [100, 500, 1000];
 
@@ -151,7 +149,6 @@ const SixtyWallet: React.FC<{
       // rely on existing polling/looping in mintTokensFromPaidInvoice
     }
   };
-
 
   const payWithConnectedWallet = async () => {
     if (!invoice) return;
@@ -321,15 +318,14 @@ const SixtyWallet: React.FC<{
     const checkLocalBalance = () => {
       const localBalance = getBalanceFromStoredProofs();
       setLocalWalletBalance(localBalance);
-      // Only show migration banner if NIP-60 is enabled and there's a local balance
-      setShowMigrationBanner(usingNip60 && localBalance > 0);
+      setShowMigrationBanner(localBalance > 0);
     };
 
     checkLocalBalance();
     // Check periodically for changes
     const interval = setInterval(checkLocalBalance, 5000);
     return () => clearInterval(interval);
-  }, [usingNip60]);
+  }, []);
 
   // Check invoices when wallet opens
   useEffect(() => {
@@ -654,7 +650,7 @@ const SixtyWallet: React.FC<{
       setError(null);
       setSuccessMessage(null);
 
-      // Step 1: Generate token from local wallet (similar to WalletTab.tsx)
+      // Step 1: Generate token from active NIP-60 mint proofs
       const storedProofs = localStorage.getItem("cashu_proofs");
       if (!storedProofs) {
         throw new Error("No local wallet proofs found");

@@ -46,7 +46,6 @@ interface DepositModalProps {
   mintUrl: string;
   balance: number;
   setBalance: React.Dispatch<React.SetStateAction<number>>;
-  usingNip60: boolean;
   initialAmount?: number;
   autoCreate?: boolean;
 }
@@ -57,7 +56,6 @@ const DepositModal: React.FC<DepositModalProps> = ({
   mintUrl,
   balance,
   setBalance,
-  usingNip60,
   initialAmount,
   autoCreate,
 }) => {
@@ -353,191 +351,187 @@ const DepositModal: React.FC<DepositModalProps> = ({
         </div>
       )}
 
-        {isLoading && (
-          <div className="bg-blue-500/10 border border-blue-500/30 text-blue-200 p-3 rounded-md text-sm mb-4 flex items-center">
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Wallet is being loaded, please wait...
-          </div>
-        )}
+      {isLoading && (
+        <div className="bg-blue-500/10 border border-blue-500/30 text-blue-200 p-3 rounded-md text-sm mb-4 flex items-center">
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          Wallet is being loaded, please wait...
+        </div>
+      )}
 
-        {!isLoading && !cashuStore.activeMintUrl && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 p-3 rounded-md text-sm mb-4 flex items-center">
-            <Info className="h-4 w-4 mr-2" />
-            Configuring your wallet, please wait...
-          </div>
-        )}
+      {!isLoading && !cashuStore.activeMintUrl && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 p-3 rounded-md text-sm mb-4 flex items-center">
+          <Info className="h-4 w-4 mr-2" />
+          Configuring your wallet, please wait...
+        </div>
+      )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 p-3 rounded-md text-sm mb-4">
-            {error}
-          </div>
-        )}
-        {successMessage && (
-          <div className="bg-green-500/10 border border-green-500/30 text-green-200 p-3 rounded-md text-sm mb-4">
-            {successMessage}
-          </div>
-        )}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-200 p-3 rounded-md text-sm mb-4">
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="bg-green-500/10 border border-green-500/30 text-green-200 p-3 rounded-md text-sm mb-4">
+          {successMessage}
+        </div>
+      )}
 
-        <div className="space-y-6">
-          {/* Mint Tokens Section */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-white/80">Via Lightning</h3>
+      <div className="space-y-6">
+        {/* Mint Tokens Section */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-white/80">Via Lightning</h3>
 
-            {/* Bitcoin Connect: Connect Wallet */}
-            <div className="bg-white/5 border border-white/20 rounded-md p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-white/70">
-                  Connect a wallet (NWC)
-                </span>
-                {/* @ts-ignore */}
-                <BCButton />
-              </div>
+          {/* Bitcoin Connect: Connect Wallet */}
+          <div className="bg-white/5 border border-white/20 rounded-md p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-white/70">
+                Connect a wallet (NWC)
+              </span>
+              {/* @ts-ignore */}
+              <BCButton />
             </div>
+          </div>
 
-            {/* Quick Mint Buttons */}
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                {popularAmounts.map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => handleQuickMint(amount)}
-                    disabled={
-                      isProcessing || isLoading || !cashuStore.activeMintUrl
-                    }
-                    className="flex-1 bg-white/5 border border-white/20 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-white/10 hover:border-white/30 transition-colors disabled:opacity-50 cursor-pointer"
-                    type="button"
-                  >
-                    {amount} sats
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Manual Amount Input */}
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={receiveAmount}
-                  onChange={(e) => setReceiveAmount(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleCreateInvoice();
-                    }
-                  }}
-                  disabled={isLoading || !cashuStore.activeMintUrl}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none disabled:opacity-50"
-                  placeholder="Amount in sats"
-                />
+          {/* Quick Mint Buttons */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {popularAmounts.map((amount) => (
                 <button
-                  onClick={() => handleCreateInvoice()}
+                  key={amount}
+                  onClick={() => handleQuickMint(amount)}
                   disabled={
-                    isProcessing ||
-                    !receiveAmount ||
-                    !cashuStore.activeMintUrl ||
-                    isLoading
+                    isProcessing || isLoading || !cashuStore.activeMintUrl
                   }
-                  className="bg-white/10 border border-white/10 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex-1 bg-white/5 border border-white/20 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-white/10 hover:border-white/30 transition-colors disabled:opacity-50 cursor-pointer"
                   type="button"
                 >
-                  <Zap className="h-4 w-4 mr-2 inline" />
-                  {isProcessing ? "Creating..." : "Create"}
+                  {amount} sats
                 </button>
-              </div>
+              ))}
             </div>
-
-            {invoice && (
-              <div className="space-y-4">
-                <div className="bg-white/10 border border-white/20 p-4 rounded-md flex items-center justify-center">
-                  <div className="w-48 h-48 flex items-center justify-center p-2 rounded-md">
-                    <QRCode
-                      value={invoice}
-                      size={180}
-                      bgColor="transparent"
-                      fgColor="#ffffff"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-sm text-white/70">
-                    Lightning Invoice
-                  </span>
-                  <div className="relative">
-                    <input
-                      readOnly
-                      value={invoice}
-                      className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-10 text-xs text-white font-mono break-all focus:border-white/30 focus:outline-none"
-                    />
-                    <button
-                      onClick={copyInvoiceToClipboard}
-                      className="absolute right-2 top-2 text-white/70 hover:text-white"
-                      type="button"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-white/50">
-                    Waiting for payment...
-                  </p>
-                </div>
-
-                {/* Bitcoin Connect: Pay Button */}
-                <div className="bg-white/5 border border-white/20 rounded-md p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-white/70">
-                      Pay with connected wallet
-                    </span>
-                    {/* @ts-ignore */}
-                    <BCPayButton invoice={invoice} onPaid={handlePaid} />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCancel}
-                  className="w-full bg-white/10 border border-white/10 text-white py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors"
-                  type="button"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Import Tokens Section */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-white/80">Via Cashu</h3>
-            <div className="space-y-2">
-              <div className="relative">
-                <textarea
-                  value={tokenToImport}
-                  onChange={(e) => setTokenToImport(e.target.value)}
-                  disabled={isLoading}
-                  className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-10 text-sm text-white h-24 focus:border-white/30 focus:outline-none resize-none disabled:opacity-50"
-                  placeholder="Paste your Cashu token here..."
-                />
-                <button
-                  onClick={handlePasteTokenToImport}
-                  className="absolute top-2 right-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
-                  type="button"
-                  title="Paste"
-                  disabled={isLoading}
-                >
-                  <ClipboardPaste className="h-3.5 w-3.5" />
-                </button>
-              </div>
+          {/* Manual Amount Input */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={receiveAmount}
+                onChange={(e) => setReceiveAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleCreateInvoice();
+                  }
+                }}
+                disabled={isLoading || !cashuStore.activeMintUrl}
+                className="flex-1 bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none disabled:opacity-50"
+                placeholder="Amount in sats"
+              />
               <button
-                onClick={handleReceiveToken}
-                disabled={isImporting || !tokenToImport.trim() || isLoading}
-                className="w-full bg-white/10 border border-white/10 text-white py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-50 cursor-pointer"
+                onClick={() => handleCreateInvoice()}
+                disabled={
+                  isProcessing ||
+                  !receiveAmount ||
+                  !cashuStore.activeMintUrl ||
+                  isLoading
+                }
+                className="bg-white/10 border border-white/10 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-50 cursor-pointer"
                 type="button"
               >
-                {isImporting ? "Importing..." : "Import Token"}
+                <Zap className="h-4 w-4 mr-2 inline" />
+                {isProcessing ? "Creating..." : "Create"}
               </button>
             </div>
           </div>
+
+          {invoice && (
+            <div className="space-y-4">
+              <div className="bg-white/10 border border-white/20 p-4 rounded-md flex items-center justify-center">
+                <div className="w-48 h-48 flex items-center justify-center p-2 rounded-md">
+                  <QRCode
+                    value={invoice}
+                    size={180}
+                    bgColor="transparent"
+                    fgColor="#ffffff"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm text-white/70">Lightning Invoice</span>
+                <div className="relative">
+                  <input
+                    readOnly
+                    value={invoice}
+                    className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-10 text-xs text-white font-mono break-all focus:border-white/30 focus:outline-none"
+                  />
+                  <button
+                    onClick={copyInvoiceToClipboard}
+                    className="absolute right-2 top-2 text-white/70 hover:text-white"
+                    type="button"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
+                <p className="text-xs text-white/50">Waiting for payment...</p>
+              </div>
+
+              {/* Bitcoin Connect: Pay Button */}
+              <div className="bg-white/5 border border-white/20 rounded-md p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-white/70">
+                    Pay with connected wallet
+                  </span>
+                  {/* @ts-ignore */}
+                  <BCPayButton invoice={invoice} onPaid={handlePaid} />
+                </div>
+              </div>
+
+              <button
+                onClick={handleCancel}
+                className="w-full bg-white/10 border border-white/10 text-white py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors"
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Import Tokens Section */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-white/80">Via Cashu</h3>
+          <div className="space-y-2">
+            <div className="relative">
+              <textarea
+                value={tokenToImport}
+                onChange={(e) => setTokenToImport(e.target.value)}
+                disabled={isLoading}
+                className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 pr-10 text-sm text-white h-24 focus:border-white/30 focus:outline-none resize-none disabled:opacity-50"
+                placeholder="Paste your Cashu token here..."
+              />
+              <button
+                onClick={handlePasteTokenToImport}
+                className="absolute top-2 right-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white p-1.5 rounded-md transition-all cursor-pointer flex items-center justify-center"
+                type="button"
+                title="Paste"
+                disabled={isLoading}
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={handleReceiveToken}
+              disabled={isImporting || !tokenToImport.trim() || isLoading}
+              className="w-full bg-white/10 border border-white/10 text-white py-2 rounded-md text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-50 cursor-pointer"
+              type="button"
+            >
+              {isImporting ? "Importing..." : "Import Token"}
+            </button>
+          </div>
+        </div>
+      </div>
     </ModalShell>
   );
 };

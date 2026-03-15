@@ -5,7 +5,6 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import type { TransactionHistory } from "@/types/chat";
 
 interface BalanceOverviewTabProps {
-  usingNip60: boolean;
   mintSelector?: React.ReactNode;
   truncatedNpub: string;
   displayBalance: string;
@@ -14,7 +13,6 @@ interface BalanceOverviewTabProps {
 }
 
 const BalanceOverviewTab: React.FC<BalanceOverviewTabProps> = ({
-  usingNip60,
   mintSelector,
   truncatedNpub,
   displayBalance,
@@ -24,7 +22,7 @@ const BalanceOverviewTab: React.FC<BalanceOverviewTabProps> = ({
   return (
     <div className="p-4">
       {/* Mint Selector for Overview - Top Right */}
-      {usingNip60 && mintSelector && (
+      {mintSelector && (
         <div className="flex justify-end mb-3">{mintSelector}</div>
       )}
 
@@ -58,7 +56,9 @@ const BalanceOverviewTab: React.FC<BalanceOverviewTabProps> = ({
           type="button"
         >
           <ArrowUpRight className="h-6 w-6 text-muted-foreground" />
-          <span className="text-muted-foreground text-sm font-medium">Send</span>
+          <span className="text-muted-foreground text-sm font-medium">
+            Send
+          </span>
         </button>
       </div>
 
