@@ -68,3 +68,5 @@ audit.log
 
 dist
 package-lock.json
+
+slate.json
