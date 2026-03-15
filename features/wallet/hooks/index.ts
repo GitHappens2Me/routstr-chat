@@ -9,3 +9,5 @@ export * from "./useCreateCashuWallet";
 export * from "./useNutzaps";
 export * from "./useCashuHistory";
 export * from "./useWalletOperations";
+export { useWalletSend } from "./useWalletSend";
+export { useWalletReceive } from "./useWalletReceive";

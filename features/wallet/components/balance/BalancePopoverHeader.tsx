@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Settings, Clock } from "lucide-react";
 
 interface BalancePopoverHeaderProps {
   title: string;
@@ -10,6 +10,7 @@ interface BalancePopoverHeaderProps {
   mintSelector?: React.ReactNode;
   showSettings: boolean;
   onOpenSettings: () => void;
+  onShowHistory?: () => void;
 }
 
 const BalancePopoverHeader: React.FC<BalancePopoverHeaderProps> = ({
@@ -19,6 +20,7 @@ const BalancePopoverHeader: React.FC<BalancePopoverHeaderProps> = ({
   mintSelector,
   showSettings,
   onOpenSettings,
+  onShowHistory,
 }) => {
   return (
     <div className="flex items-center justify-between p-3 border-b border-border sticky top-0 z-10 bg-card">
@@ -41,14 +43,26 @@ const BalancePopoverHeader: React.FC<BalancePopoverHeaderProps> = ({
       )}
 
       {showSettings && (
-        <button
-          onClick={onOpenSettings}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted/50 cursor-pointer"
-          title="Wallet Settings"
-          type="button"
-        >
-          <Settings className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onShowHistory && (
+            <button
+              onClick={onShowHistory}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted/50 cursor-pointer"
+              title="Transaction History"
+              type="button"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={onOpenSettings}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted/50 cursor-pointer"
+            title="Wallet Settings"
+            type="button"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
       )}
     </div>
   );
