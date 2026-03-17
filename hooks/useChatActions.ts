@@ -449,6 +449,7 @@ export const useChatActions = ({
       try {
         const mintUrl = cashuStore.activeMintUrl || DEFAULT_MINT_URL;
         if (!client || !selectedModel) {
+          console.log("NEW ERROR", client, selectedModel);
           throw new Error("SDK client is not ready");
         }
 

@@ -152,7 +152,6 @@ export class RoutstrChatClient implements RoutstrChat {
     "wss://relay.contextvm.org",
     "wss://relay.primal.net",
     "wss://relay.damus.io",
-    "wss://cvm.otherstuff.ai",
     "wss://nos.lol",
   ];
   private client: Client;

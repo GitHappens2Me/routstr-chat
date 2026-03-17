@@ -6,6 +6,7 @@ import { useChat } from "@/context/ChatProvider";
 import { useAuth } from "@/context/AuthProvider";
 import ModelSelector from "./ModelSelector";
 import { BalanceDisplay } from "@/features/wallet";
+import { useSdkCachedBalance } from "@/hooks/useSdkCachedBalance";
 
 /**
  * Top header with model selector and controls
@@ -75,6 +76,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     setIsSettingsOpen,
     setInitialSettingsTab,
   } = useChat();
+
+  const sdkCachedBalance = useSdkCachedBalance();
+  const cachedBalance = `${sdkCachedBalance} sats`;
 
   return (
     <div
@@ -162,7 +166,19 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
 
         {/* Balance Display */}
-        <div className={`absolute ${isMobile ? "right-2" : "right-4"}`}>
+        <div
+          className={`absolute ${isMobile ? "right-2" : "right-4"} flex items-center gap-2`}
+        >
+          {isAuthenticated && (
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-muted-foreground font-medium">
+                {cachedBalance}
+              </span>
+              <span className="text-[10px] text-muted-foreground/60">
+                (cached)
+              </span>
+            </div>
+          )}
           <BalanceDisplay
             setIsSettingsOpen={setIsSettingsOpen}
             setInitialSettingsTab={setInitialSettingsTab}
