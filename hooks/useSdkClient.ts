@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createProviderRegistryFromStore,
   createSdkStore,
@@ -13,31 +13,96 @@ import {
 import type { WalletAdapter } from "@/sdk/wallet/interfaces";
 
 interface UseSdkClientResult {
-  client: RoutstrClient | null;
+  client: RoutstrClient;
   isReady: boolean;
   error: Error | null;
 }
+
+const createPendingDeps = (): {
+  storageAdapter: StorageAdapter;
+  providerRegistry: ProviderRegistry;
+} => {
+  const pendingHandler = () => {
+    throw new Error("SDK not ready");
+  };
+  const pendingRegistry: ProviderRegistry = {
+    getModelsForProvider: () => [],
+    getDisabledProviders: () => [],
+    getProviderMints: () => [],
+    getProviderInfo: async () => null,
+    getAllProvidersModels: () => ({}),
+  };
+  const pendingStorage: StorageAdapter = {
+    getToken: pendingHandler,
+    setToken: pendingHandler,
+    removeToken: pendingHandler,
+    updateTokenBalance: pendingHandler,
+    getCachedTokenDistribution: () => [],
+    saveProviderInfo: pendingHandler,
+    getProviderInfo: () => null,
+    getApiKey: () => null,
+    setApiKey: pendingHandler,
+    updateApiKeyBalance: pendingHandler,
+    removeApiKey: pendingHandler,
+    getAllApiKeys: () => [],
+    getApiKeyDistribution: () => [],
+    getChildKey: () => null,
+    setChildKey: pendingHandler,
+    updateChildKeyBalance: pendingHandler,
+    removeChildKey: pendingHandler,
+    getAllChildKeys: () => [],
+    getCachedReceiveTokens: () => [],
+    setCachedReceiveTokens: pendingHandler,
+  };
+  return { storageAdapter: pendingStorage, providerRegistry: pendingRegistry };
+};
 
 export function useSdkClient(
   walletAdapter: WalletAdapter | null,
   mode: RoutstrClientMode = "xcashu"
 ): UseSdkClientResult {
-  const [deps, setDeps] = useState<{
-    storageAdapter: StorageAdapter;
-    providerRegistry: ProviderRegistry;
-  } | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  const [client, setClient] = useState<RoutstrClient | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const storeRef = useRef<ReturnType<typeof createSdkStore> | null>(null);
+
+  if (!storeRef.current) {
+    storeRef.current = createSdkStore({ driver: createIndexedDBDriver() });
+  }
+
+  const deps = useMemo(() => {
+    if (!storeRef.current) return createPendingDeps();
+    return {
+      storageAdapter: createStorageAdapterFromStore(storeRef.current.store),
+      providerRegistry: createProviderRegistryFromStore(storeRef.current.store),
+    };
+  }, []);
+
+  const client = useMemo(() => {
+    if (!walletAdapter) {
+      const pendingDeps = createPendingDeps();
+      return new RoutstrClient(
+        {} as WalletAdapter,
+        pendingDeps.storageAdapter,
+        pendingDeps.providerRegistry,
+        "min",
+        mode
+      );
+    }
+    return new RoutstrClient(
+      walletAdapter,
+      deps.storageAdapter,
+      deps.providerRegistry,
+      "min",
+      mode
+    );
+  }, [walletAdapter, deps, mode]);
 
   useEffect(() => {
     let cancelled = false;
-    void createSdkStore({ driver: createIndexedDBDriver() })
-      .then((store) => {
+    storeRef
+      .current!.hydrate.then(() => {
         if (cancelled) return;
-        const storageAdapter = createStorageAdapterFromStore(store);
-        const providerRegistry = createProviderRegistryFromStore(store);
-        if (cancelled) return;
-        setDeps({ storageAdapter, providerRegistry });
+        setIsReady(true);
         setError(null);
       })
       .catch((e: unknown) => {
@@ -52,25 +117,9 @@ export function useSdkClient(
     };
   }, []);
 
-  useEffect(() => {
-    if (!walletAdapter || !deps) {
-      setClient(null);
-      return;
-    }
-
-    const nextClient = new RoutstrClient(
-      walletAdapter,
-      deps.storageAdapter,
-      deps.providerRegistry,
-      "min",
-      mode
-    );
-    setClient(nextClient);
-  }, [walletAdapter, deps, mode]);
-
   return {
     client,
-    isReady: Boolean(client) && !error,
+    isReady,
     error,
   };
 }

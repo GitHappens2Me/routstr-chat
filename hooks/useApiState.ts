@@ -32,6 +32,7 @@ export interface UseApiStateReturn {
   models: Model[];
   selectedModel: Model | null;
   isLoadingModels: boolean;
+  isRefreshingModels: boolean;
   baseUrl: string;
   setSelectedModel: (model: Model | null) => void;
   setBaseUrl: (url: string) => void;
@@ -61,6 +62,7 @@ export const useApiState = (
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const [baseUrl, setBaseUrlState] = useState("");
   const [baseUrlsList, setBaseUrlsList] = useState<string[]>([]);
   const [lowBalanceWarningForModel, setLowBalanceWarningForModel] =
@@ -93,6 +95,7 @@ export const useApiState = (
 
       try {
         setIsLoadingModels(true);
+        setIsRefreshingModels(true);
         const torMode = isTorContext();
         let bases = baseUrlsList;
 
@@ -113,15 +116,25 @@ export const useApiState = (
           if (bases.length === 0) {
             setModels([]);
             setSelectedModel(null);
+            setIsLoadingModels(false);
+            setIsRefreshingModels(false);
             return;
           }
         }
 
+        let firstProgress = true;
+
         const combinedModels = (await modelManager.fetchModels(
           bases,
-          false
+          false,
+          (progressModels) => {
+            if (firstProgress) {
+              setIsLoadingModels(false);
+              firstProgress = false;
+            }
+            setModels(progressModels as unknown as Model[]);
+          }
         )) as unknown as Model[];
-        setModels(combinedModels);
 
         const allProviderModels = modelManager.getAllCachedModels();
         const bestMap = loadModelProviderMap();
@@ -316,6 +329,7 @@ export const useApiState = (
     models,
     selectedModel,
     isLoadingModels,
+    isRefreshingModels,
     baseUrl,
     setSelectedModel,
     setBaseUrl,

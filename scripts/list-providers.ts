@@ -3,7 +3,8 @@ import { createSdkStore, createSqliteDriver } from "@/sdk/storage";
 import { createDiscoveryAdapterFromStore } from "@/sdk/storage/store";
 
 async function main(): Promise<void> {
-  const store = await createSdkStore({ driver: createSqliteDriver() });
+  const { store, hydrate } = createSdkStore({ driver: createSqliteDriver() });
+  await hydrate;
   const adapter = createDiscoveryAdapterFromStore(store);
   const modelManager = new ModelManager(adapter);
   const providers = await modelManager.bootstrapProviders(false);

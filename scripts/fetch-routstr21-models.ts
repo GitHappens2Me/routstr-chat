@@ -3,7 +3,8 @@ import { createDiscoveryAdapterFromStore } from "@/sdk/storage/store";
 import { ModelManager } from "@/sdk/discovery/ModelManager";
 
 async function fetchRoutstr21Models(): Promise<string[]> {
-  const store = await createSdkStore({ driver: createSqliteDriver() });
+  const { store, hydrate } = createSdkStore({ driver: createSqliteDriver() });
+  await hydrate;
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
 
   const modelManager = new ModelManager(discoveryAdapter);
