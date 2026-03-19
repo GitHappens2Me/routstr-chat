@@ -52,10 +52,14 @@ async function ensureRequestsDir(): Promise<void> {
 function parseArgs(argv: string[]): {
   port: number;
   provider: string | null;
+  mode: "xcashu" | "lazyrefund" | "apikeys";
 } {
   const portFlagIndex = argv.findIndex((arg) => arg === "--port");
   const providerFlagIndex = argv.findIndex(
     (arg) => arg === "--provider" || arg === "-p"
+  );
+  const modeFlagIndex = argv.findIndex(
+    (arg) => arg === "--mode" || arg === "-m"
   );
 
   const port =
@@ -64,8 +68,13 @@ function parseArgs(argv: string[]): {
       : 8008;
   const provider =
     providerFlagIndex !== -1 ? argv[providerFlagIndex + 1]?.trim() : null;
+  const modeArg = modeFlagIndex !== -1 ? argv[modeFlagIndex + 1]?.trim() : null;
+  const mode: "xcashu" | "lazyrefund" | "apikeys" =
+    modeArg === "xcashu" || modeArg === "lazyrefund"
+      ? modeArg
+      : "apikeys";
 
-  return { port, provider };
+  return { port, provider, mode };
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -199,7 +208,7 @@ async function saveRequestBody(
 }
 
 async function main(): Promise<void> {
-  const { port, provider } = parseArgs(process.argv);
+  const { port, provider, mode } = parseArgs(process.argv);
 
   const store = await createSdkStore({ driver: createSqliteDriver() });
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
@@ -353,6 +362,7 @@ async function main(): Promise<void> {
           requestBody,
           forcedProvider,
           debugLevel: "DEBUG",
+          mode,
           walletAdapter,
           storageAdapter,
           providerRegistry,
@@ -413,7 +423,7 @@ async function main(): Promise<void> {
 
   server.listen(port, async () => {
     await ensureRequestsDir();
-    console.log(`Routstr daemon listening on http://localhost:${port}`);
+    console.log(`Routstr daemon listening on http://localhost:${port} (mode: ${mode})`);
   });
 }
 
