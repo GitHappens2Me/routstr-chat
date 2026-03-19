@@ -4,7 +4,7 @@ import {
   createSdkStore,
   createStorageAdapterFromStore,
 } from "@/sdk/storage/store";
-import { localStorageDriver } from "@/sdk/storage/drivers/localStorage";
+import { createIndexedDBDriver } from "@/sdk/storage/drivers/indexedDB";
 import type { StorageAdapter, ProviderRegistry } from "@/sdk/wallet/interfaces";
 import {
   RoutstrClient,
@@ -31,7 +31,7 @@ export function useSdkClient(
 
   useEffect(() => {
     let cancelled = false;
-    void createSdkStore({ driver: localStorageDriver })
+    void createSdkStore({ driver: createIndexedDBDriver() })
       .then((store) => {
         if (cancelled) return;
         const storageAdapter = createStorageAdapterFromStore(store);

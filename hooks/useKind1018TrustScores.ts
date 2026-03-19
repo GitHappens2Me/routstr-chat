@@ -189,19 +189,11 @@ export function useKind1018TrustScores() {
 
   useEffect(() => {
     if (config.relayUrls.length > 0) {
-      console.log(
-        "[useKind1018TrustScores] Updating relay URLs:",
-        config.relayUrls
-      );
       relayUrls$.next(config.relayUrls);
     }
   }, [config.relayUrls]);
 
   useEffect(() => {
-    console.log(
-      "[useKind1018TrustScores] Updating active pubkey:",
-      activeAccount?.pubkey ?? null
-    );
     userPubkey$.next(activeAccount?.pubkey ?? null);
   }, [activeAccount?.pubkey]);
 
@@ -224,15 +216,14 @@ export function useKind1018TrustScores() {
   }, [activeAccount]);
 
   useEffect(() => {
-    console.log("[useKind1018TrustScores] Setting kind 1018 eTag");
     updateKind1018ETag(THEME_POLL_EVENT_ID);
   }, []);
 
   useEffect(() => {
     const syncSub = kind1018Sync$.subscribe({
-      next: (event) => {
-        console.log("[useKind1018TrustScores] kind 1018 sync next:", event);
-      },
+      // next: (event) => {
+      //   console.log("[useKind1018TrustScores] kind 1018 sync next:", event);
+      // },
       error: (err) => {
         console.error("[useKind1018TrustScores] kind 1018 sync error:", err);
       },
@@ -240,11 +231,11 @@ export function useKind1018TrustScores() {
 
     const eventsSub = kind1018Events$.subscribe({
       next: (events) => {
-        console.log(
-          "[useKind1018TrustScores] kind 1018 events next:",
-          events.length,
-          events
-        );
+        // console.log(
+        //   "[useKind1018TrustScores] kind 1018 events next:",
+        //   events.length,
+        //   events
+        // );
       },
       error: (err) => {
         console.error("[useKind1018TrustScores] kind 1018 events error:", err);
@@ -253,7 +244,7 @@ export function useKind1018TrustScores() {
 
     const kind0SyncSub = kind0Sync$.subscribe({
       next: (event) => {
-        console.log("[useKind1018TrustScores] kind 0 sync next:", event);
+        // console.log("[useKind1018TrustScores] kind 0 sync next:", event);
       },
       error: (err) => {
         console.error("[useKind1018TrustScores] kind 0 sync error:", err);
@@ -313,29 +304,6 @@ export function useKind1018TrustScores() {
     () => toThemeVotersByTheme(themeVoteStats, kind0Profiles, trustScores),
     [kind0Profiles, themeVoteStats, trustScores]
   );
-
-  useEffect(() => {
-    console.log("[useKind1018TrustScores] eose state:", eose);
-  }, [eose]);
-
-  useEffect(() => {
-    console.log("[useKind1018TrustScores] trust scores:", trustScores);
-  }, [trustScores]);
-
-  useEffect(() => {
-    console.log("[useKind1018TrustScores] theme vote stats:", themeVoteStats);
-  }, [themeVoteStats]);
-
-  useEffect(() => {
-    console.log("[useKind1018TrustScores] total trust score:", totalTrustScore);
-  }, [totalTrustScore]);
-
-  useEffect(() => {
-    console.log(
-      "[useKind1018TrustScores] synced theme config:",
-      syncedThemeConfig
-    );
-  }, [syncedThemeConfig]);
 
   return {
     trustScores,

@@ -146,16 +146,7 @@ const SettingsModal = ({
           />
         );
       case "wallet":
-        return (
-          <UnifiedWallet
-            balance={balance}
-            setBalance={setBalance}
-            baseUrl={baseUrl}
-            mintUrl={DEFAULT_MINT_URL}
-            transactionHistory={transactionHistory}
-            setTransactionHistory={setTransactionHistory}
-          />
-        );
+        return <UnifiedWallet mintUrl={DEFAULT_MINT_URL} />;
       case "dev-console":
         return <DevConsoleTab />;
       default:

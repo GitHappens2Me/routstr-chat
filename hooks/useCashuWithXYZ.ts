@@ -13,7 +13,6 @@ import {
   getPendingCashuTokenDistribution,
   unifiedRefund,
 } from "@/utils/cashuUtils";
-import { useWalletOperations } from "@/features/wallet/hooks/useWalletOperations";
 import {
   getLocalCashuToken,
   loadMintsFromAllProviders,
