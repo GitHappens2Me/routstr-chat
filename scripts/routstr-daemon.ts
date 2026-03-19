@@ -210,7 +210,8 @@ async function saveRequestBody(
 async function main(): Promise<void> {
   const { port, provider, mode } = parseArgs(process.argv);
 
-  const store = await createSdkStore({ driver: createSqliteDriver() });
+  const { store, hydrate } = createSdkStore({ driver: createSqliteDriver() });
+  await hydrate;
   const discoveryAdapter = createDiscoveryAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
   const storageAdapter = createStorageAdapterFromStore(store);
