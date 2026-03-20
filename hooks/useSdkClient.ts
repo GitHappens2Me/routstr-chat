@@ -5,6 +5,9 @@ import {
   createStorageAdapterFromStore,
 } from "@/sdk/storage/store";
 import { createIndexedDBDriver } from "@/sdk/storage/drivers/indexedDB";
+import { createMemoryDriver } from "@/sdk/storage/drivers/memory";
+
+const isBrowser = typeof window !== "undefined";
 import type { StorageAdapter, ProviderRegistry } from "@/sdk/wallet/interfaces";
 import {
   RoutstrClient,
@@ -66,7 +69,9 @@ export function useSdkClient(
   const storeRef = useRef<ReturnType<typeof createSdkStore> | null>(null);
 
   if (!storeRef.current) {
-    storeRef.current = createSdkStore({ driver: createIndexedDBDriver() });
+    storeRef.current = createSdkStore({
+      driver: isBrowser ? createIndexedDBDriver() : createMemoryDriver(),
+    });
   }
 
   const deps = useMemo(() => {
