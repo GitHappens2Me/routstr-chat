@@ -37,6 +37,7 @@ function parseArgs(argv: string[]): {
 }
 
 const { modelId, text, provider } = parseArgs(process.argv);
+console.log(modelId);
 
 if (!modelId || !text) {
   console.error(
@@ -175,6 +176,7 @@ async function main(): Promise<void> {
       : `${forcedProvider}/`;
     const cachedModels = modelManager.getAllCachedModels();
     const models = cachedModels[normalizedProvider] || [];
+    console.log(models);
     const match = models.find((model) => model.id === resolvedModelId);
     if (!match) {
       console.error(
