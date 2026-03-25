@@ -5,7 +5,12 @@ import {
 } from "@/sdk/storage/store";
 import { ModelManager } from "@/sdk/discovery/ModelManager";
 
-const MODEL_ID = "minimax-m2.5";
+const MODEL_ID = process.argv[2];
+
+if (!MODEL_ID) {
+  console.error("Usage: tsx scripts/find-cheapest-provider.ts <model-id>");
+  process.exit(1);
+}
 
 async function findCheapestProvider(): Promise<{
   baseUrl: string;

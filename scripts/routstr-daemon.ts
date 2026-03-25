@@ -1,8 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { Readable } from "stream";
-import { ReadableStream as WebReadableStream } from "stream/web";
 import {
   routeRequests,
+  routeRequestsToNodeResponse,
   createSdkStore,
   createSqliteDriver,
   ModelManager,
@@ -358,6 +357,26 @@ async function main(): Promise<void> {
         undefined;
 
       try {
+        const isStream = bodyObj.stream === true;
+        console.log("ISES R", isStream);
+
+        if (isStream) {
+          await routeRequestsToNodeResponse({
+            modelId,
+            requestBody,
+            forcedProvider,
+            debugLevel: "DEBUG",
+            mode,
+            walletAdapter,
+            storageAdapter,
+            providerRegistry,
+            discoveryAdapter,
+            modelManager,
+            res,
+          });
+          return;
+        }
+
         const response = await routeRequests({
           modelId,
           requestBody,
@@ -370,27 +389,6 @@ async function main(): Promise<void> {
           discoveryAdapter,
           modelManager,
         });
-
-        const isStream = bodyObj.stream === true;
-        console.log("ISES R", isStream);
-
-        if (isStream) {
-          res.statusCode = response.status;
-          response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
-          });
-
-          const body = response.body;
-          if (body) {
-            const nodeReadable = Readable.fromWeb(
-              body as unknown as WebReadableStream
-            );
-            nodeReadable.pipe(res);
-          } else {
-            res.end();
-          }
-          return;
-        }
 
         const responseBody = await response.json();
         res.writeHead(response.status, {
