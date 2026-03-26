@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
+import { Readable } from "stream";
 import {
   routeRequests,
-  routeRequestsToNodeResponse,
   createSdkStore,
   createSqliteDriver,
   ModelManager,
@@ -357,26 +357,6 @@ async function main(): Promise<void> {
         undefined;
 
       try {
-        const isStream = bodyObj.stream === true;
-        console.log("ISES R", isStream);
-
-        if (isStream) {
-          await routeRequestsToNodeResponse({
-            modelId,
-            requestBody,
-            forcedProvider,
-            debugLevel: "DEBUG",
-            mode,
-            walletAdapter,
-            storageAdapter,
-            providerRegistry,
-            discoveryAdapter,
-            modelManager,
-            res,
-          });
-          return;
-        }
-
         const response = await routeRequests({
           modelId,
           requestBody,
@@ -390,11 +370,37 @@ async function main(): Promise<void> {
           modelManager,
         });
 
-        const responseBody = await response.json();
-        res.writeHead(response.status, {
-          "Content-Type": "application/json",
+        res.statusCode = response.status;
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value);
         });
-        res.end(JSON.stringify(responseBody));
+
+        if (!response.body) {
+          res.end();
+          return;
+        }
+
+        const nodeReadable = Readable.fromWeb(response.body as any);
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          const fail = (err: unknown) => {
+            if (settled) return;
+            settled = true;
+            reject(err);
+          };
+
+          res.once("finish", finish);
+          res.once("close", finish);
+          res.once("error", fail);
+          nodeReadable.once("error", fail);
+
+          nodeReadable.pipe(res);
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[daemon] Error: ${message}`);
