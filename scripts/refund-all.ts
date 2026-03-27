@@ -81,17 +81,18 @@ async function main(): Promise<void> {
   const storageAdapter = createStorageAdapterFromStore(store);
   const providerRegistry = createProviderRegistryFromStore(store);
 
-  const pendingDistribution = storageAdapter.getCachedTokenDistribution();
+  const cachedReceiveTokens = storageAdapter.getCachedReceiveTokens();
   const apiKeysStored = storageAdapter.getApiKeyDistribution();
 
-  if (pendingDistribution.length === 0 && apiKeysStored.length === 0) {
+  if (cachedReceiveTokens.length === 0 && apiKeysStored.length === 0) {
     console.log("No pending tokens to refund");
     return;
   }
 
-  console.log(`Found ${pendingDistribution.length} pending tokens:`);
-  for (const pending of pendingDistribution) {
-    console.log(`  - ${pending.baseUrl}: ${pending.amount} sats`);
+  console.log(`Found ${cachedReceiveTokens.length} cached receive tokens:`);
+  for (const pending of cachedReceiveTokens) {
+    const tokenPreview = pending.token.substring(0, 20) + "...";
+    console.log(`  - ${tokenPreview}: ${pending.amount} sats (${pending.unit})`);
   }
 
   console.log(`Found ${apiKeysStored.length} apikeys:`);
@@ -99,9 +100,7 @@ async function main(): Promise<void> {
     console.log(`  - ${apikey.baseUrl}: ${apikey.amount} sats`);
   }
 
-  const refundBaseUrls = pendingDistribution
-    .map((p) => p.baseUrl)
-    .concat(apiKeysStored.map((p) => p.baseUrl));
+  const refundBaseUrls = apiKeysStored.map((p) => p.baseUrl);
 
   let mintUnits: Record<string, "sat" | "msat"> = {};
 
