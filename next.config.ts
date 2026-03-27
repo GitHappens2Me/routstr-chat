@@ -54,6 +54,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ["better-sqlite3"],
   // Add HMR configuration to prevent ping errors
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
@@ -62,9 +63,30 @@ const nextConfig: NextConfig = {
         aggregateTimeout: 300,
       };
     }
+
+    if (!isServer) {
+      config.resolve = config.resolve || {};
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        path: false,
+        crypto: false,
+      };
+
+      config.module.rules.push(
+        {
+          test: /better-sqlite3|bindings|file-uri-to-path/,
+          use: "null-loader",
+        },
+        {
+          test: /bun:sqlite/,
+          use: "null-loader",
+        }
+      );
+    }
+
     return config;
   },
-  serverExternalPackages: [],
   // Silence Next 16 Turbopack + webpack plugin warning (next-pwa injects webpack config)
   // See: https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
   turbopack: {},
