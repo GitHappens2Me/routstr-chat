@@ -160,7 +160,7 @@ async function main(): Promise<void> {
 
   console.log(`\nRefunding to mint: ${mintUrl}`);
 
-  const results = await spender.refundProviders(refundBaseUrls, mintUrl, true);
+  const results = await spender.refundProviders(refundBaseUrls, mintUrl);
 
   console.log("\nRefund results:");
   for (const result of results) {

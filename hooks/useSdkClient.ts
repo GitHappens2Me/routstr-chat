@@ -51,6 +51,12 @@ const createPendingDeps = (): {
     getAllChildKeys: () => [],
     getCachedReceiveTokens: () => [],
     setCachedReceiveTokens: pendingHandler,
+    getXcashuTokens: () => ({}),
+    getXcashuTokensForBaseUrl: () => [],
+    addXcashuToken: pendingHandler,
+    removeXcashuToken: pendingHandler,
+    clearXcashuTokensForBaseUrl: pendingHandler,
+    updateXcashuTokenTryCount: pendingHandler,
   };
   return { storageAdapter: pendingStorage, providerRegistry: pendingRegistry };
 };
