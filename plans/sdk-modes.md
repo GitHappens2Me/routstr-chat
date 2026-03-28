@@ -6,7 +6,7 @@ The RoutstrClient now supports multiple operational modes to handle different pa
 
 ## Implemented Modes
 
-Three modes have been added to the `RoutstrClient`:
+Two modes have been added to the `RoutstrClient`:
 
 ### 1. xcashu (Default)
 
@@ -35,47 +35,13 @@ Three modes have been added to the `RoutstrClient`:
 - `getMode()` method exposed to query active mode
 - Existing behavior partially matches (needs update to use X-Cashu header flow)
 
-### 2. lazyrefund
-
-**Status:** Implemented (mode flag added, behavior to be wired)
-
-**Intended Behavior:**
-
-- Creates spending request with ~20% extra margin above required sats
-- Keeps balance with the provider based on last use timestamp
-- Refunds after a certain time threshold (lazy/deferred refund)
-- If a different model requires more sats, tops up the existing token rather than refunding and re-spending
-- Reduces mint load by batching or delaying refund operations
-- Tracks per-provider balance retention
-
-**Flow:**
-
-1. Calculate required sats for request
-2. Add 20% margin: `spendAmount = requiredSats * 1.2`
-3. Check if provider already has a retained balance
-4. If retained balance exists and is sufficient: use it
-5. If retained balance exists but is insufficient for new model: top up (spend additional tokens to existing key) instead of refund + redo
-6. Spend tokens via `CashuSpender.spend()`
-7. Send request with token
-8. Provider returns unused balance
-9. Store balance + timestamp per provider (do not refund immediately)
-10. On next request to same provider: reuse retained balance if available
-11. Refund old retained balances after time threshold expires
-
-**Current State:**
-
-- Mode type defined
-- No behavioral changes implemented yet
-- Will need: per-provider balance tracking, time-based refund scheduler
-
-### 3. apikeys
+### 2. apikeys
 
 **Status:** Implemented (mode flag added, behavior to be wired)
 
 **Shared Storage:**
 
-- Uses the same storage mechanism as lazyrefund mode
-- Single API key stored per provider (like tokens in xcashu/lazyrefund)
+- Single API key stored per provider (like tokens in xcashu)
 - Stored persistently - never discarded even with 0 balance
 
 **Intended Behavior:**
@@ -117,7 +83,7 @@ Three modes have been added to the `RoutstrClient`:
 1. Added type definition:
 
    ```typescript
-   export type RoutstrClientMode = "xcashu" | "lazyrefund" | "apikeys";
+   export type RoutstrClientMode = "xcashu" | "apikeys";
    ```
 
 2. Added private property:
@@ -149,7 +115,7 @@ Three modes have been added to the `RoutstrClient`:
 
 Added "Client Modes" section documenting:
 
-- The three available modes
+- The two available modes
 - Default behavior (xcashu)
 - Usage example with mode parameter
 - Brief description of each mode's intended behavior
@@ -158,14 +124,9 @@ Added "Client Modes" section documenting:
 
 1. **Wire mode into `fetchAIResponse()` flow**
    - Add mode-based conditional logic for token spending
-   - Implement lazyrefund delay/batching logic
    - Implement apikeys authentication bypass
 
-2. **Update `CashuSpender` for lazyrefund mode**
-   - Add deferred refund queuing
-   - Implement batch refund processing
-
-3. **Update `RefundManager` for apikeys mode**
+2. **Update `RefundManager` for apikeys mode**
    - Skip refund processing when in apikeys mode
    - Handle API key credential storage/retrieval
 

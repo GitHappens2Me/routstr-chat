@@ -51,7 +51,7 @@ async function ensureRequestsDir(): Promise<void> {
 function parseArgs(argv: string[]): {
   port: number;
   provider: string | null;
-  mode: "xcashu" | "lazyrefund" | "apikeys";
+  mode: "xcashu" | "apikeys";
 } {
   const portFlagIndex = argv.findIndex((arg) => arg === "--port");
   const providerFlagIndex = argv.findIndex(
@@ -68,8 +68,8 @@ function parseArgs(argv: string[]): {
   const provider =
     providerFlagIndex !== -1 ? argv[providerFlagIndex + 1]?.trim() : null;
   const modeArg = modeFlagIndex !== -1 ? argv[modeFlagIndex + 1]?.trim() : null;
-  const mode: "xcashu" | "lazyrefund" | "apikeys" =
-    modeArg === "xcashu" || modeArg === "lazyrefund"
+  const mode: "xcashu" | "apikeys" =
+    modeArg === "xcashu"
       ? modeArg
       : "apikeys";
 

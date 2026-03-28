@@ -137,7 +137,7 @@ async function main(): Promise<void> {
     storageAdapter,
     providerRegistry,
     "min",
-    "lazyrefund"
+    "apikeys"
   );
 
   console.log("Checking full system balance...\n");

@@ -172,7 +172,7 @@ export const useChatActions = ({
     sendToken,
     receiveToken,
   });
-  const { client } = useSdkClient(walletAdapter, "lazyrefund");
+  const { client } = useSdkClient(walletAdapter, "apikeys");
 
   const dataUrlToFile = useCallback(
     (dataUrl: string, filename: string): File => {

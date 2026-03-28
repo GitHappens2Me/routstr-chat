@@ -153,7 +153,7 @@ async function main(): Promise<void> {
     storageAdapter,
     providerRegistry,
     "min",
-    "lazyrefund"
+    "apikeys"
   );
 
   const spender = client.getCashuSpender();
