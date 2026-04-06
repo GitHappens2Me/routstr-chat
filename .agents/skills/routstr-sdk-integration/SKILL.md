@@ -58,7 +58,7 @@ Integrate the `@routstr/sdk` npm package to route OpenAI-compatible API requests
    await mintDiscovery.discoverMints(providers);
    ```
 
-4. **Implement WalletAdapter** (only user responsibility)
+4. **Implement WalletAdapter**
 
    ```typescript
    const walletAdapter = {
@@ -93,78 +93,37 @@ Integrate the `@routstr/sdk` npm package to route OpenAI-compatible API requests
    };
    ```
 
-5. **Route a request**
+## Using the SDK
 
-   ```typescript
-   import { routeRequests, createStorageAdapterFromStore } from "@routstr/sdk";
-
-   const storageAdapter = createStorageAdapterFromStore(store);
-
-   const response = await routeRequests({
-     modelId: "gpt-4o",
-     requestBody: {
-       messages: [{ role: "user", content: "Hello, world!" }],
-       stream: true,
-     },
-     mode: "xcashu", // or "apikeys"
-     walletAdapter,
-     storageAdapter,
-     providerRegistry,
-     discoveryAdapter,
-     modelManager,
-   });
-   ```
-
-## Authentication Modes
-
-| Mode      | Description                                                              | Best For                                                                         |
-| --------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `xcashu`  | Cashu token spending with automatic refunds                              | Pay-per-use without pre-registration                                             |
-| `apikeys` | Balance is temporarily kept with a routstr node, can be refunded anytime | Low latency inference with the trade off of balance being kept with the provider |
-
-## Common Patterns
-
-### Force a specific provider
+### Directly consuming AI inference
 
 ```typescript
-await routeRequests({
-  forcedProvider: "https://specific.provider.com/",
-  // ... other options
-});
-```
+import { RoutstrClient } from "@routstr/sdk";
 
-### Add custom providers
-
-```typescript
-const modelManager = new ModelManager(discoveryAdapter, {
-  includeProviderUrls: ["https://my-private-provider.com/"],
-});
-```
-
-### Check available providers for a model
-
-```typescript
-import { ProviderManager } from "@routstr/sdk";
-
-const providerManager = new ProviderManager(providerRegistry);
-const ranking = providerManager.getProviderPriceRankingForModel("gpt-4o");
-// Returns cheapest-first list of providers with pricing
-```
-
-### Use apikeys mode (no Cashu)
-
-```typescript
-await routeRequests({
-  mode: "apikeys",
+const client = new RoutstrClient(
+  walletAdapter,
   storageAdapter,
   providerRegistry,
-  discoveryAdapter,
-  modelManager,
-  // walletAdapter not needed
-});
+  "min", // alertLevel: "min" | "max"
+  "xcashu" // mode: "xcashu" | "apikeys"
+);
+
+await client.fetchAIResponse(
+  {
+    messageHistory: [{ role: "user", content: userPrompt }],
+    selectedModel: model,
+    baseUrl: providerUrl,
+    mintUrl: activeMintUrl,
+  },
+  {
+    onStreamingUpdate: (content) => process.stdout.write(content),
+    onBalanceUpdate: (balance) => console.error(`[Balance: ${balance} sats]`),
+    onTransactionUpdate: (tx) => console.error(`[Spent: ${tx.amount} sats]`),
+  }
+);
 ```
 
-## Building an HTTP Proxy
+### Building an HTTP Proxy
 
 ```typescript
 import { createServer } from "http";
@@ -199,32 +158,40 @@ const server = createServer(async (req, res) => {
 });
 ```
 
-## Directly consuming AI inference
+## Authentication Modes
+
+| Mode      | Description                                                              | Best For                                                                     | Trade offs                                                                                |
+| --------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `xcashu`  | Cashu token spending with automatic refunds                              | Pay-per-use with better privacy, one-off requests                            | Higher latency (requires creating Cashu tokens / ecash). More transaction fees.           |
+| `apikeys` | Balance is temporarily kept with a routstr node, can be refunded anytime | Agentic sessions that benefit from faster inference. Session based accounts. | Balance held by provider for longer. Less privacy (requests are linked during a session). |
+
+## Common Patterns
+
+### Force a specific provider
 
 ```typescript
-import { RoutstrClient } from "@routstr/sdk";
+await routeRequests({
+  forcedProvider: "https://specific.provider.com/",
+  // ... other options
+});
+```
 
-const client = new RoutstrClient(
-  walletAdapter,
-  storageAdapter,
-  providerRegistry,
-  "min", // alertLevel: "min" | "max"
-  "xcashu" // mode: "xcashu" | "apikeys"
-);
+### Add custom providers
 
-await client.fetchAIResponse(
-  {
-    messageHistory: [{ role: "user", content: userPrompt }],
-    selectedModel: model,
-    baseUrl: providerUrl,
-    mintUrl: activeMintUrl,
-  },
-  {
-    onStreamingUpdate: (content) => process.stdout.write(content),
-    onBalanceUpdate: (balance) => console.error(`[Balance: ${balance} sats]`),
-    onTransactionUpdate: (tx) => console.error(`[Spent: ${tx.amount} sats]`),
-  }
-);
+```typescript
+const modelManager = new ModelManager(discoveryAdapter, {
+  includeProviderUrls: ["https://my-private-provider.com/"],
+});
+```
+
+### Check available providers for a model
+
+```typescript
+import { ProviderManager } from "@routstr/sdk";
+
+const providerManager = new ProviderManager(providerRegistry);
+const ranking = providerManager.getProviderPriceRankingForModel("gpt-4o");
+// Returns cheapest-first list of providers with pricing
 ```
 
 ## Package Reference
@@ -233,3 +200,5 @@ await client.fetchAIResponse(
 - **Node/Bun**: Use `createSqliteDriver()` for persistent storage
 - **Browser**: Use `createLocalStorageDriver()` or provide custom driver
 - **Framework**: Fully framework-agnostic
+- **Simple Cashu wallet for TS/JS environments**: Coco wallet(https://github.com/cashubtc/coco)
+- **CLI wallet that is battle tested**: CDK Cli Binary (https://github.com/cashubtc/cdk/releases/)
