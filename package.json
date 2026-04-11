@@ -6,7 +6,7 @@
     "sdk"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "dev:clean": "npm run clean:sw && next dev",
     "clean:sw": "node -e \"if (typeof window !== 'undefined') { navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(reg => reg.unregister())) }\" || echo 'SW cleanup completed'",
     "build": "next build",
@@ -32,7 +32,7 @@
     "typecheck:sdk": "npm run -w @routstr/sdk typecheck"
   },
   "dependencies": {
-    "@cashu/cashu-ts": "^3.1.1",
+    "@cashu/cashu-ts": "^3.6.2",
     "@cashu/crypto": "^0.3.4",
     "@contextvm/sdk": "^0.6.2",
     "@getalby/bitcoin-connect-react": "^3.10.0",
