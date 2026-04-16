@@ -13,7 +13,6 @@
     "x-stainless-arch": "arm64",
     "x-stainless-runtime": "node",
     "x-stainless-runtime-version": "v22.17.0",
-    "authorization": "Bearer sk-7a9679d0ffe972bcb35ad16339f70530f03c3e3151af16f3",
     "content-type": "application/json",
     "accept-language": "*",
     "sec-fetch-mode": "cors",
