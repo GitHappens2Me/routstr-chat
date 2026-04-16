@@ -1,4 +1,4 @@
-const API_URL = "https://routstr.otrta.me/v1/messages";
+const API_URL = "https://routstr.otrta.me/v1/chat/completions";
 const API_KEY =
   process.env.OPENROUTER_API_KEY ||
   process.env.ROUTSTR_UPSTREAM_API_KEY ||
@@ -70,17 +70,10 @@ async function main() {
         try {
           const json = JSON.parse(trimmed.slice(6));
           lastJson = json; 
-          // OpenAI-style: choices[0].delta.content
-          const openaiDelta = json.choices?.[0]?.delta?.content;
-          if (openaiDelta) {
-            fullContent += openaiDelta;
-            process.stdout.write(openaiDelta);
-          }
-          // Anthropic-style: delta.text (from content_block_delta events)
-          const anthropicDelta = json.delta?.text;
-          if (anthropicDelta) {
-            fullContent += anthropicDelta;
-            process.stdout.write(anthropicDelta);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullContent += delta;
+            process.stdout.write(delta);
           }
         } catch (e) {}
       }
