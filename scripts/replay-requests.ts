@@ -6,8 +6,8 @@ import https from "https";
 
 const REQUESTS_DIR = join(__dirname, "requests");
 const RESPONSES_DIR = join(__dirname, "responses");
-// const DAEMON_URL = "https://api.nonkycai.com";
-const DAEMON_URL = "http://localhost:8009";
+const DAEMON_URL = "https://routstr.otrta.me";
+// const DAEMON_URL = "http://localhost:8009";
 
 type SavedRequest = {
   method?: string;
@@ -41,7 +41,7 @@ function normalizeHeaders(
 
   normalized["Content-Length"] = Buffer.byteLength(bodyStr);
   normalized["Authorization"] =
-    "Bearer sk-ceff560519a2b88a6ec52b7a35f24f36d92ea022ffdfe1e53fbc47ef1cc26430";
+    "Bearer sk-511f8bdba2b44c2f45683fcd1b5276f49509f6181596b08c7a252ec99b3fba85";
   return normalized;
 }
 
