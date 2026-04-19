@@ -375,13 +375,13 @@ async function main(): Promise<void> {
         return;
       }
 
-      const savedFilename = await saveRequestBody(
-        requestBody,
-        req.headers,
-        `${url.pathname}${url.search}`,
-        req.method || "POST"
-      );
-      console.log(`[daemon] Request body saved to: ${savedFilename}`);
+      // const savedFilename = await saveRequestBody(
+      //  requestBody,
+      //  req.headers,
+      //  `${url.pathname}${url.search}`,
+      //  req.method || "POST"
+      // );
+      // console.log(`[daemon] Request body saved to: ${savedFilename}`);
 
       const bodyObj = requestBody as Record<string, unknown>;
       const modelId = typeof bodyObj.model === "string" ? bodyObj.model : "";
