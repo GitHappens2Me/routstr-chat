@@ -477,21 +477,16 @@ export function useCashuToken() {
         // Get preferred unit: msat over sat if both are active
         let keysets = mintDetails?.keysets;
 
-        const activeKeysets = keysets?.filter((k) => k.active);
-        const units = [...new Set(activeKeysets?.map((k) => k.unit))];
+        const activeKeysets = keysets?.filter((k) => k.active || (k as any)._active);
+        const units = [...new Set(activeKeysets?.map((k) => k.unit || (k as any)._unit))];
         const preferredUnit = units?.includes("msat")
           ? "msat"
           : units?.includes("sat")
             ? "sat"
-            : units?.[0];
+            : (units?.[0] || "sat");
 
         const wallet = new Wallet(mint, {
           unit: preferredUnit,
-          keysets: keysets,
-          mintInfo: mintDetails?.mintInfo,
-          keys: Object.values(mintDetails?.keys || {}).flatMap((record) =>
-            Object.values(record)
-          ),
         });
 
         try {
