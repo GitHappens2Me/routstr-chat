@@ -80,6 +80,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   const sdkCachedBalance = useSdkCachedBalance();
   const cachedBalance = `${sdkCachedBalance} sats`;
 
+  const showCachedBalance =
+    isAuthenticated && !isMobile && sdkCachedBalance > 0;
+
   return (
     <div
       className={`fixed top-0 bg-background backdrop-blur-sm z-30 transition-all duration-300 ease-in-out ${
@@ -169,13 +172,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
         <div
           className={`absolute ${isMobile ? "right-2" : "right-4"} flex items-center gap-2`}
         >
-          {isAuthenticated && (
+          {showCachedBalance && (
             <div className="flex flex-col items-end">
               <span className="text-xs text-muted-foreground font-medium">
                 {cachedBalance}
               </span>
-              <span className="text-[10px] text-muted-foreground/60">
-                (cached)
+              <span className="text-[10px] text-muted-foreground/60 leading-none">
+                (api keys)
               </span>
             </div>
           )}
