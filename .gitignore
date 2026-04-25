@@ -70,3 +70,6 @@ dist
 package-lock.json
 
 slate.json
+
+# Git worktrees
+.worktrees/
