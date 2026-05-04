@@ -5,7 +5,7 @@ import { useCashuWallet } from "./useCashuWallet";
 import { useCashuStore } from "../state/cashuStore";
 import { defaultMints } from "../core/services/MintService";
 import { generateSecretKey } from "nostr-tools";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 /**
  * Hook for creating a Cashu wallet using the user's Nostr identity

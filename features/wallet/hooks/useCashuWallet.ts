@@ -19,7 +19,7 @@ import {
 import { Proof } from "@cashu/cashu-ts";
 import { z } from "zod";
 import { useNutzaps } from "./useNutzaps";
-import { hexToBytes } from "@noble/hashes/utils";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { eventDatabase, relayPool } from "@/lib/applesauce-core";
 import {

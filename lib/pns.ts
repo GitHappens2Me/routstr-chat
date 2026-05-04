@@ -1,6 +1,6 @@
-import { extract as hkdf_extract } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha2";
-import { randomBytes } from "@noble/hashes/utils";
+import { extract as hkdf_extract } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { randomBytes } from "@noble/hashes/utils.js";
 import { nip44, getPublicKey, finalizeEvent, Event } from "nostr-tools";
 
 // Constants

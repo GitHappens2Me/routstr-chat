@@ -1,7 +1,7 @@
-import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha2";
-import { randomBytes, concatBytes, bytesToHex } from "@noble/hashes/utils";
-import { xchacha20poly1305 } from "@noble/ciphers/chacha";
+import { hkdf } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { randomBytes, concatBytes, bytesToHex } from "@noble/hashes/utils.js";
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 // ============================================================================
 // Constants

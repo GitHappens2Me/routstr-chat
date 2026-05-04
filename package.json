@@ -89,7 +89,7 @@
     "zustand": "^5.0.5"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.7.2"
+    "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
