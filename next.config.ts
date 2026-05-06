@@ -1,49 +1,47 @@
 import type { NextConfig } from "next";
-import withPWA from "next-pwa";
+import withPWA from "@ducanh2912/next-pwa";
 
 const withPWACfg = withPWA({
   dest: "public",
   register: true,
-  skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
-  // Exclude RSC payload files (.txt) from precaching - they contain React Server Component data
-  // that should not be served directly
-  buildExcludes: [/\.txt$/],
-  // Exclude .txt files from public precaching
   publicExcludes: ["!*.txt"],
-  // Prevent navigation fallback for .txt files (RSC payloads)
-  navigateFallbackDenylist: [/\.txt$/],
-  runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
-      handler: "CacheFirst",
-      options: {
-        cacheName: "google-fonts",
-        expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+  workboxOptions: {
+    skipWaiting: true,
+    // Exclude RSC payload files (.txt) from precaching
+    exclude: [/\.txt$/],
+    // Prevent navigation fallback for .txt files (RSC payloads)
+    navigateFallbackDenylist: [/\.txt$/],
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "google-fonts",
+          expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+        },
       },
-    },
-    {
-      // TypeScript doesn't have Workbox types here; use any for config-time typing
-      urlPattern: ({ request }: { request: any }) =>
-        request?.destination === "image",
-      handler: "StaleWhileRevalidate",
-      options: {
-        cacheName: "images",
-        expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+      {
+        urlPattern: ({ request }: { request: any }) =>
+          request?.destination === "image",
+        handler: "StaleWhileRevalidate",
+        options: {
+          cacheName: "images",
+          expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+        },
       },
-    },
-    {
-      urlPattern: ({ url }: { url: any }) => url?.pathname?.startsWith("/api/"),
-      handler: "NetworkFirst",
-      method: "GET",
-      options: {
-        cacheName: "api",
-        networkTimeoutSeconds: 10,
-        expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-        cacheableResponse: { statuses: [0, 200] },
+      {
+        urlPattern: ({ url }: { url: any }) => url?.pathname?.startsWith("/api/"),
+        handler: "NetworkFirst",
+        options: {
+          cacheName: "api",
+          networkTimeoutSeconds: 10,
+          expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
       },
-    },
-  ],
+    ],
+  },
   fallbacks: {
     document: "/offline",
   },

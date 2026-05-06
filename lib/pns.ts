@@ -1,6 +1,6 @@
 import { extract as hkdf_extract } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { randomBytes } from "@noble/hashes/utils.js";
+import { randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { nip44, getPublicKey, finalizeEvent, Event } from "nostr-tools";
 
 // Constants
@@ -25,7 +25,7 @@ export function derivePnsKeys(deviceKey: Uint8Array, salt?: string): PnsKeys {
   // 1. Key Derivation
   const salt_used = salt ?? SALT_PNS;
   // pns_key = hkdf_extract(ikm=device_key, salt="nip-pns")
-  const pnsKey = hkdf_extract(sha256, deviceKey, salt ?? SALT_PNS);
+  const pnsKey = hkdf_extract(sha256, deviceKey, utf8ToBytes(salt ?? SALT_PNS));
 
   // pns_keypair = derive_secp256k1_keypair(pns_key)
   // Note: pns_key is used as the private key for the keypair
