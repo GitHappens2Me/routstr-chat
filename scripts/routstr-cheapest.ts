@@ -50,7 +50,7 @@ const resolvedModelId = modelId || "";
 const resolvedText = text;
 const forcedProvider = provider;
 
-const mintToAdd = "https://mint.cubabitcoin.org";
+const mintToAdd = "https://mint.minibits.cash/Bitcoin";
 
 async function runWalletCommand(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
