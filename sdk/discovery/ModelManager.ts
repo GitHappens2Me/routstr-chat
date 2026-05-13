@@ -41,6 +41,7 @@ export class ModelManager {
   private readonly includeProviderUrls: string[];
   private readonly excludeProviderUrls: string[];
   private readonly logger: SdkLogger;
+  private providerNodePubkeysByUrl = new Map<string, Set<string>>();
 
   constructor(
     private adapter: DiscoveryAdapter,
@@ -175,6 +176,7 @@ export class ModelManager {
     const timeline = localEventStore.getTimeline({ kinds: [kind] });
 
     const bases = new Set<string>();
+    this.providerNodePubkeysByUrl = new Map();
 
     for (const event of timeline) {
       const eventUrls: string[] = [];
@@ -190,6 +192,11 @@ export class ModelManager {
           const normalized = this.normalizeUrl(url);
           if (!torMode || normalized.includes(".onion")) {
             bases.add(normalized);
+            this.addProviderNode(
+              this.providerNodePubkeysByUrl,
+              normalized,
+              event.pubkey
+            );
           }
         }
         continue;
@@ -205,6 +212,11 @@ export class ModelManager {
           const endpoints = this.getProviderEndpoints(p, torMode);
           for (const endpoint of endpoints) {
             bases.add(endpoint);
+            this.addProviderNode(
+              this.providerNodePubkeysByUrl,
+              endpoint,
+              p?.pubkey || event.pubkey
+            );
           }
         }
       } catch {
@@ -215,6 +227,11 @@ export class ModelManager {
               const endpoints = this.getProviderEndpoints(p, torMode);
               for (const endpoint of endpoints) {
                 bases.add(endpoint);
+                this.addProviderNode(
+                  this.providerNodePubkeysByUrl,
+                  endpoint,
+                  p?.pubkey || event.pubkey
+                );
               }
             }
           }
@@ -264,10 +281,12 @@ export class ModelManager {
       const providers = Array.isArray(data?.providers) ? data.providers : [];
 
       const bases = new Set<string>();
+      this.providerNodePubkeysByUrl = new Map();
       for (const p of providers) {
         const endpoints = this.getProviderEndpoints(p, torMode);
         for (const endpoint of endpoints) {
           bases.add(endpoint);
+          this.addProviderNode(this.providerNodePubkeysByUrl, endpoint, p?.pubkey);
         }
       }
 
@@ -312,7 +331,8 @@ export class ModelManager {
    */
   async syncReviewedProvidersFromNostr(
     baseUrls: string[] = this.adapter.getBaseUrlsList(),
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    providerNodes: Map<string, Set<string>> = this.providerNodePubkeysByUrl
   ): Promise<string[]> {
     if (baseUrls.length === 0) return [];
 
@@ -332,7 +352,6 @@ export class ModelManager {
       return [];
     }
 
-    const providerNodes = await this.fetchProviderNodePubkeysFromNostr(38421);
     if (providerNodes.size === 0) {
       this.logger.warn(
         "NostrReviews: no kind 38421 provider node metadata found; keeping disabled providers unchanged"
@@ -355,6 +374,18 @@ export class ModelManager {
     this.adapter.setDisabledProviders(Array.from(new Set(disabledByReview)));
 
     return disabledByReview;
+  }
+
+  private addProviderNode(
+    map: Map<string, Set<string>>,
+    url: string,
+    pubkey?: string
+  ): void {
+    if (!pubkey) return;
+    const normalized = this.normalizeUrl(url);
+    const existing = map.get(normalized) || new Set<string>();
+    existing.add(pubkey);
+    map.set(normalized, existing);
   }
 
   private async fetchLgtmReviewedNodePubkeysFromNostr(): Promise<Set<string>> {
@@ -413,92 +444,6 @@ export class ModelManager {
     return reviewed;
   }
 
-  private async fetchProviderNodePubkeysFromNostr(
-    kind: number
-  ): Promise<Map<string, Set<string>>> {
-    const DEFAULT_RELAYS = [
-      "wss://relay.primal.net",
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-    ];
-
-    const pool = new RelayPool();
-    const localEventStore = new EventStore();
-    const timeoutMs = 5000;
-
-    await new Promise<void>((resolve) => {
-      pool
-        .req(DEFAULT_RELAYS, {
-          kinds: [kind],
-          limit: 100,
-        })
-        .pipe(
-          onlyEvents(),
-          tap((event) => {
-            localEventStore.add(event);
-          })
-        )
-        .subscribe({
-          complete: () => {
-            resolve();
-          },
-        });
-
-      setTimeout(() => {
-        resolve();
-      }, timeoutMs);
-    });
-
-    const providersByUrl = new Map<string, Set<string>>();
-    const timeline = localEventStore.getTimeline({ kinds: [kind] });
-
-    const addProviderNode = (url: string, pubkey: string) => {
-      const normalized = this.normalizeUrl(url);
-      const existing = providersByUrl.get(normalized) || new Set<string>();
-      existing.add(pubkey);
-      providersByUrl.set(normalized, existing);
-    };
-
-    for (const event of timeline) {
-      const eventUrls: string[] = [];
-
-      for (const tag of event.tags) {
-        if (tag[0] === "u" && typeof tag[1] === "string") {
-          eventUrls.push(tag[1]);
-        }
-      }
-
-      if (eventUrls.length > 0) {
-        for (const url of eventUrls) {
-          addProviderNode(url, event.pubkey);
-        }
-        continue;
-      }
-
-      try {
-        const content = JSON.parse(event.content);
-        const providers = Array.isArray(content)
-          ? content
-          : content.providers || [];
-
-        for (const p of providers) {
-          const endpoints = [p?.endpoint_url, p?.onion_url].filter(
-            (endpoint): endpoint is string => typeof endpoint === "string"
-          );
-          for (const endpoint of endpoints) {
-            addProviderNode(endpoint, event.pubkey);
-          }
-        }
-      } catch {
-        this.logger.warn(
-          "NostrReviews: failed to parse provider event content:",
-          event.id
-        );
-      }
-    }
-
-    return providersByUrl;
-  }
 
   /**
    * Fetch models from all providers and select best-priced options
