@@ -101,10 +101,7 @@ export class ModelManager {
             torMode
           );
           await this.fetchRoutstr21Models(forceRefresh);
-          await this.syncReviewedProvidersFromNostr(
-            filteredCachedUrls,
-            forceRefresh
-          );
+          await this.syncReviewedProvidersFromNostr(filteredCachedUrls);
           return filteredCachedUrls;
         }
       }
@@ -118,7 +115,7 @@ export class ModelManager {
         this.adapter.setBaseUrlsList(filtered);
         this.adapter.setBaseUrlsLastUpdate(Date.now());
         await this.fetchRoutstr21Models(forceRefresh);
-        await this.syncReviewedProvidersFromNostr(filtered, forceRefresh);
+        await this.syncReviewedProvidersFromNostr(filtered);
         return filtered;
       }
     } catch (e) {
@@ -307,7 +304,7 @@ export class ModelManager {
         this.adapter.setBaseUrlsList(list);
         this.adapter.setBaseUrlsLastUpdate(Date.now());
         await this.fetchRoutstr21Models(forceRefresh);
-        await this.syncReviewedProvidersFromNostr(list, forceRefresh);
+        await this.syncReviewedProvidersFromNostr(list);
       }
 
       return list;
@@ -326,12 +323,10 @@ export class ModelManager {
    * - `t`: review label, where `lgtm` means the node looks good
    *
    * @param baseUrls Current provider base URLs to evaluate
-   * @param forceRefresh Kept for API symmetry with other bootstrap fetchers
    * @returns Array of provider base URLs disabled by the review set
    */
   async syncReviewedProvidersFromNostr(
     baseUrls: string[] = this.adapter.getBaseUrlsList(),
-    forceRefresh: boolean = false,
     providerNodes: Map<string, Set<string>> = this.providerNodePubkeysByUrl
   ): Promise<string[]> {
     if (baseUrls.length === 0) return [];
@@ -343,8 +338,41 @@ export class ModelManager {
       return [];
     }
 
-    const reviewedNodePubkeys =
-      await this.fetchLgtmReviewedNodePubkeysFromNostr();
+    // Fetch kind 38425 lgtm reviews
+    const LGTM_RELAYS = [
+      "wss://relay.primal.net",
+      "wss://nos.lol",
+      "wss://relay.damus.io",
+      "wss://relay.routstr.com",
+    ];
+    const reviewedNodePubkeys = new Set<string>();
+    {
+      const pool = new RelayPool();
+      const store = new EventStore();
+      const timeoutMs = 5000;
+      await new Promise<void>((resolve) => {
+        pool
+          .req(LGTM_RELAYS, { kinds: [38425], "#t": ["lgtm"], limit: 500 })
+          .pipe(
+            onlyEvents(),
+            tap((event) => store.add(event))
+          )
+          .subscribe({ complete: () => resolve() });
+        setTimeout(() => resolve(), timeoutMs);
+      });
+      for (const event of store.getTimeline({ kinds: [38425] })) {
+        const hasLgtmTag = event.tags.some(
+          (tag) => tag[0] === "t" && tag[1]?.toLowerCase() === "lgtm"
+        );
+        if (!hasLgtmTag) continue;
+        for (const tag of event.tags) {
+          if (tag[0] === "node" && typeof tag[1] === "string" && tag[1]) {
+            reviewedNodePubkeys.add(tag[1]);
+          }
+        }
+      }
+    }
+
     if (reviewedNodePubkeys.size === 0) {
       this.logger.warn(
         "NostrReviews: no kind 38425 lgtm reviews found; keeping disabled providers unchanged"
@@ -386,62 +414,6 @@ export class ModelManager {
     const existing = map.get(normalized) || new Set<string>();
     existing.add(pubkey);
     map.set(normalized, existing);
-  }
-
-  private async fetchLgtmReviewedNodePubkeysFromNostr(): Promise<Set<string>> {
-    const DEFAULT_RELAYS = [
-      "wss://relay.primal.net",
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-      "wss://relay.routstr.com",
-    ];
-
-    const kind = 38425;
-    const pool = new RelayPool();
-    const localEventStore = new EventStore();
-    const timeoutMs = 5000;
-
-    await new Promise<void>((resolve) => {
-      pool
-        .req(DEFAULT_RELAYS, {
-          kinds: [kind],
-          "#t": ["lgtm"],
-          limit: 500,
-        })
-        .pipe(
-          onlyEvents(),
-          tap((event) => {
-            localEventStore.add(event);
-          })
-        )
-        .subscribe({
-          complete: () => {
-            resolve();
-          },
-        });
-
-      setTimeout(() => {
-        resolve();
-      }, timeoutMs);
-    });
-
-    const reviewed = new Set<string>();
-    const timeline = localEventStore.getTimeline({ kinds: [kind] });
-
-    for (const event of timeline) {
-      const hasLgtmTag = event.tags.some(
-        (tag) => tag[0] === "t" && tag[1]?.toLowerCase() === "lgtm"
-      );
-      if (!hasLgtmTag) continue;
-
-      for (const tag of event.tags) {
-        if (tag[0] === "node" && typeof tag[1] === "string" && tag[1]) {
-          reviewed.add(tag[1]);
-        }
-      }
-    }
-
-    return reviewed;
   }
 
 
