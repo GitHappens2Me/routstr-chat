@@ -27,6 +27,8 @@ export interface ModelManagerConfig {
   excludeProviderUrls?: string[];
   /** Cache TTL in milliseconds (default: 21 minutes) */
   cacheTTL?: number;
+  /** Nostr pubkey for routstr review/model events (kind 38425/38423). Defaults to routstr's key. */
+  routstrPubkey?: string;
   /** Optional injectable logger */
   logger?: SdkLogger;
 }
@@ -40,6 +42,7 @@ export class ModelManager {
   private readonly providerDirectoryUrl: string;
   private readonly includeProviderUrls: string[];
   private readonly excludeProviderUrls: string[];
+  private readonly routstrPubkey: string;
   private readonly logger: SdkLogger;
   private providerNodePubkeysByUrl = new Map<string, Set<string>>();
 
@@ -52,6 +55,9 @@ export class ModelManager {
     this.cacheTTL = config.cacheTTL || 210 * 60 * 1000; // 21 minutes
     this.includeProviderUrls = config.includeProviderUrls || [];
     this.excludeProviderUrls = config.excludeProviderUrls || [];
+    this.routstrPubkey =
+      config.routstrPubkey ||
+      "4ad6fa2d16e2a9b576c863b4cf7404a70d4dc320c0c447d10ad6ff58993eacc8";
     this.logger = (config.logger ?? consoleLogger).child("ModelManager");
   }
 
@@ -356,9 +362,7 @@ export class ModelManager {
             kinds: [38425],
             "#t": ["lgtm"],
             limit: 500,
-            authors: [
-              "4ad6fa2d16e2a9b576c863b4cf7404a70d4dc320c0c447d10ad6ff58993eacc8",
-            ],
+            authors: [this.routstrPubkey],
           })
           .pipe(
             onlyEvents(),
@@ -669,9 +673,7 @@ export class ModelManager {
           kinds: [38423],
           "#d": ["routstr-21-models"],
           limit: 1,
-          authors: [
-            "4ad6fa2d16e2a9b576c863b4cf7404a70d4dc320c0c447d10ad6ff58993eacc8",
-          ],
+          authors: [this.routstrPubkey],
         })
         .pipe(
           onlyEvents(),
