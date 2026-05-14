@@ -352,7 +352,14 @@ export class ModelManager {
       const timeoutMs = 5000;
       await new Promise<void>((resolve) => {
         pool
-          .req(LGTM_RELAYS, { kinds: [38425], "#t": ["lgtm"], limit: 500 })
+          .req(LGTM_RELAYS, {
+            kinds: [38425],
+            "#t": ["lgtm"],
+            limit: 500,
+            authors: [
+              "4ad6fa2d16e2a9b576c863b4cf7404a70d4dc320c0c447d10ad6ff58993eacc8",
+            ],
+          })
           .pipe(
             onlyEvents(),
             tap((event) => store.add(event))
