@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Menu, SquarePen } from "lucide-react";
 import { useChat } from "@/context/ChatProvider";
 import { useAuth } from "@/context/AuthProvider";
@@ -82,6 +82,20 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   const showCachedBalance =
     isAuthenticated && !isMobile && sdkCachedBalance > 0;
+
+  // Debug: log why cached balance is/isn't showing
+  useEffect(() => {
+    if (!showCachedBalance && sdkCachedBalance > 0) {
+      console.log(
+        "[ChatHeader] cachedBalance hidden — isAuthenticated:",
+        isAuthenticated,
+        "isMobile:",
+        isMobile,
+        "sdkCachedBalance:",
+        sdkCachedBalance,
+      );
+    }
+  }, [showCachedBalance, isAuthenticated, isMobile, sdkCachedBalance]);
 
   return (
     <div
