@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { Menu, SquarePen } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Menu, SquarePen, RotateCcw } from "lucide-react";
 import { useChat } from "@/context/ChatProvider";
 import { useAuth } from "@/context/AuthProvider";
 import ModelSelector from "./ModelSelector";
 import { BalanceDisplay } from "@/features/wallet";
 import { useSdkCachedBalance } from "@/hooks/useSdkCachedBalance";
+import { ModalShell } from "@/components/ui/ModalShell";
+import CloseButton from "@/components/ui/CloseButton";
+import { toast } from "sonner";
 
 /**
  * Top header with model selector and controls
@@ -75,13 +78,47 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     // Settings
     setIsSettingsOpen,
     setInitialSettingsTab,
+
+    // Refund
+    refundAllApiKeys,
   } = useChat();
 
   const sdkCachedBalance = useSdkCachedBalance();
   const cachedBalance = `${sdkCachedBalance} sats`;
 
   const showCachedBalance =
-    isAuthenticated && !isMobile && sdkCachedBalance > 0;
+    isAuthenticated && sdkCachedBalance > 0;
+
+  // Refund dialog state
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
+
+  const handleRefund = useCallback(async () => {
+    setIsRefunding(true);
+    try {
+      const result = await refundAllApiKeys();
+      if (result.totalRefunded > 0) {
+        toast.success(
+          `Refunded ${result.totalRefunded} API key${result.totalRefunded > 1 ? "s" : ""} successfully!`,
+        );
+      }
+      if (result.totalFailed > 0) {
+        toast.warning(
+          `${result.totalFailed} API key${result.totalFailed > 1 ? "s" : ""} failed to refund.`,
+        );
+      }
+      if (result.totalRefunded === 0 && result.totalFailed === 0) {
+        toast.info("No API keys to refund.");
+      }
+    } catch (error) {
+      toast.error(
+        `Refund failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setIsRefunding(false);
+      setShowRefundDialog(false);
+    }
+  }, [refundAllApiKeys]);
 
   // Debug: log why cached balance is/isn't showing
   useEffect(() => {
@@ -89,13 +126,11 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
       console.log(
         "[ChatHeader] cachedBalance hidden — isAuthenticated:",
         isAuthenticated,
-        "isMobile:",
-        isMobile,
         "sdkCachedBalance:",
         sdkCachedBalance,
       );
     }
-  }, [showCachedBalance, isAuthenticated, isMobile, sdkCachedBalance]);
+  }, [showCachedBalance, isAuthenticated, sdkCachedBalance]);
 
   return (
     <div
@@ -184,17 +219,21 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         {/* Balance Display */}
         <div
-          className={`absolute ${isMobile ? "right-2" : "right-4"} flex items-center gap-2`}
+          className={`absolute ${isMobile ? "right-2" : "right-4"} flex ${isMobile ? "flex-col items-end gap-1" : "items-center gap-2"}`}
         >
           {showCachedBalance && (
-            <div className="flex flex-col items-end">
+            <button
+              onClick={() => setShowRefundDialog(true)}
+              className="flex flex-col items-end hover:opacity-80 transition-opacity cursor-pointer"
+              title="Click to refund all API keys"
+            >
               <span className="text-xs text-muted-foreground font-medium">
                 {cachedBalance}
               </span>
               <span className="text-[10px] text-muted-foreground/60 leading-none">
                 (api keys)
               </span>
-            </div>
+            </button>
           )}
           <BalanceDisplay
             setIsSettingsOpen={setIsSettingsOpen}
@@ -204,6 +243,60 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           />
         </div>
       </div>
+
+      {/* Refund Confirmation Dialog */}
+      <ModalShell
+        open={showRefundDialog}
+        onClose={() => !isRefunding && setShowRefundDialog(false)}
+        closeOnOverlayClick={!isRefunding}
+        overlayClassName="bg-black/70 z-50"
+        contentClassName="bg-card rounded-lg p-6 max-w-md w-full border border-border"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <h4 className="text-lg font-semibold text-foreground">
+            Refund All API Keys
+          </h4>
+          <CloseButton
+            onClick={() => !isRefunding && setShowRefundDialog(false)}
+          />
+        </div>
+        {isRefunding ? (
+          <div className="flex flex-col items-center py-4">
+            <RotateCcw className="h-8 w-8 animate-spin text-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Refunding all API keys…
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">
+              This will refund the remaining balance of{" "}
+              <span className="font-semibold text-foreground">
+                {cachedBalance}
+              </span>{" "}
+              across all your API keys back to your wallet as Cashu tokens.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-4 py-2 bg-transparent border border-border text-foreground/80 rounded-md text-sm hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                onClick={() => setShowRefundDialog(false)}
+                disabled={isRefunding}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-foreground text-background rounded-md text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleRefund}
+                disabled={isRefunding}
+                type="button"
+              >
+                Refund All
+              </button>
+            </div>
+          </>
+        )}
+      </ModalShell>
     </div>
   );
 };

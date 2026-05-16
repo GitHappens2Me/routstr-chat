@@ -15,6 +15,7 @@ import { DEFAULT_MINT_URL } from "@/lib/utils";
 import { saveFile } from "@/utils/indexedDb";
 import { useWalletAdapter } from "./useWalletAdapter";
 import { useSdkClient } from "./useSdkClient";
+import { hydrate as hydrateStore } from "@/sdk/sharedStore";
 
 export interface UseChatActionsReturn {
   inputMessage: string;
@@ -76,6 +77,12 @@ export interface UseChatActionsReturn {
     activeConversationId: string | null,
     getActiveConversationId: () => string | null
   ) => void;
+  /** Refund all API keys back to the active mint */
+  refundAllApiKeys: () => Promise<{
+    totalRefunded: number;
+    totalFailed: number;
+    results: { baseUrl: string; success: boolean }[];
+  }>;
 }
 
 export interface UseChatActionsParams {
@@ -568,6 +575,28 @@ export const useChatActions = ({
     ]
   );
 
+  /**
+   * Refund all API keys back to the user's wallet.
+   * Refreshes balances first, then calls refundProviders on the CashuSpender.
+   */
+  const refundAllApiKeys = useCallback(async () => {
+    const mintUrl = cashuStore.activeMintUrl || DEFAULT_MINT_URL;
+    const spender = client.getCashuSpender();
+    const results = await spender.refundProviders(mintUrl, true);
+
+    // Trigger store hydration so balance hooks pick up the changes
+    try {
+      await hydrateStore;
+    } catch {
+      // Best-effort refresh
+    }
+
+    const totalRefunded = results.filter((r) => r.success).length;
+    const totalFailed = results.filter((r) => !r.success).length;
+
+    return { totalRefunded, totalFailed, results };
+  }, [client, cashuStore.activeMintUrl]);
+
   return {
     inputMessage,
     isLoading,
@@ -596,5 +625,6 @@ export const useChatActions = ({
     sendMessage,
     saveInlineEdit,
     retryMessage,
+    refundAllApiKeys,
   };
 };
