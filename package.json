@@ -58,7 +58,7 @@
     "katex": "^0.16.22",
     "lucide-react": "^0.503.0",
     "motion": "^12.7.5",
-    "next": "15.5.6",
+    "next": "15.5.9",
     "next-themes": "^0.4.6",
     "nostr-idb": "^2.4.0",
     "nostr-tools": "^2.13.0",
