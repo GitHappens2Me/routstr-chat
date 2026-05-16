@@ -1,13 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  createProviderRegistryFromStore,
-  createSdkStore,
-  createStorageAdapterFromStore,
-} from "@routstr/sdk/storage";
-import { createIndexedDBDriver } from "@routstr/sdk/storage";
-import { createMemoryDriver } from "@routstr/sdk/storage";
-
-const isBrowser = typeof window !== "undefined";
+import { useEffect, useMemo, useState } from "react";
+import { storageAdapter, providerRegistry, hydrate } from "@/sdk/sharedStore";
 import type { StorageAdapter, ProviderRegistry } from "@routstr/sdk/wallet";
 import {
   RoutstrClient,
@@ -63,25 +55,10 @@ const createPendingDeps = (): {
 
 export function useSdkClient(
   walletAdapter: WalletAdapter | null,
-  mode: RoutstrClientMode = "xcashu"
+  mode: RoutstrClientMode = "xcashu",
 ): UseSdkClientResult {
   const [error, setError] = useState<Error | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const storeRef = useRef<ReturnType<typeof createSdkStore> | null>(null);
-
-  if (!storeRef.current) {
-    storeRef.current = createSdkStore({
-      driver: isBrowser ? createIndexedDBDriver() : createMemoryDriver(),
-    });
-  }
-
-  const deps = useMemo(() => {
-    if (!storeRef.current) return createPendingDeps();
-    return {
-      storageAdapter: createStorageAdapterFromStore(storeRef.current.store),
-      providerRegistry: createProviderRegistryFromStore(storeRef.current.store),
-    };
-  }, []);
 
   const client = useMemo(() => {
     if (!walletAdapter) {
@@ -91,22 +68,22 @@ export function useSdkClient(
         pendingDeps.storageAdapter,
         pendingDeps.providerRegistry,
         "min",
-        mode
+        mode,
       );
     }
     return new RoutstrClient(
       walletAdapter,
-      deps.storageAdapter,
-      deps.providerRegistry,
+      storageAdapter,
+      providerRegistry,
       "min",
-      mode
+      mode,
     );
-  }, [walletAdapter, deps, mode]);
+  }, [walletAdapter, mode]);
 
   useEffect(() => {
     let cancelled = false;
-    storeRef
-      .current!.hydrate.then(() => {
+    hydrate
+      .then(() => {
         if (cancelled) return;
         setIsReady(true);
         setError(null);
@@ -114,7 +91,9 @@ export function useSdkClient(
       .catch((e: unknown) => {
         if (cancelled) return;
         setError(
-          e instanceof Error ? e : new Error("Failed to load SDK dependencies")
+          e instanceof Error
+            ? e
+            : new Error("Failed to load SDK dependencies"),
         );
       });
 

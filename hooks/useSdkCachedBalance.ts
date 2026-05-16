@@ -1,47 +1,49 @@
-import { useState, useEffect, useRef } from "react";
-import { createSdkStore, type SdkStore } from "@routstr/sdk/storage";
-import { localStorageDriver } from "@routstr/sdk/storage";
-
-let globalStore: ReturnType<typeof createSdkStore> | null = null;
-
-const getSdkStore = (): ReturnType<typeof createSdkStore> => {
-  if (!globalStore) {
-    globalStore = createSdkStore({ driver: localStorageDriver });
-  }
-  return globalStore;
-};
+import { useState, useEffect } from "react";
+import { store, hydrate } from "@/sdk/sharedStore";
 
 export function useSdkCachedBalance(): number {
   const [cachedBalance, setCachedBalance] = useState(0);
-  const storeRef = useRef(getSdkStore());
 
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-
     const computeBalance = () => {
-      const state = storeRef.current.store.getState();
-      const apiKeys = state.apiKeys;
-      const childKeys = state.childKeys;
-      console.log("API BALANCE", apiKeys);
-
-      const apiKeyTotal = apiKeys.reduce((sum, k) => sum + (k.balance || 0), 0);
-      const childKeyTotal = childKeys.reduce(
+      const state = store.getState();
+      const apiKeyTotal = state.apiKeys.reduce(
         (sum, k) => sum + (k.balance || 0),
-        0
+        0,
       );
-
+      const childKeyTotal = state.childKeys.reduce(
+        (sum, k) => sum + (k.balance || 0),
+        0,
+      );
       setCachedBalance(apiKeyTotal + childKeyTotal);
     };
 
     computeBalance();
-    unsubscribe = storeRef.current.store.subscribe(computeBalance);
+    const unsubscribe = store.subscribe(computeBalance);
 
-    void storeRef.current.hydrate.catch((error) => {
+    void hydrate.catch((error) => {
       console.warn("Failed to hydrate store", error);
     });
 
+    // Log cached balance every 5 seconds
+    const interval = setInterval(() => {
+      const state = store.getState();
+      const apiKeyTotal = state.apiKeys.reduce(
+        (sum, k) => sum + (k.balance || 0),
+        0,
+      );
+      const childKeyTotal = state.childKeys.reduce(
+        (sum, k) => sum + (k.balance || 0),
+        0,
+      );
+      console.log(
+        `[useSdkCachedBalance] apiKeys: ${apiKeyTotal} sats | childKeys: ${childKeyTotal} sats | total: ${apiKeyTotal + childKeyTotal} sats`,
+      );
+    }, 5000);
+
     return () => {
-      if (unsubscribe) unsubscribe();
+      unsubscribe();
+      clearInterval(interval);
     };
   }, []);
 
