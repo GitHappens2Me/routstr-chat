@@ -48,7 +48,7 @@ const withPWACfg = withPWA({
 });
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: "export",
   images: {
     unoptimized: true,
   },
