@@ -81,8 +81,10 @@
     "tw-animate-css": "^1.2.8",
     "vaul": "^1.1.2",
     "workbox-window": "^7.1.0",
-    "zustand": "^5.0.5",
-    "zod": "^4.4.3"
+    "@noble/ciphers": "^2.1.1",
+    "@noble/hashes": "^2.2.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.5"
   },
   "optionalDependencies": {
     "better-sqlite3": "^11.10.0"
